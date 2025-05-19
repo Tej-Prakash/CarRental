@@ -49,7 +49,7 @@ export default function CarCard({ car }: CarCardProps) {
       </CardContent>
       <CardFooter className="p-4 flex justify-between items-center border-t">
         <div>
-          <p className="text-lg font-bold text-primary">${car.pricePerDay}</p>
+          <p className="text-lg font-bold text-primary">Rs. {car.pricePerDay}</p>
           <p className="text-xs text-muted-foreground">per day</p>
         </div>
         <Button asChild variant="default">
