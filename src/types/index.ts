@@ -56,6 +56,13 @@ export interface Booking {
   endDate: string; // ISO date string
   totalPrice: number;
   status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
-  createdAt: string; // ISO date string
-  updatedAt: string; // ISO date string
+  createdAt?: string; // ISO date string
+  updatedAt?: string; // ISO date string
+}
+
+export interface SiteSettings {
+  id?: string; // In MongoDB, this will be _id
+  siteTitle: string;
+  // Add other settings like logoUrl, faviconUrl here later if needed
+  updatedAt?: string; // ISO date string
 }
