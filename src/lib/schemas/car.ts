@@ -3,8 +3,6 @@
 import { z } from 'zod';
 
 // Base schema for car properties, used for both create and update.
-// Refinements that depend on inter-field relations (like pricePerDay vs min/maxNegotiablePrice)
-// are applied to the final CarInputSchema.
 const BaseCarSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(['Sedan', 'SUV', 'Hatchback', 'Truck', 'Van', 'Convertible', 'Coupe']),
@@ -26,13 +24,14 @@ const BaseCarSchema = z.object({
   rating: z.number().min(0).max(5).optional().default(0),
   reviews: z.number().int().min(0).optional().default(0),
   location: z.string().min(1, "Location is required"),
-  aiHint: z.string().max(50, "AI hint should be concise (max 50 chars)").optional(), // Added max length for aiHint
+  aiHint: z.string().max(50, "AI hint should be concise (max 50 chars)").optional(),
 });
 
 // Schema for creating a new car, with inter-field validations.
 export const CarInputSchema = BaseCarSchema
   .refine(data => {
-    if (data.minNegotiablePrice && data.minNegotiablePrice > data.pricePerDay) {
+    // If minNegotiablePrice is provided, it cannot be greater than pricePerDay
+    if (data.minNegotiablePrice !== undefined && data.pricePerDay !== undefined && data.minNegotiablePrice > data.pricePerDay) {
       return false;
     }
     return true;
@@ -41,7 +40,8 @@ export const CarInputSchema = BaseCarSchema
     path: ["minNegotiablePrice"],
   })
   .refine(data => {
-    if (data.maxNegotiablePrice && data.maxNegotiablePrice < data.pricePerDay) {
+    // If maxNegotiablePrice is provided, it cannot be less than pricePerDay
+    if (data.maxNegotiablePrice !== undefined && data.pricePerDay !== undefined && data.maxNegotiablePrice < data.pricePerDay) {
       return false;
     }
     return true;
@@ -50,19 +50,66 @@ export const CarInputSchema = BaseCarSchema
     path: ["maxNegotiablePrice"],
   })
   .refine(data => {
-    if (data.minNegotiablePrice && data.maxNegotiablePrice && data.minNegotiablePrice > data.maxNegotiablePrice) {
+    // If both min and max are provided, min cannot be greater than max
+    if (data.minNegotiablePrice !== undefined && data.maxNegotiablePrice !== undefined && data.minNegotiablePrice > data.maxNegotiablePrice) {
       return false;
     }
     return true;
   }, {
     message: "Minimum negotiable price cannot be greater than maximum negotiable price.",
-    path: ["minNegotiablePrice"], // Or could be ["maxNegotiablePrice"] or a general path
+    path: ["minNegotiablePrice"], 
   });
 
 // Schema for updating an existing car (all fields are optional).
-// This inherits the refinements from CarInputSchema. If a field involved in a refinement
-// is provided in an update, the refinement will be checked.
-export const UpdateCarInputSchema = CarInputSchema.partial();
+// Derived from BaseCarSchema.partial() with adapted refinements.
+export const UpdateCarInputSchema = BaseCarSchema.partial()
+  .refine(data => {
+    // If minNegotiablePrice and pricePerDay are both provided for update, validate minNego <= pricePerDay.
+    if (data.minNegotiablePrice !== undefined && data.pricePerDay !== undefined) {
+      if (data.minNegotiablePrice > data.pricePerDay) return false;
+    }
+    // If only minNegotiablePrice is provided, and original pricePerDay is not in data, this rule cannot be fully validated here.
+    // Such cross-field validation with original data might need to be handled at the service layer if pricePerDay is not part of the update.
+    // For now, we only validate if both are present in the update payload.
+    return true;
+  }, {
+    message: "Minimum negotiable price cannot be greater than the daily price if both are updated.",
+    path: ["minNegotiablePrice"],
+  })
+  .refine(data => {
+    // If maxNegotiablePrice and pricePerDay are both provided for update, validate maxNego >= pricePerDay.
+    if (data.maxNegotiablePrice !== undefined && data.pricePerDay !== undefined) {
+      if (data.maxNegotiablePrice < data.pricePerDay) return false;
+    }
+    return true;
+  }, {
+    message: "Maximum negotiable price cannot be less than the daily price if both are updated.",
+    path: ["maxNegotiablePrice"],
+  })
+  .refine(data => {
+    // If both min and max negotiable prices are provided for update, validate minNego <= maxNego.
+    if (data.minNegotiablePrice !== undefined && data.maxNegotiablePrice !== undefined) {
+      if (data.minNegotiablePrice > data.maxNegotiablePrice) return false;
+    }
+    return true;
+  }, {
+    message: "Minimum negotiable price cannot be greater than maximum negotiable price if both are updated.",
+    path: ["minNegotiablePrice"],
+  })
+  // Ensure that if certain array fields are provided for update, they are not empty.
+  .refine(data => data.imageUrls === undefined || data.imageUrls.length > 0, {
+    message: "If image URLs are provided for update, at least one image URL must be included.",
+    path: ["imageUrls"],
+  })
+  .refine(data => data.features === undefined || data.features.length > 0, {
+    message: "If features are provided for update, at least one feature must be included.",
+    path: ["features"],
+  })
+  .refine(data => data.availability === undefined || (data.availability.length > 0 && data.availability.every(a => a.startDate && a.endDate && !isNaN(Date.parse(a.startDate)) && !isNaN(Date.parse(a.endDate)))), {
+    message: "If availability is provided for update, it must contain at least one valid date range.",
+    path: ["availability"],
+  });
+
 
 export type CarInput = z.infer<typeof CarInputSchema>;
 export type UpdateCarInput = z.infer<typeof UpdateCarInputSchema>;
