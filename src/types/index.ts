@@ -66,7 +66,6 @@ export interface SiteSettings {
   id?: string; // In MongoDB, this will be _id
   siteTitle: string;
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
-  faviconUrl?: string; // URL to the favicon
   updatedAt?: string; // ISO date string
 }
 

@@ -11,7 +11,7 @@ import type { ObjectId } from 'mongodb';
 const SiteSettingsSchema = z.object({
   siteTitle: z.string().min(1, "Site title is required"),
   defaultCurrency: z.enum(['USD', 'EUR', 'GBP', 'INR']).default('USD'),
-  faviconUrl: z.string().url("Favicon URL must be a valid URL").optional().or(z.literal('')), // Allow empty string to clear
+  // faviconUrl: z.string().url("Favicon URL must be a valid URL").optional().or(z.literal('')), // Removed
 });
 
 interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
@@ -40,7 +40,6 @@ export async function GET(req: NextRequest) {
       const defaultSettings: SiteSettings = {
         siteTitle: 'Wheels on Clicks',
         defaultCurrency: 'USD',
-        faviconUrl: '/favicon.ico', // Default favicon path
       };
       return NextResponse.json(defaultSettings, { status: 200 });
     }
@@ -71,12 +70,6 @@ export async function PUT(req: NextRequest) {
     
     const settingsDataToUpdate: Partial<SiteSettings> = validation.data;
     settingsDataToUpdate.updatedAt = new Date().toISOString();
-
-    // Ensure faviconUrl is explicitly set to null if it's an empty string from input, to remove it if desired
-    if (settingsDataToUpdate.faviconUrl === '') {
-        settingsDataToUpdate.faviconUrl = undefined; 
-    }
-
 
     const client = await clientPromise;
     const db = client.db();

@@ -26,7 +26,6 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const [currentSiteTitle, setCurrentSiteTitle] = useState(staticMetadata.title);
-  const [currentFaviconUrl, setCurrentFaviconUrl] = useState<string | undefined>('/favicon.ico');
 
   useEffect(() => {
     const fetchSiteSettings = async () => {
@@ -38,17 +37,10 @@ export default function RootLayout({
             setCurrentSiteTitle(settings.siteTitle);
             document.title = settings.siteTitle;
           }
-          if (settings.faviconUrl) {
-            setCurrentFaviconUrl(settings.faviconUrl);
-          } else {
-             // Fallback if faviconUrl is empty or not set
-            setCurrentFaviconUrl('/favicon.ico'); // Default favicon
-          }
         }
       } catch (error) {
         console.error("Failed to fetch site settings:", error);
         document.title = staticMetadata.title;
-        setCurrentFaviconUrl('/favicon.ico');
       }
     };
 
@@ -59,29 +51,14 @@ export default function RootLayout({
     document.title = currentSiteTitle;
   }, [currentSiteTitle]);
 
-  useEffect(() => {
-    let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
-    if (!link) {
-      link = document.createElement('link') as HTMLLinkElement;
-      link.type = 'image/x-icon'; // Or appropriate MIME type
-      link.rel = 'shortcut icon'; // Standard rel for favicons
-      document.getElementsByTagName('head')[0].appendChild(link);
-    }
-    if (currentFaviconUrl) {
-      link.href = currentFaviconUrl;
-    } else {
-      // If no faviconUrl is provided, you might want to remove the link or set a default
-      // For now, we'll assume a default /favicon.ico is handled by the browser if href is not set
-      // or you can ensure a default one is always in /public
-       link.href = '/favicon.ico';
-    }
-  }, [currentFaviconUrl]);
+  // Static favicon link. Assumes favicon.ico is in /public
+  const faviconLink = <link rel="icon" href="/favicon.ico" sizes="any" />;
 
 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Favicon link is now managed by useEffect */}
+        {faviconLink}
       </head>
       <body 
         className={cn(
