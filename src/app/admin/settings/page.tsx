@@ -8,13 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { SiteSettings } from '@/types';
 import { Loader2 } from 'lucide-react';
 
+const currencyOptions: SiteSettings['defaultCurrency'][] = ['USD', 'EUR', 'GBP', 'INR'];
+
 export default function AdminSettingsPage() {
   const { toast } = useToast();
-  const [settings, setSettings] = useState<Partial<SiteSettings>>({ siteTitle: '' });
+  const [settings, setSettings] = useState<Partial<SiteSettings>>({ siteTitle: '', defaultCurrency: 'USD' });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -34,7 +37,7 @@ export default function AdminSettingsPage() {
       } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         // Set default on error so page is usable
-        setSettings({ siteTitle: 'Wheels on Clicks' }); 
+        setSettings({ siteTitle: 'Wheels on Clicks', defaultCurrency: 'USD' }); 
       } finally {
         setIsLoading(false);
       }
@@ -48,6 +51,10 @@ export default function AdminSettingsPage() {
     setSettings(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleCurrencyChange = (value: SiteSettings['defaultCurrency']) => {
+    setSettings(prev => ({ ...prev, defaultCurrency: value }));
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSaving(true);
@@ -59,12 +66,16 @@ export default function AdminSettingsPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ siteTitle: settings.siteTitle }),
+        body: JSON.stringify({ 
+            siteTitle: settings.siteTitle,
+            defaultCurrency: settings.defaultCurrency 
+        }),
       });
       
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.message || 'Failed to save settings');
+        const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
+        throw new Error(errorMsg || 'Failed to save settings');
       }
       setSettings(result); // Update state with saved settings (might include new _id or updatedAt)
       toast({
@@ -106,6 +117,22 @@ export default function AdminSettingsPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="defaultCurrency">Default Currency</Label>
+              <Select 
+                value={settings.defaultCurrency} 
+                onValueChange={handleCurrencyChange}
+              >
+                <SelectTrigger id="defaultCurrency">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencyOptions.map(currency => (
+                    <SelectItem key={currency} value={currency}>{currency}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="adminEmail">Default Admin Email (Display Only)</Label>
               <Input id="adminEmail" type="email" defaultValue="admin@wheelsonclicks.com" disabled />
             </div>
@@ -117,10 +144,6 @@ export default function AdminSettingsPage() {
                 </p>
               </div>
               <Switch id="maintenanceMode" aria-label="Toggle maintenance mode" />
-            </div>
-             <div className="space-y-2">
-              <Label htmlFor="currency">Default Currency (Display Only)</Label>
-              <Input id="currency" defaultValue="USD" disabled />
             </div>
              <div className="pt-4">
                 <h3 className="text-lg font-medium text-primary">Logo & Favicon</h3>
@@ -142,3 +165,4 @@ export default function AdminSettingsPage() {
     </div>
   );
 }
+

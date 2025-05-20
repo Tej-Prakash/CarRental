@@ -3,17 +3,17 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import type { Car } from '@/types';
+import type { Car, SiteSettings } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, CheckCircle, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, ShieldCheck, Star, Users, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { CalendarIcon, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, addDays, differenceInCalendarDays, isBefore, startOfToday } from "date-fns";
+import { format, differenceInCalendarDays, isBefore, startOfToday } from "date-fns";
 import { cn } from '@/lib/utils';
 import type { DateRange } from "react-day-picker";
 
@@ -23,6 +23,7 @@ interface CarDetailsPageProps {
 
 export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   const [car, setCar] = useState<Car | null>(null);
+  const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({ defaultCurrency: 'USD' });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
@@ -31,8 +32,8 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
 
   const today = startOfToday();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: undefined, // Initially undefined
-    to: undefined,   // Initially undefined
+    from: undefined, 
+    to: undefined,  
   });
 
   useEffect(() => {
@@ -55,8 +56,21 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       }
     };
 
+    const fetchSiteSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const settingsData: SiteSettings = await response.json();
+          setSiteSettings(settingsData);
+        }
+      } catch (settingsError) {
+        console.warn("Could not fetch site settings for currency display, defaulting to USD.", settingsError);
+      }
+    };
+
     if (params.id) {
       fetchCarDetails();
+      fetchSiteSettings();
     }
   }, [params.id]);
 
@@ -162,6 +176,8 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   
   const rentalDays = dateRange?.from && dateRange?.to ? differenceInCalendarDays(dateRange.to, dateRange.from) : 0;
   const totalPrice = rentalDays > 0 ? rentalDays * car.pricePerDay : 0;
+  const currencySymbol = siteSettings.defaultCurrency === 'INR' ? '₹' : siteSettings.defaultCurrency === 'EUR' ? '€' : siteSettings.defaultCurrency === 'GBP' ? '£' : '$';
+
 
   return (
     <div className="space-y-8 container mx-auto py-8 px-4">
@@ -248,9 +264,9 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
               </div>
               
               <div className="text-center sm:text-left w-full mt-2">
-                <p className="text-3xl font-bold text-primary">${car.pricePerDay.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">per day</span></p>
+                <p className="text-3xl font-bold text-primary">{currencySymbol}{car.pricePerDay.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">per day ({siteSettings.defaultCurrency})</span></p>
                 {rentalDays > 0 && (
-                   <p className="text-xl font-semibold text-primary mt-1">Total: ${totalPrice.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">for {rentalDays} day{rentalDays !== 1 && 's'}</span></p>
+                   <p className="text-xl font-semibold text-primary mt-1">Total: {currencySymbol}{totalPrice.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">for {rentalDays} day{rentalDays !== 1 && 's'}</span></p>
                 )}
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-4">
@@ -311,3 +327,4 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
+

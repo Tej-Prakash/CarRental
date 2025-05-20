@@ -19,11 +19,26 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import AddCarDialog from '@/components/admin/AddCarDialog';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
 
 export default function AdminCarsPage() {
   const [cars, setCars] = useState<Car[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [carToDelete, setCarToDelete] = useState<Car | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
 
   const fetchCars = async () => {
     setIsLoading(true);
@@ -58,16 +73,40 @@ export default function AdminCarsPage() {
 
   const handleEditCar = (carId: string) => {
     console.log("Edit car:", carId);
-    // TODO: Navigate to edit car page or open modal
-    toast({ title: "Edit (Demo)", description: `Would edit car ${carId}. Feature not implemented.`});
+    // TODO: Navigate to edit car page or open modal. E.g., router.push(`/admin/cars/edit/${carId}`);
+    toast({ title: "Edit Car", description: `Navigating to edit page for car ${carId} is not yet implemented. Backend API is ready.`});
   };
 
-  const handleDeleteCar = (carId: string) => {
-    console.log("Delete car:", carId);
-    // TODO: Implement actual delete API call with confirmation
-    toast({ title: "Delete (Demo)", description: `Would delete car ${carId}. Actual API call needed.`});
-    // setCars(prevCars => prevCars.filter(car => car.id !== carId));
+  const confirmDeleteCar = (car: Car) => {
+    setCarToDelete(car);
+    setShowDeleteDialog(true);
   };
+
+  const handleDeleteCar = async () => {
+    if (!carToDelete) return;
+    setIsDeleting(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/admin/cars/${carToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to delete car' }));
+        throw new Error(errorData.message);
+      }
+      toast({ title: "Car Deleted", description: `${carToDelete.name} has been successfully deleted.` });
+      setCars(prevCars => prevCars.filter(car => car.id !== carToDelete.id));
+    } catch (error: any) {
+      toast({ title: "Error Deleting Car", description: error.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setCarToDelete(null);
+    }
+  };
+
 
   return (
     <div>
@@ -130,7 +169,7 @@ export default function AdminCarsPage() {
                           <Edit3 className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleDeleteCar(car.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                        <DropdownMenuItem onClick={() => confirmDeleteCar(car)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                           <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -143,6 +182,29 @@ export default function AdminCarsPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this car?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the car
+              "{carToDelete?.name}" from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {setShowDeleteDialog(false); setCarToDelete(null);}} disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCar} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
+

@@ -10,6 +10,7 @@ import type { ObjectId } from 'mongodb';
 
 const SiteSettingsSchema = z.object({
   siteTitle: z.string().min(1, "Site title is required"),
+  defaultCurrency: z.enum(['USD', 'EUR', 'GBP', 'INR']).default('USD'),
   // logoUrl: z.string().url().optional(), // Example for future
   // faviconUrl: z.string().url().optional(), // Example for future
 });
@@ -38,7 +39,8 @@ export async function GET(req: NextRequest) {
     if (!settingsDoc) {
       // If no settings exist, return defaults or an empty object for admin to fill
       const defaultSettings: SiteSettings = {
-        siteTitle: 'Wheels on Clicks', 
+        siteTitle: 'Wheels on Clicks',
+        defaultCurrency: 'USD', 
       };
       return NextResponse.json(defaultSettings, { status: 200 });
     }
@@ -76,7 +78,7 @@ export async function PUT(req: NextRequest) {
 
     const result = await settingsCollection.updateOne(
       { settingsId: SETTINGS_DOC_ID }, // Filter by our fixed identifier
-      { $set: settingsDataToUpdate },
+      { $set: { ...settingsDataToUpdate, settingsId: SETTINGS_DOC_ID } }, // ensure settingsId is part of the doc
       { upsert: true } // Create the document if it doesn't exist
     );
 
@@ -101,3 +103,4 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ message: 'Failed to update settings' }, { status: 500 });
   }
 }
+

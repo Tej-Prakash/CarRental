@@ -8,8 +8,8 @@ import type { Car } from '@/types';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 
-// Zod schema for car validation
-const CarInputSchema = z.object({
+// Zod schema for car validation - export for reuse
+export const CarInputSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(['Sedan', 'SUV', 'Hatchback', 'Truck', 'Van', 'Convertible', 'Coupe']),
   pricePerDay: z.number().positive("Price must be positive"),
@@ -130,3 +130,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch cars' }, { status: 500 });
   }
 }
+

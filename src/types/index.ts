@@ -15,7 +15,7 @@ export interface Car {
   fuelType: 'Gasoline' | 'Diesel' | 'Electric' | 'Hybrid';
   rating: number; // 0-5
   reviews: number; // number of reviews
-  location: string; // e.g. "Downtown Cityville"
+  location: string; // e.g., "Downtown Cityville"
   aiHint?: string; // for placeholder images
 }
 
@@ -63,6 +63,8 @@ export interface Booking {
 export interface SiteSettings {
   id?: string; // In MongoDB, this will be _id
   siteTitle: string;
+  defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR'; // Added currency
   // Add other settings like logoUrl, faviconUrl here later if needed
   updatedAt?: string; // ISO date string
 }
+
