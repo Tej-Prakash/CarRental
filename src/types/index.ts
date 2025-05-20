@@ -4,6 +4,8 @@ export interface Car {
   name: string;
   type: 'Sedan' | 'SUV' | 'Hatchback' | 'Truck' | 'Van' | 'Convertible' | 'Coupe';
   pricePerDay: number;
+  minNegotiablePrice?: number;
+  maxNegotiablePrice?: number;
   imageUrls: string[]; 
   description: string;
   longDescription: string;

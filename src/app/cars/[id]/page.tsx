@@ -89,7 +89,8 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       fetchCarDetails();
       fetchSiteSettings();
     }
-  }, [params.id, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]); // Removed toast from dependencies as it shouldn't trigger re-fetch
 
   const handleBookNow = async () => {
     if (!car || !dateRange?.from || !dateRange?.to) {
@@ -162,9 +163,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       } else {
          throw new Error("Stripe.js not loaded");
       }
-      // Note: Booking is created with 'Confirmed' status by the backend in this simplified flow.
-      // Email simulation also happens on the backend.
-      // No success toast here as user is redirected. Success page will handle confirmation message.
 
     } catch (bookingError: any) {
       toast({
@@ -343,12 +341,14 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
         </CardContent>
       </Card>
 
-      <ChatbotDialog 
-        isOpen={isChatbotOpen} 
-        onOpenChange={setIsChatbotOpen} 
-        car={car} 
-        rentalDays={rentalDays > 0 ? rentalDays : undefined}
-      />
+      {isChatbotOpen && (
+         <ChatbotDialog 
+            isOpen={isChatbotOpen} 
+            onOpenChange={setIsChatbotOpen} 
+            car={car} 
+            rentalDays={rentalDays > 0 ? rentalDays : 1} // Default to 1 day if not selected for negotiation context
+         />
+      )}
     </div>
   );
 }
@@ -366,4 +366,3 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
-

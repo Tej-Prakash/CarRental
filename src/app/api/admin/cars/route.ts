@@ -13,7 +13,9 @@ export const CarInputSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(['Sedan', 'SUV', 'Hatchback', 'Truck', 'Van', 'Convertible', 'Coupe']),
   pricePerDay: z.number().positive("Price must be positive"),
-  imageUrls: z.array(z.string().url("Each image URL must be valid")).min(1, "At least one image URL is required"), // Changed from imageUrl
+  minNegotiablePrice: z.number().positive("Minimum negotiable price must be positive").optional(),
+  maxNegotiablePrice: z.number().positive("Maximum negotiable price must be positive").optional(),
+  imageUrls: z.array(z.string().url("Each image URL must be valid")).min(1, "At least one image URL is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   longDescription: z.string().min(20, "Long description must be at least 20 characters"),
   features: z.array(z.string()).min(1, "At least one feature is required"),
@@ -29,6 +31,30 @@ export const CarInputSchema = z.object({
   reviews: z.number().int().min(0).optional().default(0),
   location: z.string().min(1, "Location is required"),
   aiHint: z.string().optional(),
+}).refine(data => {
+  if (data.minNegotiablePrice && data.minNegotiablePrice > data.pricePerDay) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Minimum negotiable price cannot be greater than the daily price.",
+  path: ["minNegotiablePrice"],
+}).refine(data => {
+  if (data.maxNegotiablePrice && data.maxNegotiablePrice < data.pricePerDay) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Maximum negotiable price cannot be less than the daily price.",
+  path: ["maxNegotiablePrice"],
+}).refine(data => {
+  if (data.minNegotiablePrice && data.maxNegotiablePrice && data.minNegotiablePrice > data.maxNegotiablePrice) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Minimum negotiable price cannot be greater than maximum negotiable price.",
+  path: ["minNegotiablePrice"],
 });
 
 type CarInput = z.infer<typeof CarInputSchema>;
@@ -105,7 +131,9 @@ export async function GET(req: NextRequest) {
         name: rest.name,
         type: rest.type,
         pricePerDay: rest.pricePerDay,
-        imageUrls: rest.imageUrls, // Changed from imageUrl
+        minNegotiablePrice: rest.minNegotiablePrice,
+        maxNegotiablePrice: rest.maxNegotiablePrice,
+        imageUrls: rest.imageUrls, 
         description: rest.description,
         longDescription: rest.longDescription,
         features: rest.features,

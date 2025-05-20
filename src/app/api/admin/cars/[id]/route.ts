@@ -53,7 +53,9 @@ export async function GET(
       name: rest.name,
       type: rest.type,
       pricePerDay: rest.pricePerDay,
-      imageUrls: rest.imageUrls, // Changed from imageUrl
+      minNegotiablePrice: rest.minNegotiablePrice,
+      maxNegotiablePrice: rest.maxNegotiablePrice,
+      imageUrls: rest.imageUrls,
       description: rest.description,
       longDescription: rest.longDescription,
       features: rest.features,
@@ -102,6 +104,8 @@ export async function PUT(
 
     // Ensure numbers are correctly typed if they arrive as strings from partial schema
     if (carDataToUpdate.pricePerDay !== undefined) carDataToUpdate.pricePerDay = Number(carDataToUpdate.pricePerDay);
+    if (carDataToUpdate.minNegotiablePrice !== undefined) carDataToUpdate.minNegotiablePrice = Number(carDataToUpdate.minNegotiablePrice);
+    if (carDataToUpdate.maxNegotiablePrice !== undefined) carDataToUpdate.maxNegotiablePrice = Number(carDataToUpdate.maxNegotiablePrice);
     if (carDataToUpdate.seats !== undefined) carDataToUpdate.seats = Number(carDataToUpdate.seats);
     if (carDataToUpdate.rating !== undefined) carDataToUpdate.rating = Number(carDataToUpdate.rating);
     if (carDataToUpdate.reviews !== undefined) carDataToUpdate.reviews = Number(carDataToUpdate.reviews);
@@ -132,6 +136,8 @@ export async function PUT(
       name: rest.name,
       type: rest.type,
       pricePerDay: rest.pricePerDay,
+      minNegotiablePrice: rest.minNegotiablePrice,
+      maxNegotiablePrice: rest.maxNegotiablePrice,
       imageUrls: rest.imageUrls,
       description: rest.description,
       longDescription: rest.longDescription,

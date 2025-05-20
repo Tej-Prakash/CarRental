@@ -63,7 +63,9 @@ export async function GET(req: NextRequest) {
         name: rest.name,
         type: rest.type,
         pricePerDay: rest.pricePerDay,
-        imageUrls: rest.imageUrls, // Changed from imageUrl
+        minNegotiablePrice: rest.minNegotiablePrice,
+        maxNegotiablePrice: rest.maxNegotiablePrice,
+        imageUrls: rest.imageUrls,
         description: rest.description,
         longDescription: rest.longDescription,
         features: rest.features,

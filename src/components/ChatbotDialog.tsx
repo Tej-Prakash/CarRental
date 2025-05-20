@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,14 +9,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { priceNegotiationChatbot, PriceNegotiationInput } from '@/ai/flows/price-negotiation-chatbot';
 import type { Car } from '@/types';
 import { Bot, User, Loader2, Send } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Removed AvatarImage as it's not used
 import { useToast } from '@/hooks/use-toast';
 
 interface ChatbotDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   car: Car;
-  rentalDays?: number; // Optional, can be set or defaulted
+  rentalDays?: number;
 }
 
 interface Message {
@@ -25,7 +26,7 @@ interface Message {
   timestamp: Date;
 }
 
-export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 7 }: ChatbotDialogProps) {
+export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 1 }: ChatbotDialogProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,22 +37,31 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
 
   useEffect(() => {
     if (isOpen) {
+      let initialBotMessage = `Hello! I'm here to help you negotiate the price for the ${car.name}. The current daily price is $${car.pricePerDay}.`;
+      if (car.minNegotiablePrice) {
+        initialBotMessage += ` We might be able to go as low as $${car.minNegotiablePrice}/day.`;
+      }
+      initialBotMessage += ` Let's talk about a price for your ${rentalDays} day rental!`;
+      
       setMessages([
         {
           id: 'initial-bot-message',
           sender: 'bot',
-          text: `Hello! I'm here to help you negotiate the price for the ${car.name}. The current price is $${car.pricePerDay}/day. Let's talk!`,
+          text: initialBotMessage,
           timestamp: new Date(),
         }
       ]);
       setNegotiatedPrice(car.pricePerDay);
       setIsFinalOffer(false);
+      setUserInput('');
     }
-  }, [isOpen, car]);
+  }, [isOpen, car, rentalDays]);
 
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+    // Find the viewport element within ScrollArea
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
     }
   }, [messages]);
 
@@ -71,8 +81,10 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
     try {
       const chatbotInput: PriceNegotiationInput = {
         carModel: car.name,
-        rentalDays: rentalDays, // You might want to make this dynamic
-        initialPrice: car.pricePerDay,
+        rentalDays: rentalDays,
+        initialPrice: car.pricePerDay, // This is the listed daily price
+        minNegotiablePrice: car.minNegotiablePrice,
+        maxNegotiablePrice: car.maxNegotiablePrice || car.pricePerDay, // Default max to initial if not set
         userInput: newUserMessage.text,
       };
       
@@ -85,13 +97,13 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, newBotMessage]);
-      setNegotiatedPrice(result.negotiatedPrice);
+      setNegotiatedPrice(result.negotiatedPrice); // This is the daily price from bot
       setIsFinalOffer(result.isFinalOffer);
 
       if (result.isFinalOffer) {
         toast({
           title: "Final Offer",
-          description: `The current negotiated price of $${result.negotiatedPrice}/day is our best offer.`,
+          description: `The current negotiated daily price of $${result.negotiatedPrice} is our best offer.`,
         });
       }
 
@@ -122,7 +134,8 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
             <Bot className="h-6 w-6 mr-2 text-primary" /> Price Negotiation Assistant
           </DialogTitle>
           <DialogDescription>
-            Chat with our AI to find the best price for the {car.name}. Current price: ${negotiatedPrice}/day.
+            For {car.name}. Current daily price: ${negotiatedPrice}.
+            {isFinalOffer && <span className="text-destructive font-semibold"> (Final Offer)</span>}
           </DialogDescription>
         </DialogHeader>
         
@@ -135,7 +148,7 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
                     <AvatarFallback><Bot size={18}/></AvatarFallback>
                   </Avatar>
                 )}
-                <div className={`max-w-[70%] p-3 rounded-lg ${msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card text-card-foreground border'}`}>
+                <div className={`max-w-[70%] p-3 rounded-lg shadow-sm ${msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card text-card-foreground border'}`}>
                   <p className="text-sm">{msg.text}</p>
                   <p className="text-xs mt-1 opacity-70 text-right">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -153,7 +166,7 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
                 <Avatar className="h-8 w-8">
                   <AvatarFallback><Bot size={18}/></AvatarFallback>
                 </Avatar>
-                <div className="max-w-[70%] p-3 rounded-lg bg-card text-card-foreground border">
+                <div className="max-w-[70%] p-3 rounded-lg bg-card text-card-foreground border shadow-sm">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               </div>

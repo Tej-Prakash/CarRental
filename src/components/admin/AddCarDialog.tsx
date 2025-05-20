@@ -1,7 +1,7 @@
 
 "use client";
 
-import * as React from 'react'; // Added React import
+import * as React from 'react';
 import { useState, useEffect, ChangeEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +31,9 @@ const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: numbe
   name: '',
   type: 'Sedan',
   pricePerDay: 50,
-  imageUrls: [], // Start with an empty array for images
+  minNegotiablePrice: undefined,
+  maxNegotiablePrice: undefined,
+  imageUrls: [],
   description: '',
   longDescription: '',
   features: [],
@@ -57,9 +59,9 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    let parsedValue: string | number = value;
-    if (name === 'pricePerDay' || name === 'seats' || name === 'rating' || name === 'reviews') {
-      parsedValue = value === '' ? '' : Number(value);
+    let parsedValue: string | number | undefined = value;
+    if (['pricePerDay', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
+      parsedValue = value === '' ? undefined : Number(value); // Use undefined for empty optional numbers
     }
     setCarData(prev => ({ ...prev, [name]: parsedValue }));
   };
@@ -83,12 +85,9 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     const files = event.target.files;
     if (files && files.length > 0) {
       const newImageUrls = Array.from(files).map(file => {
-        // Simulate URL generation. In a real app, you'd upload then get a URL.
-        // Here, we use placeholder.co with the file name for demonstration.
         return `https://placehold.co/600x400.png?text=${encodeURIComponent(file.name)}`;
       });
-      setCarData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...newImageUrls] }));
-       // Clear the file input for next selection
+      setCarData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...newImageUrls].slice(0, 5) })); // Limit to 5 images
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -137,8 +136,11 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
       seats: Number(carData.seats),
       rating: Number(carData.rating || 0),
       reviews: Number(carData.reviews || 0),
+      minNegotiablePrice: carData.minNegotiablePrice ? Number(carData.minNegotiablePrice) : undefined,
+      maxNegotiablePrice: carData.maxNegotiablePrice ? Number(carData.maxNegotiablePrice) : undefined,
     };
     
+    // Basic frontend validation matching backend
     if (payload.pricePerDay <= 0) {
          toast({ title: "Validation Error", description: "Price per day must be greater than 0.", variant: "destructive" });
          setIsLoading(false);
@@ -148,6 +150,18 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
          toast({ title: "Validation Error", description: "Number of seats must be greater than 0.", variant: "destructive" });
          setIsLoading(false);
          return;
+    }
+    if (payload.minNegotiablePrice && payload.minNegotiablePrice > payload.pricePerDay) {
+        toast({ title: "Validation Error", description: "Min negotiable price cannot exceed daily price.", variant: "destructive" });
+        setIsLoading(false); return;
+    }
+    if (payload.maxNegotiablePrice && payload.maxNegotiablePrice < payload.pricePerDay) {
+        toast({ title: "Validation Error", description: "Max negotiable price cannot be less than daily price.", variant: "destructive" });
+        setIsLoading(false); return;
+    }
+    if (payload.minNegotiablePrice && payload.maxNegotiablePrice && payload.minNegotiablePrice > payload.maxNegotiablePrice) {
+        toast({ title: "Validation Error", description: "Min negotiable price cannot exceed max negotiable price.", variant: "destructive" });
+        setIsLoading(false); return;
     }
     if (!payload.availability[0]?.startDate || !payload.availability[0]?.endDate) {
         toast({ title: "Validation Error", description: "Please provide at least one availability start and end date.", variant: "destructive" });
@@ -209,9 +223,19 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           </div>
           <div><Label htmlFor="pricePerDay">Price Per Day ($)</Label><Input id="pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay} onChange={handleChange} required min="0.01" step="0.01" /></div>
           
-          {/* Image Upload Simulation */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="minNegotiablePrice">Min Negotiable Price ($)</Label>
+              <Input id="minNegotiablePrice" name="minNegotiablePrice" type="number" value={carData.minNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
+            </div>
+            <div>
+              <Label htmlFor="maxNegotiablePrice">Max Negotiable Price ($)</Label>
+              <Input id="maxNegotiablePrice" name="maxNegotiablePrice" type="number" value={carData.maxNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
+            </div>
+          </div>
+          
           <div>
-            <Label htmlFor="imageUpload">Upload Car Images</Label>
+            <Label htmlFor="imageUpload">Upload Car Images (Max 5)</Label>
             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md">
               <div className="space-y-1 text-center">
                 <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -221,11 +245,11 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
                     className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring"
                   >
                     <span>Select files</span>
-                    <input id="image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} />
+                    <input id="image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} disabled={carData.imageUrls.length >= 5} />
                   </Label>
                   <p className="pl-1">or drag and drop</p>
                 </div>
-                <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB (simulated)</p>
+                <p className="text-xs text-muted-foreground">PNG, JPG, GIF (simulated upload)</p>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -313,7 +337,3 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     </Dialog>
   );
 }
-
-    
-
-    
