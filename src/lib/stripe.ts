@@ -1,13 +1,7 @@
-MONGODB_URI="YOUR_MONGODB_CONNECTION_STRING"
-JWT_SECRET="YOUR_VERY_STRONG_JWT_SECRET_KEY_HERE"
 
-# Remove Stripe keys
-# STRIPE_SECRET_KEY="sk_test_YOUR_STRIPE_SECRET_KEY"
-# NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_YOUR_STRIPE_PUBLISHABLE_KEY"
+// This file is intentionally left blank or with minimal content
+// as Stripe integration was removed and replaced with Razorpay.
+// It's kept to resolve build errors if it's still being imported somewhere unexpectedly,
+// but it should ideally be deleted if no longer referenced.
 
-# Add Razorpay keys
-RAZORPAY_KEY_ID="YOUR_RAZORPAY_KEY_ID"
-RAZORPAY_KEY_SECRET="YOUR_RAZORPAY_KEY_SECRET"
-NEXT_PUBLIC_RAZORPAY_KEY_ID="YOUR_RAZORPAY_KEY_ID" # Key ID is public
-
-NEXT_PUBLIC_APP_URL="http://localhost:9002" # Or your deployed app URL
+export {}; // Ensures this is treated as a module
