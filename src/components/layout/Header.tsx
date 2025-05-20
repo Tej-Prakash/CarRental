@@ -8,6 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import type { SiteSettings } from '@/types'; // Import SiteSettings type
 
 const defaultNavItems = [
   { href: '/', label: 'Home', icon: HomeIcon, authRequired: false, publicOnly: false },
@@ -16,8 +17,6 @@ const defaultNavItems = [
 
 const authNavItems = [
   { href: '/profile', label: 'Profile', icon: UserCircle, authRequired: true, publicOnly: false },
-  // Admin link logic: show if user is admin. This is a basic check.
-  // A more robust way would involve checking role from decoded token on server or a dedicated context.
   { href: '/admin', label: 'Admin', icon: Shield, authRequired: true, publicOnly: false, adminOnly: true }, 
 ];
 
@@ -26,13 +25,38 @@ const publicNavItems = [
   { href: '/signup', label: 'Sign Up', icon: UserPlus, authRequired: false, publicOnly: true },
 ];
 
+interface HeaderProps {
+  siteTitle?: string; // Optional prop for initial title
+}
 
-export default function Header() {
+export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentSiteTitle, setCurrentSiteTitle] = useState(initialSiteTitle || "Wheels on Clicks");
+
+  useEffect(() => {
+    // Fetch site settings to get the dynamic site title
+    const fetchSiteSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const settings: SiteSettings = await response.json();
+          if (settings.siteTitle) {
+            setCurrentSiteTitle(settings.siteTitle);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch site settings for header:", error);
+        // Fallback to initial or default if fetch fails
+        setCurrentSiteTitle(initialSiteTitle || "Wheels on Clicks");
+      }
+    };
+    fetchSiteSettings();
+  }, [initialSiteTitle]);
+
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -49,9 +73,8 @@ export default function Header() {
     } else {
       setIsAdmin(false);
     }
-  }, [pathname]); // Re-check on route change, e.g. after login/logout
+  }, [pathname]); 
 
-  // Hide header on admin routes if path starts with /admin (main content area)
   if (pathname.startsWith('/admin')) {
     return null;
   }
@@ -62,7 +85,7 @@ export default function Header() {
     setIsAuthenticated(false);
     setIsAdmin(false);
     toast({ title: "Logged Out", description: "You have been successfully logged out." });
-    router.push('/'); // Redirect to homepage
+    router.push('/'); 
   };
 
   const currentNavItems = [
@@ -76,13 +99,13 @@ export default function Header() {
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/" className="text-xl md:text-2xl font-bold text-primary flex items-center">
           <CarFront className="h-7 w-7 md:h-8 md:w-8 mr-2 text-accent" />
-          Wheels on Clicks
+          {currentSiteTitle}
         </Link>
         <nav className="flex items-center space-x-1 md:space-x-2">
           {currentNavItems.map((item) => {
             if (item.authRequired && !isAuthenticated) return null;
             if (item.publicOnly && isAuthenticated) return null;
-            if (item.adminOnly && !isAdmin) return null; // Hide admin link if not admin
+            if (item.adminOnly && !isAdmin) return null; 
 
             return (
               <Button 

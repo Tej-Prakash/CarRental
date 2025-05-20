@@ -1,5 +1,5 @@
 
-"use client"; // Required for useEffect
+"use client"; 
 
 import { useEffect, useState } from 'react';
 import { Geist } from 'next/font/google';
@@ -15,9 +15,8 @@ const geistSans = Geist({
   subsets: ['latin'],
 });
 
-// Static metadata as a fallback or for initial load
 export const staticMetadata = {
-  title: 'Wheels on Clicks', // Default title
+  title: 'Wheels on Clicks', 
   description: 'Your premier car rental service.',
 };
 
@@ -26,7 +25,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [siteTitle, setSiteTitle] = useState(staticMetadata.title);
+  const [currentSiteTitle, setCurrentSiteTitle] = useState(staticMetadata.title);
+  const [currentFaviconUrl, setCurrentFaviconUrl] = useState<string | undefined>('/favicon.ico');
 
   useEffect(() => {
     const fetchSiteSettings = async () => {
@@ -35,31 +35,53 @@ export default function RootLayout({
         if (response.ok) {
           const settings: SiteSettings = await response.json();
           if (settings.siteTitle) {
-            setSiteTitle(settings.siteTitle);
+            setCurrentSiteTitle(settings.siteTitle);
             document.title = settings.siteTitle;
+          }
+          if (settings.faviconUrl) {
+            setCurrentFaviconUrl(settings.faviconUrl);
+          } else {
+             // Fallback if faviconUrl is empty or not set
+            setCurrentFaviconUrl('/favicon.ico'); // Default favicon
           }
         }
       } catch (error) {
         console.error("Failed to fetch site settings:", error);
-        // Fallback to static title if fetch fails
         document.title = staticMetadata.title;
+        setCurrentFaviconUrl('/favicon.ico');
       }
     };
 
     fetchSiteSettings();
   }, []);
   
-  // Set document title initially and on siteTitle state change
   useEffect(() => {
-    document.title = siteTitle;
-  }, [siteTitle]);
+    document.title = currentSiteTitle;
+  }, [currentSiteTitle]);
+
+  useEffect(() => {
+    let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement('link') as HTMLLinkElement;
+      link.type = 'image/x-icon'; // Or appropriate MIME type
+      link.rel = 'shortcut icon'; // Standard rel for favicons
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+    if (currentFaviconUrl) {
+      link.href = currentFaviconUrl;
+    } else {
+      // If no faviconUrl is provided, you might want to remove the link or set a default
+      // For now, we'll assume a default /favicon.ico is handled by the browser if href is not set
+      // or you can ensure a default one is always in /public
+       link.href = '/favicon.ico';
+    }
+  }, [currentFaviconUrl]);
 
 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Metadata tags can be managed here or via Next.js metadata API */}
-        {/* For simplicity, document.title is set in useEffect */}
+        {/* Favicon link is now managed by useEffect */}
       </head>
       <body 
         className={cn(
@@ -68,8 +90,8 @@ export default function RootLayout({
           "bg-background" 
         )}
       >
-        <Header />
-        <main className="flex-grow flex flex-col container mx-auto px-4 py-6"> {/* Added container and padding for main content area */}
+        <Header siteTitle={currentSiteTitle} />
+        <main className="flex-grow flex flex-col container mx-auto px-4 py-6">
           {children}
         </main>
         <Footer />

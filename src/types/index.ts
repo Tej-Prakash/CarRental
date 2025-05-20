@@ -4,7 +4,7 @@ export interface Car {
   name: string;
   type: 'Sedan' | 'SUV' | 'Hatchback' | 'Truck' | 'Van' | 'Convertible' | 'Coupe';
   pricePerDay: number;
-  imageUrls: string[]; // Changed from imageUrl: string
+  imageUrls: string[]; 
   description: string;
   longDescription: string;
   features: string[];
@@ -49,7 +49,7 @@ export interface Booking {
   id: string; // from MongoDB _id
   carId: string;
   carName: string; 
-  carImageUrl?: string; // Made optional, will use first from car.imageUrls
+  carImageUrl?: string; 
   userId: string;
   userName: string; 
   startDate: string; // ISO date string
@@ -64,5 +64,7 @@ export interface SiteSettings {
   id?: string; // In MongoDB, this will be _id
   siteTitle: string;
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
+  faviconUrl?: string; // URL to the favicon
   updatedAt?: string; // ISO date string
 }
+

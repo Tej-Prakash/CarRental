@@ -17,7 +17,7 @@ const currencyOptions: SiteSettings['defaultCurrency'][] = ['USD', 'EUR', 'GBP',
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
-  const [settings, setSettings] = useState<Partial<SiteSettings>>({ siteTitle: '', defaultCurrency: 'USD' });
+  const [settings, setSettings] = useState<Partial<SiteSettings>>({ siteTitle: '', defaultCurrency: 'USD', faviconUrl: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -36,8 +36,7 @@ export default function AdminSettingsPage() {
         setSettings(data);
       } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
-        // Set default on error so page is usable
-        setSettings({ siteTitle: 'Wheels on Clicks', defaultCurrency: 'USD' }); 
+        setSettings({ siteTitle: 'Wheels on Clicks', defaultCurrency: 'USD', faviconUrl: '/favicon.ico' }); 
       } finally {
         setIsLoading(false);
       }
@@ -60,16 +59,19 @@ export default function AdminSettingsPage() {
     setIsSaving(true);
     try {
       const token = localStorage.getItem('authToken');
+      const payload: Partial<SiteSettings> = {
+        siteTitle: settings.siteTitle,
+        defaultCurrency: settings.defaultCurrency,
+        faviconUrl: settings.faviconUrl || '', // Send empty string if undefined or null
+      };
+
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
-            siteTitle: settings.siteTitle,
-            defaultCurrency: settings.defaultCurrency 
-        }),
+        body: JSON.stringify(payload),
       });
       
       const result = await response.json();
@@ -77,7 +79,7 @@ export default function AdminSettingsPage() {
         const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
         throw new Error(errorMsg || 'Failed to save settings');
       }
-      setSettings(result); // Update state with saved settings (might include new _id or updatedAt)
+      setSettings(result); 
       toast({
         title: "Settings Saved",
         description: "Your settings have been updated.",
@@ -132,6 +134,19 @@ export default function AdminSettingsPage() {
                 </SelectContent>
               </Select>
             </div>
+             <div className="space-y-2">
+              <Label htmlFor="faviconUrl">Favicon URL</Label>
+              <Input 
+                id="faviconUrl" 
+                name="faviconUrl"
+                value={settings.faviconUrl || ''} 
+                onChange={handleInputChange}
+                placeholder="/favicon.ico or https://example.com/favicon.png"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter the full URL to your hosted favicon, or a relative path like <code>/favicon.ico</code> if placed in the <code>public</code> folder. Leave blank to use browser default.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="adminEmail">Default Admin Email (Display Only)</Label>
               <Input id="adminEmail" type="email" defaultValue="admin@wheelsonclicks.com" disabled />
@@ -146,11 +161,10 @@ export default function AdminSettingsPage() {
               <Switch id="maintenanceMode" aria-label="Toggle maintenance mode" />
             </div>
              <div className="pt-4">
-                <h3 className="text-lg font-medium text-primary">Logo & Favicon</h3>
+                <h3 className="text-lg font-medium text-primary">Logo Management</h3>
                 <p className="text-sm text-muted-foreground">
-                  Logo and favicon management is typically handled by deploying new image files 
-                  or by integrating with a Content Management System (CMS) or cloud storage. 
-                  This UI does not support direct file uploads for these assets.
+                  To update the site logo, replace the image file referenced in the Header component or integrate a dynamic URL from a CMS/cloud storage. 
+                  This UI does not support direct logo file uploads.
                 </p>
             </div>
           </CardContent>
@@ -165,4 +179,3 @@ export default function AdminSettingsPage() {
     </div>
   );
 }
-

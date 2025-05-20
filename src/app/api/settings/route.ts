@@ -24,6 +24,7 @@ export async function GET() {
       const defaultSettings: SiteSettings = {
         siteTitle: 'Wheels on Clicks',
         defaultCurrency: 'USD', 
+        faviconUrl: '/favicon.ico', // Default path to a favicon in public folder
       };
       return NextResponse.json(defaultSettings, { status: 200 });
     }
@@ -33,7 +34,6 @@ export async function GET() {
   } catch (error) {
     console.error('Failed to fetch site settings:', error);
     // Return default on error to ensure app loads, but log the error
-    return NextResponse.json({ siteTitle: 'Wheels on Clicks', defaultCurrency: 'USD' }, { status: 200 });
+    return NextResponse.json({ siteTitle: 'Wheels on Clicks', defaultCurrency: 'USD', faviconUrl: '/favicon.ico' }, { status: 200 });
   }
 }
-
