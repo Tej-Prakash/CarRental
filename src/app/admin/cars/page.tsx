@@ -18,6 +18,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import AddCarDialog from '@/components/admin/AddCarDialog';
+import EditCarDialog from '@/components/admin/EditCarDialog'; // Import EditCarDialog
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import {
@@ -37,9 +38,13 @@ export default function AdminCarsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
+  
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [carToDelete, setCarToDelete] = useState<Car | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [carToEdit, setCarToEdit] = useState<Car | null>(null);
 
 
   const fetchCars = async () => {
@@ -82,10 +87,9 @@ export default function AdminCarsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleEditCar = (carId: string) => {
-    console.log("Edit car:", carId);
-    toast({ title: "Edit Car", description: `Navigating to edit page for car ${carId} is not yet implemented. Backend API is ready.`});
-    // router.push(`/admin/cars/edit/${carId}`); // Example navigation
+  const handleOpenEditDialog = (car: Car) => {
+    setCarToEdit(car);
+    setShowEditDialog(true);
   };
 
   const confirmDeleteCar = (car: Car) => {
@@ -120,12 +124,10 @@ export default function AdminCarsPage() {
           const errorData = await response.json().catch(() => ({ message: 'Failed to delete car' }));
           throw new Error(errorData.message);
         }
-        setIsDeleting(false);
-        setShowDeleteDialog(false);
-        return;
+      } else {
+        toast({ title: "Car Deleted", description: `${carToDelete.name} has been successfully deleted.` });
+        setCars(prevCars => prevCars.filter(car => car.id !== carToDelete.id));
       }
-      toast({ title: "Car Deleted", description: `${carToDelete.name} has been successfully deleted.` });
-      setCars(prevCars => prevCars.filter(car => car.id !== carToDelete.id));
     } catch (error: any) {
       toast({ title: "Error Deleting Car", description: error.message, variant: "destructive" });
     } finally {
@@ -171,7 +173,7 @@ export default function AdminCarsPage() {
                 <TableRow key={car.id}>
                   <TableCell className="hidden sm:table-cell">
                     <Image 
-                      src={car.imageUrls[0] || '/assets/images/default-car.png'} // Default to a generic local image if needed
+                      src={(car.imageUrls && car.imageUrls.length > 0) ? car.imageUrls[0] : '/assets/images/default-car.png'}
                       alt={car.name} 
                       width={60} 
                       height={40} 
@@ -194,7 +196,7 @@ export default function AdminCarsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditCar(car.id)}>
+                        <DropdownMenuItem onClick={() => handleOpenEditDialog(car)}>
                           <Edit3 className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -212,13 +214,29 @@ export default function AdminCarsPage() {
         </CardContent>
       </Card>
 
+      {carToEdit && (
+        <EditCarDialog 
+          car={carToEdit} 
+          onCarUpdated={() => {
+            fetchCars(); // Refresh list after update
+            setShowEditDialog(false); // Close dialog
+          }}
+          isOpen={showEditDialog}
+          onOpenChange={setShowEditDialog}
+        >
+          {/* This children prop for EditCarDialog is not strictly needed if trigger is handled by DropdownMenuItem */}
+          <></> 
+        </EditCarDialog>
+      )}
+
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to delete this car?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the car
-              "{carToDelete?.name}" from the database. This does not delete image files from the server.
+              "{carToDelete?.name}" from the database.
+              It will not delete image files from `public/assets/images/` if they exist.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -236,4 +254,3 @@ export default function AdminCarsPage() {
     </div>
   );
 }
-

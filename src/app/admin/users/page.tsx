@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import AddUserDialog from '@/components/admin/AddUserDialog';
+import EditUserDialog from '@/components/admin/EditUserDialog'; // Import EditUserDialog
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -26,6 +27,15 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
+
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
+
+  // Placeholder for delete functionality as it's not fully implemented yet.
+  // const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  // const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  // const [isDeleting, setIsDeleting] = useState(false);
+
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -46,11 +56,12 @@ export default function AdminUsersPage() {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsLoading(false);
-          return;
+        } else {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch users and parse error' }));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
-        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch users and parse error' }));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        setIsLoading(false);
+        return;
       }
       const data = await response.json();
       setUsers(data);
@@ -66,16 +77,15 @@ export default function AdminUsersPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleEditUser = (userId: string) => {
-    console.log("Edit user:", userId);
-    // TODO: Navigate to edit user page or open modal
-    toast({ title: "Edit (Demo)", description: `Would edit user ${userId}. Feature not implemented.`});
+  const handleOpenEditDialog = (user: User) => {
+    setUserToEdit(user);
+    setShowEditDialog(true);
   };
 
   const handleDeleteUser = (userId: string) => {
     console.log("Delete user:", userId);
     // TODO: Implement actual delete API call with confirmation
-    toast({ title: "Delete (Demo)", description: `Would delete user ${userId}. Actual API call needed.`});
+    toast({ title: "Delete (Demo)", description: `Would delete user ${userId}. Actual API call for user deletion not yet implemented. Generally, users are disabled, not hard-deleted.`, variant:"default" });
     // setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
   };
 
@@ -134,12 +144,12 @@ export default function AdminUsersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditUser(user.id)}>
+                        <DropdownMenuItem onClick={() => handleOpenEditDialog(user)}>
                           <Edit3 className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete (Demo)
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -151,6 +161,23 @@ export default function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {userToEdit && (
+        <EditUserDialog
+          user={userToEdit}
+          onUserUpdated={() => {
+            fetchUsers(); // Refresh list
+            setShowEditDialog(false); // Close dialog
+          }}
+          isOpen={showEditDialog}
+          onOpenChange={setShowEditDialog}
+        >
+          <></> 
+        </EditUserDialog>
+      )}
+
+      {/* AlertDialog for delete confirmation would go here if fully implemented */}
+
     </div>
   );
 }
