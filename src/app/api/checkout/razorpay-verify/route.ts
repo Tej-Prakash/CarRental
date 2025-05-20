@@ -7,6 +7,7 @@ import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
 import type { Booking } from '@/types';
 import { ObjectId } from 'mongodb';
+import { z } from 'zod'; // Moved Zod import to the top
 
 const RazorpayVerificationSchema = z.object({
   razorpay_order_id: z.string(),
@@ -14,7 +15,6 @@ const RazorpayVerificationSchema = z.object({
   razorpay_signature: z.string(),
   bookingId: z.string().refine((val) => ObjectId.isValid(val), { message: "Invalid booking ID" }),
 });
-import { z } from 'zod';
 
 
 export async function POST(req: NextRequest) {
@@ -96,3 +96,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: error.message || 'Failed to verify payment' }, { status: 500 });
   }
 }
+
