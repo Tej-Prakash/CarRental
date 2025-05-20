@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import type { User } from '@/types';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface AddUserDialogProps {
   onUserAdded: () => void;
@@ -37,6 +38,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
   const [userData, setUserData] = useState(initialUserState);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -69,6 +71,12 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
 
     try {
       const token = localStorage.getItem('authToken');
+      if (!token) {
+          toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+          router.push('/login');
+          setIsLoading(false);
+          return;
+      }
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
@@ -78,13 +86,20 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
         body: JSON.stringify(userData),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsLoading(false);
+          return;
+        }
+        const result = await response.json().catch(()=> ({message: 'Failed to add user'}));
         const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
         throw new Error(errorMsg || 'Failed to add user');
       }
-
+      const result = await response.json();
       toast({ title: "User Added", description: `${result.name} has been successfully added.` });
       setIsOpen(false);
       onUserAdded();

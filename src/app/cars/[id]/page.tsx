@@ -17,6 +17,7 @@ import { format, differenceInCalendarDays, isBefore, startOfToday } from "date-f
 import { cn } from '@/lib/utils';
 import type { DateRange } from "react-day-picker";
 import { loadStripe } from '@stripe/stripe-js';
+import { useRouter } from 'next/navigation';
 
 interface CarDetailsPageProps {
   params: { id: string };
@@ -35,6 +36,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isBookingLoading, setIsBookingLoading] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const today = startOfToday();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -49,6 +51,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       try {
         const response = await fetch(`/api/cars/${params.id}`);
         if (!response.ok) {
+          // No need to check for 401 here as this is a public API
           const errorData = await response.json().catch(() => ({ message: `Car not found or server error (${response.status})` }));
           throw new Error(errorData.message);
         }
@@ -90,7 +93,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       fetchSiteSettings();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]); // Removed toast from dependencies as it shouldn't trigger re-fetch
+  }, [params.id]); 
 
   const handleBookNow = async () => {
     if (!car || !dateRange?.from || !dateRange?.to) {
@@ -115,6 +118,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
     const token = localStorage.getItem('authToken');
     if (!token) {
       toast({ title: "Authentication Error", description: "Please log in to make a booking.", variant: "destructive" });
+      router.push('/login');
       setIsBookingLoading(false);
       return;
     }
@@ -126,7 +130,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
     }
 
     try {
-      // Call backend to create a Stripe Checkout Session
       const response = await fetch('/api/checkout/sessions', {
         method: 'POST',
         headers: {
@@ -140,13 +143,21 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
         }),
       });
 
-      const sessionData = await response.json();
 
       if (!response.ok) {
+         if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsBookingLoading(false);
+          return;
+        }
+        const sessionData = await response.json().catch(()=>({message: 'Failed to create checkout session.'}));
         throw new Error(sessionData.message || 'Failed to create checkout session.');
       }
+      const sessionData = await response.json();
 
-      // Redirect to Stripe Checkout
       const stripe = await stripePromise;
       if (stripe) {
         const { error: stripeError } = await stripe.redirectToCheckout({
@@ -346,7 +357,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
             isOpen={isChatbotOpen} 
             onOpenChange={setIsChatbotOpen} 
             car={car} 
-            rentalDays={rentalDays > 0 ? rentalDays : 1} // Default to 1 day if not selected for negotiation context
+            rentalDays={rentalDays > 0 ? rentalDays : 1} 
          />
       )}
     </div>

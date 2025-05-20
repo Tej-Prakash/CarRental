@@ -12,11 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import type { SiteSettings } from '@/types';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const currencyOptions: SiteSettings['defaultCurrency'][] = ['USD', 'EUR', 'GBP', 'INR'];
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [settings, setSettings] = useState<Partial<SiteSettings>>({ siteTitle: '', defaultCurrency: 'USD' });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -26,10 +28,24 @@ export default function AdminSettingsPage() {
       setIsLoading(true);
       try {
         const token = localStorage.getItem('authToken');
+        if (!token) {
+            toast({ title: "Authentication Error", description: "No auth token found. Please log in.", variant: "destructive" });
+            router.push('/login');
+            setIsLoading(false);
+            return;
+        }
         const response = await fetch('/api/admin/settings', {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!response.ok) {
+          if (response.status === 401) {
+            toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            router.push('/login');
+            setIsLoading(false);
+            return;
+          }
           throw new Error('Failed to fetch settings');
         }
         const data: SiteSettings = await response.json();
@@ -59,6 +75,12 @@ export default function AdminSettingsPage() {
     setIsSaving(true);
     try {
       const token = localStorage.getItem('authToken');
+      if (!token) {
+          toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+          router.push('/login');
+          setIsSaving(false);
+          return;
+      }
       const payload: Partial<SiteSettings> = {
         siteTitle: settings.siteTitle,
         defaultCurrency: settings.defaultCurrency,
@@ -73,11 +95,20 @@ export default function AdminSettingsPage() {
         body: JSON.stringify(payload),
       });
       
-      const result = await response.json();
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsSaving(false);
+          return;
+        }
+        const result = await response.json().catch(() => ({message: 'Failed to save settings'}));
         const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
         throw new Error(errorMsg || 'Failed to save settings');
       }
+      const result = await response.json();
       setSettings(result); 
       toast({
         title: "Settings Saved",
@@ -149,7 +180,7 @@ export default function AdminSettingsPage() {
              <div className="pt-4">
                 <h3 className="text-lg font-medium text-primary">Logo & Favicon Management</h3>
                 <p className="text-sm text-muted-foreground">
-                  To update the site logo, replace the image file referenced in the Header component or integrate a dynamic URL from a CMS/cloud storage. 
+                  To update the site logo, replace the image file referenced in the Header component or integrate a dynamic URL. 
                   For the favicon, ensure a file named <code>favicon.ico</code> exists in your <code>public</code> directory. 
                   This UI does not support direct logo or favicon file uploads.
                 </p>

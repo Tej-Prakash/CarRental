@@ -18,6 +18,7 @@ import { Badge, BadgeProps } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,7 @@ export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const router = useRouter();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [dialogConfig, setDialogConfig] = useState<{
     title: string;
@@ -50,6 +52,7 @@ export default function AdminBookingsPage() {
       const token = localStorage.getItem('authToken');
       if (!token) {
         toast({ title: "Authentication Error", description: "No auth token found. Please log in.", variant: "destructive" });
+        router.push('/login');
         setIsLoading(false);
         return;
       }
@@ -57,6 +60,14 @@ export default function AdminBookingsPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsLoading(false);
+          return;
+        }
         const errorData = await response.json().catch(() => ({ message: 'Failed to fetch bookings and parse error' }));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
@@ -108,6 +119,13 @@ export default function AdminBookingsPage() {
 
     const { bookingId, action, newStatus } = dialogConfig;
     const token = localStorage.getItem('authToken');
+    if (!token) {
+        toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+        router.push('/login');
+        setIsProcessingAction(false);
+        setShowConfirmDialog(false);
+        return;
+    }
 
     try {
       if (action === 'approve' || action === 'reject') {
@@ -120,9 +138,22 @@ export default function AdminBookingsPage() {
           },
           body: JSON.stringify({ status: newStatus }),
         });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message || `Failed to ${action} cancellation`);
-        toast({ title: `Cancellation ${action === 'approve' ? 'Approved' : 'Rejected'}`, description: `Booking ${bookingId.substring(0,8)} status updated to ${newStatus}.` });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            router.push('/login');
+            // No need to throw error here as we are redirecting
+          } else {
+            const result = await response.json().catch(()=> ({message: `Failed to ${action} cancellation`}));
+            throw new Error(result.message || `Failed to ${action} cancellation`);
+          }
+        } else {
+            const result = await response.json();
+            toast({ title: `Cancellation ${action === 'approve' ? 'Approved' : 'Rejected'}`, description: `Booking ${bookingId.substring(0,8)} status updated to ${newStatus}.` });
+        }
       
       } else if (action === 'delete') {
         // TODO: Implement actual DELETE API call

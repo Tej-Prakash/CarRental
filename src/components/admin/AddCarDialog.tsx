@@ -23,6 +23,7 @@ import type { Car } from '@/types';
 import { Loader2, XCircle, Trash2, UploadCloud, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useRouter } from 'next/navigation';
 
 
 interface AddCarDialogProps {
@@ -58,6 +59,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const [isLoading, setIsLoading] = useState(false);
   const [featureInput, setFeatureInput] = useState('');
   const { toast } = useToast();
+  const router = useRouter();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -147,7 +149,6 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
       maxNegotiablePrice: carData.maxNegotiablePrice ? Number(carData.maxNegotiablePrice) : undefined,
     };
     
-    // Basic frontend validation matching backend
     if (payload.pricePerDay <= 0) {
          toast({ title: "Validation Error", description: "Price per day must be greater than 0.", variant: "destructive" });
          setIsLoading(false);
@@ -178,6 +179,12 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
 
     try {
       const token = localStorage.getItem('authToken');
+      if (!token) {
+          toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+          router.push('/login');
+          setIsLoading(false);
+          return;
+      }
       const response = await fetch('/api/admin/cars', {
         method: 'POST',
         headers: {
@@ -187,13 +194,20 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsLoading(false);
+          return;
+        }
+        const result = await response.json().catch(()=> ({message: 'Failed to add car'}));
         const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
         throw new Error(errorMsg || 'Failed to add car');
       }
-
+      const result = await response.json();
       toast({ title: "Car Added", description: `${result.name} has been successfully added.` });
       setIsOpen(false);
       onCarAdded(); 
@@ -219,10 +233,10 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
 
         <Alert variant="destructive" className="mb-4">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Important: Image Handling</AlertTitle>
+          <AlertTitle>Important: Image Handling Simulation</AlertTitle>
           <AlertDescription>
-            This form <strong className="text-destructive-foreground">simulates image uploads</strong>. When you select files, placeholder image URLs are generated based on file names.
-            For the application to display actual car images, you must host them externally (e.g., on a cloud storage service) and manage their real URLs. The current system saves these placeholder URLs.
+            This form <strong className="text-destructive-foreground">simulates image selection</strong>. When you select files, placeholder image URLs are generated (e.g., from placehold.co using the filename).
+            For the application to display actual car images, you must host them externally (e.g., on a cloud storage service) and then manage their real URLs. The current system saves these placeholder URLs.
           </AlertDescription>
         </Alert>
 
@@ -281,7 +295,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
                         width={40} 
                         height={40} 
                         className="object-cover rounded-sm mr-2 aspect-square"
-                        data-ai-hint="car placeholder" // Generic hint for placeholders
+                        data-ai-hint="car placeholder"
                     />
                     <span className="truncate max-w-[60%] text-ellipsis" title={decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}>
                         {decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}
@@ -361,4 +375,3 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     </Dialog>
   );
 }
-

@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import AddCarDialog from '@/components/admin/AddCarDialog';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,7 @@ export default function AdminCarsPage() {
   const [cars, setCars] = useState<Car[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [carToDelete, setCarToDelete] = useState<Car | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -46,6 +48,7 @@ export default function AdminCarsPage() {
       const token = localStorage.getItem('authToken');
       if (!token) {
         toast({ title: "Authentication Error", description: "No auth token found. Please log in.", variant: "destructive" });
+        router.push('/login');
         setIsLoading(false);
         return;
       }
@@ -53,6 +56,14 @@ export default function AdminCarsPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsLoading(false);
+          return;
+        }
         const errorData = await response.json().catch(() => ({ message: 'Failed to fetch cars and parse error' }));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
@@ -85,12 +96,26 @@ export default function AdminCarsPage() {
     setIsDeleting(true);
     try {
       const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+        router.push('/login');
+        setIsDeleting(false);
+        return;
+      }
       const response = await fetch(`/api/admin/cars/${carToDelete.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsDeleting(false);
+          return;
+        }
         const errorData = await response.json().catch(() => ({ message: 'Failed to delete car' }));
         throw new Error(errorData.message);
       }

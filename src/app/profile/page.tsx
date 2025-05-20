@@ -42,7 +42,15 @@ export default function ProfilePage() {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!response.ok) {
-          const errorData = await response.json();
+          if (response.status === 401) {
+            toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            router.push('/login');
+            setIsLoading(false);
+            return;
+          }
+          const errorData = await response.json().catch(()=>({message: 'Failed to fetch profile'}));
           throw new Error(errorData.message || 'Failed to fetch profile');
         }
         const data: User = await response.json();
@@ -52,13 +60,14 @@ export default function ProfilePage() {
         setLocation(data.location || '');
       } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
-        setUser(null); // Or handle error state differently
+        setUser(null); 
       } finally {
         setIsLoading(false);
       }
     };
     fetchProfile();
-  }, [router, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -69,13 +78,18 @@ export default function ProfilePage() {
     e.preventDefault();
     setIsUpdating(true);
     const token = localStorage.getItem('authToken');
+    if (!token) {
+        toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+        router.push('/login');
+        setIsUpdating(false);
+        return;
+    }
 
     const updatePayload: Partial<Pick<User, 'name' | 'address' | 'location'>> = {};
     if (name !== user?.name) updatePayload.name = name;
     if (JSON.stringify(address) !== JSON.stringify(user?.address || {})) updatePayload.address = address;
     if (location !== user?.location) updatePayload.location = location;
     
-    // Basic validation for address fields if they are partially filled
     const addressFields = Object.values(address);
     const filledAddressFields = addressFields.filter(field => field.trim() !== '').length;
     if (filledAddressFields > 0 && filledAddressFields < Object.keys(address).length) {
@@ -83,10 +97,9 @@ export default function ProfilePage() {
         setIsUpdating(false);
         return;
     }
-    if (filledAddressFields === 0) { // If all address fields are empty, don't send address object
+    if (filledAddressFields === 0) { 
         delete updatePayload.address;
     }
-
 
     if (Object.keys(updatePayload).length === 0) {
       toast({ title: "No Changes", description: "No information was changed." });
@@ -103,10 +116,21 @@ export default function ProfilePage() {
         },
         body: JSON.stringify(updatePayload),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || 'Failed to update profile');
       
-      setUser(result.user); // Update local user state with the response
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsUpdating(false);
+          return;
+        }
+        const result = await response.json().catch(()=>({message: 'Failed to update profile'}));
+        throw new Error(result.message || 'Failed to update profile');
+      }
+      const result = await response.json();
+      setUser(result.user); 
       setName(result.user.name || '');
       setAddress(result.user.address || { street: '', city: '', state: '', zip: '', country: '' });
       setLocation(result.user.location || '');
@@ -129,6 +153,13 @@ export default function ProfilePage() {
     else setIsUploadingLicense(true);
 
     const token = localStorage.getItem('authToken');
+    if (!token) {
+        toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+        router.push('/login');
+        if (documentType === 'PhotoID') setIsUploadingPhotoId(false); else setIsUploadingLicense(false);
+        return;
+    }
+
     try {
       const response = await fetch('/api/profile/documents', {
         method: 'POST',
@@ -138,12 +169,23 @@ export default function ProfilePage() {
         },
         body: JSON.stringify({ documentType, fileName: file.name }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || `Failed to upload ${documentType}`);
       
-      setUser(prevUser => ({ ...prevUser!, documents: result.documents }));
-      toast({ title: `${documentType} Uploaded`, description: `${file.name} has been recorded (simulation).` });
-      if (documentType === 'PhotoID') setPhotoIdFile(null); else setLicenseFile(null);
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+        } else {
+            const result = await response.json().catch(()=>({message: `Failed to upload ${documentType}`}));
+            throw new Error(result.message || `Failed to upload ${documentType}`);
+        }
+      } else {
+        const result = await response.json();
+        setUser(prevUser => ({ ...prevUser!, documents: result.documents }));
+        toast({ title: `${documentType} Uploaded`, description: `${file.name} has been recorded (simulation).` });
+        if (documentType === 'PhotoID') setPhotoIdFile(null); else setLicenseFile(null);
+      }
     } catch (error: any) {
       toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
     } finally {

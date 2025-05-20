@@ -39,6 +39,7 @@ export default function MyBookingsPage() {
     if (!token) {
       toast({ title: "Unauthorized", description: "Please log in to view your bookings.", variant: "destructive" });
       router.push('/login');
+      setIsLoading(false);
       return;
     }
 
@@ -47,6 +48,14 @@ export default function MyBookingsPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsLoading(false);
+          return;
+        }
         const errorData = await response.json().catch(() => ({ message: "Failed to fetch your bookings." }));
         throw new Error(errorData.message);
       }
@@ -63,23 +72,41 @@ export default function MyBookingsPage() {
   useEffect(() => {
     fetchMyBookings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, toast]);
+  }, []);
 
   const handleRequestCancellation = async () => {
     if (!bookingToCancel) return;
     setIsCancelling(true);
     const token = localStorage.getItem('authToken');
+    if (!token) {
+        toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+        router.push('/login');
+        setIsCancelling(false);
+        setShowCancelDialog(false);
+        return;
+    }
 
     try {
       const response = await fetch(`/api/bookings/${bookingToCancel.id}/request-cancellation`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || 'Failed to request cancellation');
       
-      toast({ title: "Cancellation Requested", description: result.message });
-      fetchMyBookings(); // Re-fetch to update status
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+        } else {
+            const result = await response.json().catch(()=>({message: 'Failed to request cancellation'}));
+            throw new Error(result.message || 'Failed to request cancellation');
+        }
+      } else {
+        const result = await response.json();
+        toast({ title: "Cancellation Requested", description: result.message });
+        fetchMyBookings(); 
+      }
     } catch (error: any) {
       toast({ title: "Cancellation Request Failed", description: error.message, variant: "destructive" });
     } finally {
@@ -100,8 +127,8 @@ export default function MyBookingsPage() {
       case 'Pending': return 'secondary';
       case 'Completed': return 'outline';
       case 'Cancelled': return 'destructive';
-      case 'Cancellation Requested': return 'secondary'; // Similar to pending, needs attention
-      case 'Cancellation Rejected': return 'destructive'; // Or a different color if needed
+      case 'Cancellation Requested': return 'secondary'; 
+      case 'Cancellation Rejected': return 'destructive'; 
       default: return 'secondary';
     }
   };

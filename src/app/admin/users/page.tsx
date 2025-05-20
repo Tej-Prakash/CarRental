@@ -19,11 +19,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import AddUserDialog from '@/components/admin/AddUserDialog';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const router = useRouter();
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -31,6 +33,7 @@ export default function AdminUsersPage() {
       const token = localStorage.getItem('authToken');
        if (!token) {
         toast({ title: "Authentication Error", description: "No auth token found. Please log in.", variant: "destructive" });
+        router.push('/login');
         setIsLoading(false);
         return;
       }
@@ -38,6 +41,14 @@ export default function AdminUsersPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+          router.push('/login');
+          setIsLoading(false);
+          return;
+        }
         const errorData = await response.json().catch(() => ({ message: 'Failed to fetch users and parse error' }));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
