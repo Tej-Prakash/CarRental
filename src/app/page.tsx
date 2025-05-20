@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Navigation, ShieldCheck, Tag } from "lucide-react";
@@ -38,8 +39,8 @@ export default function HomePage() {
             <Button size="lg" asChild>
               <Link href="/cars">Browse Cars</Link>
             </Button>
-            <Button size="lg" variant="outline">
-              Learn More
+            <Button size="lg" variant="outline" asChild>
+              <Link href="/learn-more">Learn More</Link>
             </Button>
           </div>
         </div>
