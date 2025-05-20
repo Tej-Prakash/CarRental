@@ -6,40 +6,32 @@ import Image from 'next/image';
 import type { Car, SiteSettings } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, CreditCard } from 'lucide-react';
+import { CalendarIcon, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, CreditCard, ShoppingCart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, differenceInCalendarDays, isBefore, startOfToday } from "date-fns";
+import { format, differenceInCalendarDays, isBefore, startOfToday, parseISO } from "date-fns";
 import { cn } from '@/lib/utils';
 import type { DateRange } from "react-day-picker";
 import { useRouter } from 'next/navigation';
-import Script from 'next/script';
-
+// Razorpay script and related logic moved to /checkout page
 
 interface CarDetailsPageProps {
   params: { id: string };
 }
 
-declare global {
-  interface Window {
-    Razorpay: any; 
-  }
-}
-
 export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   const [car, setCar] = useState<Car | null>(null);
-  const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({ defaultCurrency: 'INR' }); // Default to INR for Razorpay
+  const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({ defaultCurrency: 'INR' });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-  const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [isProceedingToCheckout, setIsProceedingToCheckout] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const [isRazorpayScriptLoaded, setIsRazorpayScriptLoaded] = useState(false);
 
   const today = startOfToday();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -80,16 +72,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       }
     };
 
-    if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
-      console.error("Razorpay Key ID is not set. Payment functionality will be disabled.");
-      toast({
-        title: "Payment Configuration Error",
-        description: "Razorpay is not configured. Please contact support.",
-        variant: "destructive",
-        duration: Infinity,
-      });
-    }
-
     if (params.id) {
       fetchCarDetails();
       fetchSiteSettings();
@@ -98,7 +80,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   }, [params.id]); 
 
 
-  const handleBookWithRazorpay = async () => {
+  const handleProceedToCheckout = () => {
     if (!car || !dateRange?.from || !dateRange?.to) {
       toast({ title: "Missing Information", description: "Please select a car and a valid date range.", variant: "destructive" });
       return;
@@ -108,107 +90,35 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       return;
     }
     
-    setIsBookingLoading(true);
+    setIsProceedingToCheckout(true);
     const token = localStorage.getItem('authToken');
     if (!token) {
       toast({ title: "Authentication Error", description: "Please log in to make a booking.", variant: "destructive" });
       router.push('/login');
-      setIsBookingLoading(false);
+      setIsProceedingToCheckout(false);
       return;
     }
 
-    if (!isRazorpayScriptLoaded || typeof window.Razorpay === 'undefined') {
-      toast({ title: "Payment Gateway Error", description: "Razorpay script not loaded. Please try again shortly.", variant: "destructive" });
-      setIsBookingLoading(false);
-      return;
-    }
+    const rentalDays = differenceInCalendarDays(dateRange.to, dateRange.from);
+    const totalPrice = rentalDays * car.pricePerDay;
+    const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
 
-    try {
-      // 1. Create Razorpay Order via backend
-      const orderResponse = await fetch('/api/checkout/razorpay-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          carId: car.id,
-          startDate: format(dateRange.from, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-          endDate: format(dateRange.to, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-        }),
-      });
+    const checkoutDetails = {
+      carId: car.id,
+      carName: car.name,
+      carImageUrl: primaryImageUrl,
+      startDate: format(dateRange.from, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+      endDate: format(dateRange.to, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+      rentalDays,
+      pricePerDay: car.pricePerDay,
+      totalPrice,
+      currency: siteSettings.defaultCurrency || 'INR',
+      currencySymbol: siteSettings.defaultCurrency === 'INR' ? '₹' : siteSettings.defaultCurrency === 'EUR' ? '€' : siteSettings.defaultCurrency === 'GBP' ? '£' : '$',
+    };
 
-      if (!orderResponse.ok) {
-        if (orderResponse.status === 401) {
-            toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
-            localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
-        } else {
-            const errorData = await orderResponse.json().catch(() => ({ message: 'Failed to create Razorpay order.' }));
-            throw new Error(errorData.message || 'Failed to create Razorpay order.');
-        }
-        setIsBookingLoading(false);
-        return;
-      }
-      const orderData = await orderResponse.json();
-
-      // 2. Open Razorpay Checkout
-      const options = {
-        key: orderData.keyId, 
-        amount: orderData.amount.toString(), 
-        currency: orderData.currency,
-        name: siteSettings.siteTitle || "Travel Yatra",
-        description: `Booking for ${car.name}`,
-        image: car.imageUrls[0] || `${process.env.NEXT_PUBLIC_APP_URL}/icon.svg`, // Replace with your logo URL
-        order_id: orderData.razorpayOrderId,
-        handler: async function (response: any) {
-          // 3. Verify Payment on backend
-          const verifyResponse = await fetch('/api/checkout/razorpay-verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_signature: response.razorpay_signature,
-              bookingId: orderData.bookingId,
-            }),
-          });
-
-          const verifyResult = await verifyResponse.json();
-          if (verifyResponse.ok) {
-            toast({ title: "Booking Confirmed!", description: `Your booking for ${car.name} is confirmed. Booking ID: ${orderData.bookingId.substring(0,8)}...` });
-            // Optionally redirect to a success page or profile/bookings
-            router.push(`/profile/bookings`); 
-          } else {
-            throw new Error(verifyResult.message || 'Payment verification failed.');
-          }
-        },
-        prefill: {
-          name: orderData.userName,
-          email: orderData.userEmail,
-          // contact: "USER_PHONE_NUMBER" // If available
-        },
-        notes: {
-          booking_id: orderData.bookingId,
-          car_id: car.id,
-        },
-        theme: {
-          color: "#3F51B5" // Your primary color
-        }
-      };
-      
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (response: any){
-            toast({
-                title: "Payment Failed",
-                description: `Error: ${response.error.code} - ${response.error.description}. Reason: ${response.error.reason}. Please try again or contact support.`,
-                variant: "destructive",
-                duration: 7000,
-            });
-      });
-      rzp.open();
-
-    } catch (bookingError: any) {
-      toast({ title: "Booking Error", description: bookingError.message || "Could not process your booking.", variant: "destructive" });
-    } finally {
-      setIsBookingLoading(false);
-    }
+    localStorage.setItem('checkoutBookingDetails', JSON.stringify(checkoutDetails));
+    router.push('/checkout');
+    // setIsProceedingToCheckout will be reset when user navigates away or component unmounts
   };
 
 
@@ -248,26 +158,14 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   const rentalDays = dateRange?.from && dateRange?.to ? differenceInCalendarDays(dateRange.to, dateRange.from) : 0;
   const totalPrice = rentalDays > 0 ? rentalDays * car.pricePerDay : 0;
   
-  // Use currency from siteSettings, default to INR if not available
   const displayCurrency = siteSettings.defaultCurrency || 'INR';
-  const currencySymbol = displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : displayCurrency === 'GBP' ? '£' : '$'; // Fallback to $ if not INR/EUR/GBP
+  const currencySymbol = displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : displayCurrency === 'GBP' ? '£' : '$'; 
   const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
 
 
   return (
     <div className="space-y-8 container mx-auto py-8 px-4">
-      <Script
-        id="razorpay-checkout-js"
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        onLoad={() => {
-          setIsRazorpayScriptLoaded(true);
-          console.log("Razorpay SDK loaded.");
-        }}
-        onError={(e) => {
-          console.error("Failed to load Razorpay SDK", e);
-          toast({ title: "Payment Gateway Error", description: "Could not load Razorpay SDK. Please refresh.", variant: "destructive" });
-        }}
-      />
+      {/* Razorpay Script removed from here */}
       <Card className="overflow-hidden shadow-xl">
         <div className="grid md:grid-cols-2 gap-0">
           <div className="relative aspect-video md:aspect-auto min-h-[300px] md:min-h-[400px]">
@@ -279,7 +177,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
               data-ai-hint={car.aiHint || 'car'}
               priority
               onError={(e) => { (e.target as HTMLImageElement).src = `/assets/images/default-car.png`; (e.target as HTMLImageElement).alt = "Image error, fallback shown"; }}
-
             />
           </div>
           <div className="p-6 md:p-8 flex flex-col">
@@ -367,16 +264,15 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
                 </Button>
                 <Button 
                   size="lg" 
-                  onClick={handleBookWithRazorpay} 
+                  onClick={handleProceedToCheckout} 
                   className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
-                  disabled={isBookingLoading || !dateRange?.from || !dateRange?.to || !isRazorpayScriptLoaded || !process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID}
+                  disabled={isProceedingToCheckout || !dateRange?.from || !dateRange?.to}
                 >
-                  {isBookingLoading && <Loader2 className="animate-spin mr-2" />}
-                  <CreditCard className="mr-2 h-5 w-5" /> 
-                  {isBookingLoading ? 'Processing...' : 'Book & Pay'}
+                  {isProceedingToCheckout && <Loader2 className="animate-spin mr-2" />}
+                  <ShoppingCart className="mr-2 h-5 w-5" /> 
+                  {isProceedingToCheckout ? 'Processing...' : 'Proceed to Checkout'}
                 </Button>
               </div>
-              {!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && <p className="text-xs text-destructive text-center mt-2">Razorpay payments are currently disabled due to missing configuration.</p>}
             </CardFooter>
           </div>
         </div>
@@ -389,10 +285,14 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            This model is generally available from {new Date(car.availability[0].startDate).toLocaleDateString()} to {new Date(car.availability[0].endDate).toLocaleDateString()}.
-            Please use the date picker above to select specific dates for your rental. Availability will be checked upon booking.
-          </p>
+           {car.availability && car.availability.length > 0 ? (
+            <p className="text-muted-foreground">
+              This model is generally available from {format(parseISO(car.availability[0].startDate), "PP")} to {format(parseISO(car.availability[0].endDate), "PP")}.
+              Please use the date picker above to select specific dates for your rental. Availability will be checked upon booking.
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Availability information not specified for this car.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -421,3 +321,4 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
+
