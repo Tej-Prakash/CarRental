@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { PlusCircle, Loader2, XCircle, Link as LinkIcon, Trash2 } from 'lucide-react';
+import { Loader2, XCircle, Trash2, UploadCloud } from 'lucide-react';
 
 interface AddCarDialogProps {
   onCarAdded: () => void;
@@ -30,7 +30,7 @@ const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: numbe
   name: '',
   type: 'Sedan',
   pricePerDay: 50,
-  imageUrls: ['https://placehold.co/600x400.png'], // Default to one placeholder
+  imageUrls: [], // Start with an empty array for images
   description: '',
   longDescription: '',
   features: [],
@@ -51,8 +51,8 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const [carData, setCarData] = useState(initialCarState);
   const [isLoading, setIsLoading] = useState(false);
   const [featureInput, setFeatureInput] = useState('');
-  const [imageUrlInput, setImageUrlInput] = useState('');
   const { toast } = useToast();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -78,15 +78,18 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     setCarData(prev => ({ ...prev, features: prev.features.filter(f => f !== featureToRemove) }));
   };
 
-  const handleImageUrlAdd = () => {
-    if (imageUrlInput.trim()) {
-      try {
-        // Basic URL validation
-        new URL(imageUrlInput.trim());
-        setCarData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, imageUrlInput.trim()] }));
-        setImageUrlInput('');
-      } catch (_) {
-        toast({ title: "Invalid URL", description: "Please enter a valid image URL.", variant: "destructive" });
+  const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const newImageUrls = Array.from(files).map(file => {
+        // Simulate URL generation. In a real app, you'd upload then get a URL.
+        // Here, we use placeholder.co with the file name for demonstration.
+        return `https://placehold.co/600x400.png?text=${encodeURIComponent(file.name)}`;
+      });
+      setCarData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...newImageUrls] }));
+       // Clear the file input for next selection
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
     }
   };
@@ -105,7 +108,9 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const resetForm = () => {
     setCarData(initialCarState);
     setFeatureInput('');
-    setImageUrlInput('');
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
   }
 
   useEffect(() => {
@@ -120,7 +125,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     setIsLoading(true);
 
     if (carData.imageUrls.length === 0) {
-      toast({ title: "Validation Error", description: "Please add at least one image URL.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Please add at least one image by selecting files.", variant: "destructive" });
       setIsLoading(false);
       return;
     }
@@ -186,7 +191,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
         <DialogHeader>
           <DialogTitle>Add New Car</DialogTitle>
           <DialogDescription>
-            Fill in the details for the new car listing. For images, please upload them to a hosting service and provide the URLs.
+            Fill in the details for the new car listing.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
@@ -203,19 +208,35 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           </div>
           <div><Label htmlFor="pricePerDay">Price Per Day ($)</Label><Input id="pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay} onChange={handleChange} required min="0.01" step="0.01" /></div>
           
-          {/* Image URLs Management */}
+          {/* Image Upload Simulation */}
           <div>
-            <Label htmlFor="imageUrlInput">Image URLs</Label>
-             <p className="text-xs text-muted-foreground mb-1">Add URLs for car images. The first URL will be the primary image.</p>
-            <div className="flex gap-2 mb-2">
-              <Input id="imageUrlInput" value={imageUrlInput} onChange={(e) => setImageUrlInput(e.target.value)} placeholder="https://example.com/image.png" />
-              <Button type="button" variant="outline" onClick={handleImageUrlAdd}><LinkIcon className="mr-2 h-4 w-4" />Add URL</Button>
+            <Label htmlFor="imageUpload">Upload Car Images</Label>
+            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md">
+              <div className="space-y-1 text-center">
+                <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
+                <div className="flex text-sm text-muted-foreground">
+                  <Label
+                    htmlFor="image-files"
+                    className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring"
+                  >
+                    <span>Select files</span>
+                    <input id="image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} />
+                  </Label>
+                  <p className="pl-1">or drag and drop</p>
+                </div>
+                <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB (simulated)</p>
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Note: This simulates file selection. Placeholder images will be generated. For real use, ensure images are hosted and actual URLs are managed.
+            </p>
             {carData.imageUrls.length > 0 && (
-              <div className="space-y-1">
+              <div className="mt-2 space-y-1">
+                <Label>Selected Images (Placeholders):</Label>
                 {carData.imageUrls.map((url, index) => (
                   <div key={index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
-                    <span className="truncate max-w-[80%]">{url}</span>
+                    <img src={url} alt={`Preview ${index + 1}`} className="h-10 w-10 object-cover rounded-sm mr-2"/>
+                    <span className="truncate max-w-[70%]">{decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}</span>
                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleImageUrlRemove(url)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
@@ -224,7 +245,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
               </div>
             )}
              {carData.imageUrls.length === 0 && (
-                <p className="text-xs text-destructive mt-1">Please add at least one image URL.</p>
+                <p className="text-xs text-destructive mt-1">Please select at least one image.</p>
             )}
           </div>
 
@@ -291,3 +312,5 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     </Dialog>
   );
 }
+
+    
