@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Car as CarType } from '@/types';
 import { Car, Filter, Search, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CarsPage() {
-  const [allCars, setAllCars] = useState<CarType[]>([]); 
+  const [allCarTypes, setAllCarTypes] = useState<string[]>(['all']);
   const [displayedCars, setDisplayedCars] = useState<CarType[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [carTypeFilter, setCarTypeFilter] = useState('all');
@@ -22,74 +22,91 @@ export default function CarsPage() {
   
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
 
-  useEffect(() => {
-    const fetchCarsData = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch('/api/cars');
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch cars and parse error' }));
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-        const data: CarType[] = await response.json();
-        setAllCars(data);
-        setDisplayedCars(data); 
-      } catch (error: any) {
-        toast({ title: "Error fetching cars", description: error.message, variant: "destructive" });
-        setAllCars([]); 
-        setDisplayedCars([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchCarsData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // Debounce search term
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-    }, 300); // Reduced debounce time
+    }, 300); 
 
     return () => {
       clearTimeout(handler);
     };
   }, [searchTerm]);
 
-
+  // Fetch unique car types for the filter dropdown
   useEffect(() => {
-    if (isLoading) return; 
-    let filteredCars = allCars;
+    const fetchCarTypes = async () => {
+      try {
+        // This could be a dedicated endpoint or derived from an initial full car list
+        // For simplicity, we'll fetch all cars once to get types
+        const response = await fetch('/api/cars');
+        if (!response.ok) {
+          throw new Error('Failed to fetch initial car data for types');
+        }
+        const data: CarType[] = await response.json();
+        const uniqueTypes = ['all', ...Array.from(new Set(data.map(car => car.type)))];
+        setAllCarTypes(uniqueTypes);
+      } catch (error: any) {
+        toast({ title: "Error fetching car types", description: error.message, variant: "destructive" });
+      }
+    };
+    fetchCarTypes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
+  // Fetch cars based on filters
+  const fetchFilteredCars = useCallback(async () => {
+    setIsLoading(true);
+    const queryParams = new URLSearchParams();
 
     if (debouncedSearchTerm) {
-      filteredCars = filteredCars.filter(car => 
-        car.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        car.description.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        (car.longDescription && car.longDescription.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
-      );
+      queryParams.append('search', debouncedSearchTerm);
     }
-
     if (carTypeFilter !== 'all') {
-      filteredCars = filteredCars.filter(car => car.type === carTypeFilter);
+      queryParams.append('type', carTypeFilter);
     }
-
     if (priceFilter !== 'all') {
       const [minStr, maxStr] = priceFilter.split('-');
       const min = Number(minStr);
-      const max = maxStr ? Number(maxStr) : Infinity; // Handle '100-' as 100 to Infinity
-      filteredCars = filteredCars.filter(car => car.pricePerDay >= min && (max === Infinity ? true : car.pricePerDay <= max));
+      if (!isNaN(min)) {
+        queryParams.append('minPrice', String(min));
+      }
+      if (maxStr) { // maxStr could be empty for "100-"
+        const max = Number(maxStr);
+        if (!isNaN(max)) {
+          queryParams.append('maxPrice', String(max));
+        }
+      }
     }
-    
-    setDisplayedCars(filteredCars);
-  }, [debouncedSearchTerm, carTypeFilter, priceFilter, allCars, isLoading]);
+
+    try {
+      const response = await fetch(`/api/cars?${queryParams.toString()}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch cars and parse error' }));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+      const data: CarType[] = await response.json();
+      setDisplayedCars(data);
+    } catch (error: any) {
+      toast({ title: "Error fetching cars", description: error.message, variant: "destructive" });
+      setDisplayedCars([]);
+    } finally {
+      setIsLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm, carTypeFilter, priceFilter, toast]);
+
+  useEffect(() => {
+    fetchFilteredCars();
+  }, [fetchFilteredCars]);
 
 
-  const carTypes = ['all', ...Array.from(new Set(allCars.map(car => car.type)))];
   const priceRanges = [
     { label: 'All Prices', value: 'all' },
     { label: '$0 - $50', value: '0-50' },
     { label: '$50 - $100', value: '50-100' },
-    { label: '$100+', value: '100-' }, // Representing $100 and above
+    { label: '$100+', value: '100-' }, 
   ];
 
   return (
@@ -123,7 +140,7 @@ export default function CarsPage() {
                 <SelectValue placeholder="Select car type" />
               </SelectTrigger>
               <SelectContent>
-                {carTypes.map(type => (
+                {allCarTypes.map(type => (
                   <SelectItem key={type} value={type}>{type === 'all' ? 'All Types' : type}</SelectItem>
                 ))}
               </SelectContent>
@@ -142,12 +159,6 @@ export default function CarsPage() {
               </SelectContent>
             </Select>
           </div>
-          {/* Date filter placeholder, can be implemented with Calendar component 
-          <div>
-            <Label htmlFor="dateRange" className="text-sm font-medium">Date Range</Label>
-            <Input id="dateRange" type="text" placeholder="Select dates (coming soon)" disabled className="mt-1" />
-          </div>
-          */}
         </div>
       </section>
 
@@ -165,11 +176,12 @@ export default function CarsPage() {
         <div className="text-center py-10">
           <Filter className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <p className="text-xl text-muted-foreground">
-            {allCars.length === 0 ? "No cars available at the moment." : "No cars match your current filters."}
+            No cars match your current filters.
           </p>
-          {allCars.length > 0 && <p className="text-sm text-muted-foreground mt-2">Try adjusting your search or filter criteria.</p>}
+          <p className="text-sm text-muted-foreground mt-2">Try adjusting your search or filter criteria.</p>
         </div>
       )}
     </div>
   );
 }
+
