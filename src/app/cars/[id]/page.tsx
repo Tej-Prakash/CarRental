@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { Car, SiteSettings } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays } from 'lucide-react';
+import { CalendarIcon, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -196,6 +196,9 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
             <CardHeader className="p-0 mb-4">
               <CardTitle className="text-3xl md:text-4xl font-bold text-primary">{car.name}</CardTitle>
               <CardDescription className="text-lg text-muted-foreground">{car.type}</CardDescription>
+              {car.description && (
+                <p className="text-sm text-foreground/70 mt-1">{car.description}</p>
+              )}
             </CardHeader>
             
             <CardContent className="p-0 flex-grow space-y-4">
@@ -325,3 +328,4 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
+
