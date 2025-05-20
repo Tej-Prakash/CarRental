@@ -44,6 +44,8 @@ export interface User {
   address?: Address;
   location?: string;
   documents?: UserDocument[];
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date; // Storing as Date object in DB, will be string in some API responses
 }
 
 export interface Booking {

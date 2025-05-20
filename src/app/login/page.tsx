@@ -52,16 +52,13 @@ export default function LoginPage() {
         description: "Welcome back!",
       });
       
-      // Store the token (e.g., in localStorage)
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('authUser', JSON.stringify(data.user));
 
-
-      // Redirect based on role, or to a default page
       if (data.user.role === 'Admin') {
         router.push('/admin');
       } else {
-        router.push('/cars'); // Or user dashboard
+        router.push('/cars'); 
       }
 
     } catch (error: any) {
@@ -119,7 +116,7 @@ export default function LoginPage() {
               </div>
               <div className="text-right">
                 <Button variant="link" size="sm" asChild className="p-0 h-auto text-accent" disabled={isLoading}>
-                  <Link href="#">Forgot password?</Link>
+                  <Link href="/forgot-password">Forgot password?</Link>
                 </Button>
               </div>
             </div>
