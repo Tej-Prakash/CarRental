@@ -153,7 +153,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
         key: orderData.keyId, 
         amount: orderData.amount.toString(), 
         currency: orderData.currency,
-        name: siteSettings.siteTitle || "Wheels on Clicks",
+        name: siteSettings.siteTitle || "Travel Yatra",
         description: `Booking for ${car.name}`,
         image: car.imageUrls[0] || `${process.env.NEXT_PUBLIC_APP_URL}/icon.svg`, // Replace with your logo URL
         order_id: orderData.razorpayOrderId,
@@ -250,7 +250,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   
   // Use currency from siteSettings, default to INR if not available
   const displayCurrency = siteSettings.defaultCurrency || 'INR';
-  const currencySymbol = displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : displayCurrency === 'GBP' ? '£' : '$';
+  const currencySymbol = displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : displayCurrency === 'GBP' ? '£' : '$'; // Fallback to $ if not INR/EUR/GBP
   const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
 
 

@@ -9,7 +9,8 @@ const BaseCarSchema = z.object({
   pricePerDay: z.number().positive("Price per day must be positive"),
   minNegotiablePrice: z.number().positive("Minimum negotiable price must be positive").optional(),
   maxNegotiablePrice: z.number().positive("Maximum negotiable price must be positive").optional(),
-  imageUrls: z.array(z.string().url("Each image URL must be valid or a relative path starting with /assets/images/")).min(1, "At least one image URL is required"),
+  // Ensure imageUrls are relative paths for local storage or valid URLs for external
+  imageUrls: z.array(z.string().refine(val => val.startsWith('/assets/images/') || z.string().url().safeParse(val).success, "Each image URL must be valid or a relative path starting with /assets/images/")).min(1, "At least one image URL is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   longDescription: z.string().min(20, "Long description must be at least 20 characters"),
   features: z.array(z.string()).min(1, "At least one feature is required"),
@@ -57,20 +58,22 @@ export const CarInputSchema = BaseCarSchema
     path: ["minNegotiablePrice"], 
   });
 
-// Schema for updating an existing car (all fields are optional).
+// Schema for updating an existing car (all fields are optional from BaseCarSchema).
 export const UpdateCarInputSchema = BaseCarSchema.partial()
   .extend({
-    // Allow imageUrls to be an empty array if explicitly provided during update (e.g., user removes all images)
-    // Otherwise, if not provided, it's not updated. If provided, it must be an array of valid URLs/paths.
+    // For updates, imageUrls can be an empty array (to remove all images), or an array of valid URLs/paths.
+    // If not provided, it won't be updated. If provided as empty array, it means clear all images.
+    // If provided with items, then each item must be a valid URL/path.
     imageUrls: z.array(z.string().refine(val => val.startsWith('/assets/images/') || z.string().url().safeParse(val).success, "Each image URL must be valid or a relative path starting with /assets/images/")).optional(),
   })
   .refine(data => {
+    // If minNegotiablePrice and pricePerDay are both being updated, or one is updated and other exists
     if (data.minNegotiablePrice !== undefined && data.pricePerDay !== undefined) {
       if (data.minNegotiablePrice > data.pricePerDay) return false;
     }
     return true;
   }, {
-    message: "Minimum negotiable price cannot be greater than the daily price if both are updated.",
+    message: "Minimum negotiable price cannot be greater than the daily price.",
     path: ["minNegotiablePrice"],
   })
   .refine(data => {
@@ -79,7 +82,7 @@ export const UpdateCarInputSchema = BaseCarSchema.partial()
     }
     return true;
   }, {
-    message: "Maximum negotiable price cannot be less than the daily price if both are updated.",
+    message: "Maximum negotiable price cannot be less than the daily price.",
     path: ["maxNegotiablePrice"],
   })
   .refine(data => {
@@ -88,10 +91,10 @@ export const UpdateCarInputSchema = BaseCarSchema.partial()
     }
     return true;
   }, {
-    message: "Minimum negotiable price cannot be greater than maximum negotiable price if both are updated.",
+    message: "Minimum negotiable price cannot be greater than maximum negotiable price.",
     path: ["minNegotiablePrice"],
   })
-  // If array fields are provided for update, they should not be empty (unless it's imageUrls as handled above).
+  // If array fields are provided for update and are not undefined, they should not be empty (unless it's imageUrls).
   .refine(data => data.features === undefined || data.features.length > 0, {
     message: "If features are provided for update, at least one feature must be included.",
     path: ["features"],
@@ -104,4 +107,3 @@ export const UpdateCarInputSchema = BaseCarSchema.partial()
 
 export type CarInput = z.infer<typeof CarInputSchema>;
 export type UpdateCarInput = z.infer<typeof UpdateCarInputSchema>;
-

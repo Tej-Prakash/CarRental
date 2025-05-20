@@ -19,7 +19,7 @@ const currencyOptions: SiteSettings['defaultCurrency'][] = ['USD', 'EUR', 'GBP',
 export default function AdminSettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const [settings, setSettings] = useState<Partial<SiteSettings>>({ siteTitle: '', defaultCurrency: 'USD' });
+  const [settings, setSettings] = useState<Partial<SiteSettings>>({ siteTitle: '', defaultCurrency: 'INR' });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -52,7 +52,7 @@ export default function AdminSettingsPage() {
         setSettings(data);
       } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
-        setSettings({ siteTitle: 'Wheels on Clicks', defaultCurrency: 'USD' }); 
+        setSettings({ siteTitle: 'Travel Yatra', defaultCurrency: 'INR' }); 
       } finally {
         setIsLoading(false);
       }
@@ -166,7 +166,7 @@ export default function AdminSettingsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="adminEmail">Default Admin Email (Display Only)</Label>
-              <Input id="adminEmail" type="email" defaultValue="admin@wheelsonclicks.com" disabled />
+              <Input id="adminEmail" type="email" defaultValue="admin@travelyatra.com" disabled />
             </div>
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">

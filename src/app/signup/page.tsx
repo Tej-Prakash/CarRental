@@ -91,7 +91,7 @@ export default function SignupPage() {
         <CardHeader className="text-center">
           <UserPlus className="mx-auto h-12 w-12 text-primary mb-2" />
           <CardTitle className="text-2xl font-bold text-primary">Create Your Account</CardTitle>
-          <CardDescription>Join Wheels on Clicks and start your adventure today!</CardDescription>
+          <CardDescription>Join Travel Yatra and start your adventure today!</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">

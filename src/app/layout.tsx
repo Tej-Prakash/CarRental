@@ -16,7 +16,7 @@ const geistSans = Geist({
 });
 
 export const staticMetadata = {
-  title: 'Wheels on Clicks', 
+  title: 'Travel Yatra', 
   description: 'Your premier car rental service.',
 };
 

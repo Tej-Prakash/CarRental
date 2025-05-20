@@ -8,10 +8,10 @@ export default function AboutUsPage() {
     <div className="container mx-auto py-12 px-4 space-y-12">
       <section className="text-center">
         <h1 className="text-4xl md:text-5xl font-bold text-primary mb-6">
-          About Wheels on Clicks
+          About Travel Yatra
         </h1>
         <p className="text-lg md:text-xl text-foreground/80 mb-8 max-w-3xl mx-auto">
-          Discover the story behind Wheels on Clicks and our commitment to providing you with an exceptional car rental experience.
+          Discover the story behind Travel Yatra and our commitment to providing you with an exceptional car rental experience.
         </p>
       </section>
 
@@ -26,7 +26,7 @@ export default function AboutUsPage() {
             <div className="grid md:grid-cols-2 gap-8 items-center">
               <div>
                 <p className="text-foreground/90 leading-relaxed">
-                  Wheels on Clicks was founded with a simple mission: to make car rental easy, affordable, and enjoyable. We believe that everyone deserves access to reliable transportation, whether for a business trip, a family vacation, or just a weekend getaway. Our platform connects you with a wide variety of vehicles to suit your needs, all at competitive prices.
+                  Travel Yatra was founded with a simple mission: to make car rental easy, affordable, and enjoyable. We believe that everyone deserves access to reliable transportation, whether for a business trip, a family vacation, or just a weekend getaway. Our platform connects you with a wide variety of vehicles to suit your needs, all at competitive prices.
                 </p>
                 <p className="text-foreground/90 leading-relaxed mt-4">
                   We leverage technology to streamline the booking process, from browsing our extensive fleet to negotiating the best deals with our innovative AI-powered chatbot. Our commitment to customer satisfaction drives everything we do.

@@ -66,7 +66,7 @@ export async function PUT(
 
     // Simulate notifications and actions based on status change
     if (newStatus === 'Cancelled' && oldStatus === 'Cancellation Requested') {
-      console.log(`SIMULATED: Refund for booking ID ${bookingId} (Amount: $${booking.totalPrice}) processed.`);
+      console.log(`SIMULATED: Refund for booking ID ${bookingId} (Amount: ₹${booking.totalPrice}) processed.`);
       console.log(`SIMULATED USER NOTIFICATION: Your cancellation request for booking ${bookingId} (${booking.carName}) has been approved and a refund is being processed.`);
     } else if (newStatus === 'Confirmed' && oldStatus === 'Cancellation Requested') { // This implies rejection of cancellation
       console.log(`SIMULATED USER NOTIFICATION: Your cancellation request for booking ${bookingId} (${booking.carName}) has been rejected. Your booking remains confirmed.`);

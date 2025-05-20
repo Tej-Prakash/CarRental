@@ -14,8 +14,8 @@ import type { User } from '@/types';
 
 // Static metadata might still be useful for the general section title
 // export const metadata: Metadata = {
-//   title: 'Admin - Wheels on Clicks',
-//   description: 'Admin panel for Wheels on Clicks.',
+//   title: 'Admin - Travel Yatra',
+//   description: 'Admin panel for Travel Yatra.',
 // };
 
 export default function AdminLayout({
@@ -99,7 +99,7 @@ export default function AdminLayout({
           </Sheet>
            <Link href="/" className="flex items-center gap-2 font-semibold md:hidden">
             <CarFront className="h-6 w-6 text-accent" />
-            <span className="text-lg">Wheels on Clicks</span>
+            <span className="text-lg">Travel Yatra</span>
           </Link>
         </header>
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">

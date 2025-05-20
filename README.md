@@ -1,4 +1,4 @@
-# Firebase Studio
+# Travel Yatra
 
 This is a NextJS starter in Firebase Studio.
 

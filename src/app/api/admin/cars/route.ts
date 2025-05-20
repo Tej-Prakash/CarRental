@@ -115,4 +115,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch cars' }, { status: 500 });
   }
 }
-

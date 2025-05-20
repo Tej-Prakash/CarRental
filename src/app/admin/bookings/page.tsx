@@ -226,7 +226,7 @@ export default function AdminBookingsPage() {
                     <TableCell>
                       {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">${booking.totalPrice.toFixed(2)}</TableCell>
+                    <TableCell className="hidden lg:table-cell">₹{booking.totalPrice.toFixed(2)}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusVariant(booking.status)}>{booking.status}</Badge>
                     </TableCell>
@@ -303,4 +303,3 @@ export default function AdminBookingsPage() {
     </div>
   );
 }
-

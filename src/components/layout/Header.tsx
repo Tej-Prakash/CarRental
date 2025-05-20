@@ -36,7 +36,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [currentSiteTitle, setCurrentSiteTitle] = useState(initialSiteTitle || "Wheels on Clicks");
+  const [currentSiteTitle, setCurrentSiteTitle] = useState(initialSiteTitle || "Travel Yatra");
 
   useEffect(() => {
     // Fetch site settings to get the dynamic site title
@@ -52,7 +52,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
       } catch (error) {
         console.error("Failed to fetch site settings for header:", error);
         // Fallback to initial or default if fetch fails
-        setCurrentSiteTitle(initialSiteTitle || "Wheels on Clicks");
+        setCurrentSiteTitle(initialSiteTitle || "Travel Yatra");
       }
     };
     fetchSiteSettings();

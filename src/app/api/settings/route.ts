@@ -22,8 +22,8 @@ export async function GET() {
     if (!settings) {
       // Default settings if none exist
       const defaultSettings: SiteSettings = {
-        siteTitle: 'Wheels on Clicks',
-        defaultCurrency: 'USD', 
+        siteTitle: 'Travel Yatra',
+        defaultCurrency: 'INR', 
       };
       return NextResponse.json(defaultSettings, { status: 200 });
     }
@@ -33,6 +33,6 @@ export async function GET() {
   } catch (error) {
     console.error('Failed to fetch site settings:', error);
     // Return default on error to ensure app loads, but log the error
-    return NextResponse.json({ siteTitle: 'Wheels on Clicks', defaultCurrency: 'USD' }, { status: 200 });
+    return NextResponse.json({ siteTitle: 'Travel Yatra', defaultCurrency: 'INR' }, { status: 200 });
   }
 }

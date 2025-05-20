@@ -89,6 +89,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
+      const currentImageUrls = carData.imageUrls || [];
       const newImagePaths = Array.from(files).map(file => {
         // Sanitize filename: replace spaces and special characters
         const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -98,7 +99,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
       
       setCarData(prev => ({ 
         ...prev, 
-        imageUrls: [...(prev.imageUrls || []), ...newImagePaths].slice(0, 5) 
+        imageUrls: [...currentImageUrls, ...newImagePaths].slice(0, 5) 
       }));
       if (fileInputRef.current) {
         fileInputRef.current.value = ""; 
@@ -238,10 +239,10 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Important: Image Handling Simulation</AlertTitle>
           <AlertDescription>
-            This form simulates image selection. When you select files, relative paths (e.g., `/assets/images/your-file.jpg`) are generated.
+            This form simulates image selection. When you select files, relative paths (e.g., `/assets/images/your-file.jpg`) are generated and stored.
             For these images to display in the application, you must:
             <ol className="list-decimal list-inside pl-4 mt-1">
-              <li>Manually create the folder `public/assets/images/` in your project.</li>
+              <li>Manually create the folder `public/assets/images/` in your project root.</li>
               <li>Place image files with matching names into this folder.</li>
             </ol>
             Actual file upload and server-side storage are not implemented here. For production, use a cloud storage service.
@@ -260,15 +261,15 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
               </Select>
             </div>
           </div>
-          <div><Label htmlFor="pricePerDay">Price Per Day ($)</Label><Input id="pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay} onChange={handleChange} required min="0.01" step="0.01" /></div>
+          <div><Label htmlFor="pricePerDay">Price Per Day (₹)</Label><Input id="pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay} onChange={handleChange} required min="0.01" step="0.01" /></div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="minNegotiablePrice">Min Negotiable Price ($)</Label>
+              <Label htmlFor="minNegotiablePrice">Min Negotiable Price (₹)</Label>
               <Input id="minNegotiablePrice" name="minNegotiablePrice" type="number" value={carData.minNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
             </div>
             <div>
-              <Label htmlFor="maxNegotiablePrice">Max Negotiable Price ($)</Label>
+              <Label htmlFor="maxNegotiablePrice">Max Negotiable Price (₹)</Label>
               <Input id="maxNegotiablePrice" name="maxNegotiablePrice" type="number" value={carData.maxNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
             </div>
           </div>
@@ -298,17 +299,14 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
                 {carData.imageUrls.map((url, index) => (
                   <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
                     <Image 
-                        src={url} // Use the relative path for preview
+                        src={url.startsWith('/') ? url : `https://placehold.co/40x40.png?text=Preview`} // Use relative if it starts with /, else placeholder
                         alt={`Preview of ${url.substring(url.lastIndexOf('/') + 1)}`}
                         width={40} 
                         height={40} 
                         className="object-cover rounded-sm mr-2 aspect-square"
-                        // Note: data-ai-hint is not very useful here as these are user-selected files
-                        // but you can add a generic one if needed or remove it.
                         data-ai-hint="car image" 
                         onError={(e) => { 
-                          // Fallback for local dev if image doesn't exist yet in public/assets/images
-                          (e.target as HTMLImageElement).src = `https://placehold.co/40x40.png?text=Preview`; 
+                          (e.target as HTMLImageElement).src = `https://placehold.co/40x40.png?text=No+Img`; 
                           (e.target as HTMLImageElement).alt = "Preview unavailable";
                         }}
                     />
@@ -390,4 +388,3 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     </Dialog>
   );
 }
-

@@ -1,4 +1,4 @@
-# **App Name**: Wheels on Clicks
+# **App Name**: Travel Yatra
 
 ## Core Features:
 

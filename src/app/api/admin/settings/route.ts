@@ -10,8 +10,7 @@ import type { ObjectId } from 'mongodb';
 
 const SiteSettingsSchema = z.object({
   siteTitle: z.string().min(1, "Site title is required"),
-  defaultCurrency: z.enum(['USD', 'EUR', 'GBP', 'INR']).default('USD'),
-  // faviconUrl: z.string().url("Favicon URL must be a valid URL").optional().or(z.literal('')), // Removed
+  defaultCurrency: z.enum(['USD', 'EUR', 'GBP', 'INR']).default('INR'),
 });
 
 interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
@@ -38,8 +37,8 @@ export async function GET(req: NextRequest) {
     if (!settingsDoc) {
       // If no settings exist, return defaults or an empty object for admin to fill
       const defaultSettings: SiteSettings = {
-        siteTitle: 'Wheels on Clicks',
-        defaultCurrency: 'USD',
+        siteTitle: 'Travel Yatra',
+        defaultCurrency: 'INR',
       };
       return NextResponse.json(defaultSettings, { status: 200 });
     }

@@ -37,9 +37,9 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
 
   useEffect(() => {
     if (isOpen) {
-      let initialBotMessage = `Hello! I'm here to help you negotiate the price for the ${car.name}. The current daily price is $${car.pricePerDay}.`;
+      let initialBotMessage = `Hello! I'm here to help you negotiate the price for the ${car.name}. The current daily price is ₹${car.pricePerDay}.`;
       if (car.minNegotiablePrice) {
-        initialBotMessage += ` We might be able to go as low as $${car.minNegotiablePrice}/day.`;
+        initialBotMessage += ` We might be able to go as low as ₹${car.minNegotiablePrice}/day.`;
       }
       initialBotMessage += ` Let's talk about a price for your ${rentalDays} day rental!`;
       
@@ -103,7 +103,7 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
       if (result.isFinalOffer) {
         toast({
           title: "Final Offer",
-          description: `The current negotiated daily price of $${result.negotiatedPrice} is our best offer.`,
+          description: `The current negotiated daily price of ₹${result.negotiatedPrice} is our best offer.`,
         });
       }
 
@@ -134,7 +134,7 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
             <Bot className="h-6 w-6 mr-2 text-primary" /> Price Negotiation Assistant
           </DialogTitle>
           <DialogDescription>
-            For {car.name}. Current daily price: ${negotiatedPrice}.
+            For {car.name}. Current daily price: ₹{negotiatedPrice}.
             {isFinalOffer && <span className="text-destructive font-semibold"> (Final Offer)</span>}
           </DialogDescription>
         </DialogHeader>

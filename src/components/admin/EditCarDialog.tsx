@@ -237,15 +237,15 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
               </Select>
             </div>
           </div>
-          <div><Label htmlFor="edit-pricePerDay">Price Per Day ($)</Label><Input id="edit-pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay ?? ''} onChange={handleChange} required min="0.01" step="0.01" /></div>
+          <div><Label htmlFor="edit-pricePerDay">Price Per Day (₹)</Label><Input id="edit-pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay ?? ''} onChange={handleChange} required min="0.01" step="0.01" /></div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="edit-minNegotiablePrice">Min Negotiable Price ($)</Label>
+              <Label htmlFor="edit-minNegotiablePrice">Min Negotiable Price (₹)</Label>
               <Input id="edit-minNegotiablePrice" name="minNegotiablePrice" type="number" value={carData.minNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
             </div>
             <div>
-              <Label htmlFor="edit-maxNegotiablePrice">Max Negotiable Price ($)</Label>
+              <Label htmlFor="edit-maxNegotiablePrice">Max Negotiable Price (₹)</Label>
               <Input id="edit-maxNegotiablePrice" name="maxNegotiablePrice" type="number" value={carData.maxNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
             </div>
           </div>
@@ -275,7 +275,7 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
                 {(carData.imageUrls || []).map((url, index) => (
                   <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
                     <Image 
-                        src={url.startsWith('http') ? url : `https://placehold.co/40x40.png?text=Preview`} // Use actual URL if it's absolute, else placeholder
+                        src={url.startsWith('/') ? url : `https://placehold.co/40x40.png?text=Preview`} // Use relative if it starts with /, else placeholder
                         alt={`Preview of ${url.substring(url.lastIndexOf('/') + 1)}`}
                         width={40} 
                         height={40} 

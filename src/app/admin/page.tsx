@@ -5,7 +5,7 @@ import { DollarSign, Users, Car, GanttChartSquare } from 'lucide-react';
 
 // Mock stats for dashboard
 const stats = [
-  { title: 'Total Revenue', value: '$12,500', icon: DollarSign, color: 'text-primary' },
+  { title: 'Total Revenue', value: '₹12,500', icon: DollarSign, color: 'text-primary' },
   { title: 'Active Users', value: '150', icon: Users, color: 'text-accent' },
   { title: 'Cars Listed', value: '25', icon: Car, color: 'text-primary' },
   { title: 'Pending Bookings', value: '5', icon: GanttChartSquare, color: 'text-accent' },

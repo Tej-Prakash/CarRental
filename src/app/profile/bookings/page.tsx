@@ -200,7 +200,7 @@ export default function MyBookingsPage() {
                       </CardHeader>
                       <CardContent className="p-0 flex-grow space-y-2 text-sm">
                         <p><strong>Dates:</strong> {format(parseISO(booking.startDate), "MMM dd, yyyy")} - {format(parseISO(booking.endDate), "MMM dd, yyyy")}</p>
-                        <p><strong>Total Price:</strong> ${booking.totalPrice.toFixed(2)}</p>
+                        <p><strong>Total Price:</strong> ₹{booking.totalPrice.toFixed(2)}</p>
                         {booking.createdAt && <p className="text-xs text-muted-foreground">Booked on: {format(parseISO(booking.createdAt), "MMM dd, yyyy, HH:mm")}</p>}
                       </CardContent>
                       <CardFooter className="p-0 mt-4 pt-4 border-t md:self-end">
@@ -258,4 +258,3 @@ export default function MyBookingsPage() {
     </div>
   );
 }
-

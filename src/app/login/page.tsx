@@ -82,7 +82,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <LogIn className="mx-auto h-12 w-12 text-primary mb-2" />
           <CardTitle className="text-2xl font-bold text-primary">Welcome Back!</CardTitle>
-          <CardDescription>Sign in to continue your journey with Wheels on Clicks.</CardDescription>
+          <CardDescription>Sign in to continue your journey with Travel Yatra.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">

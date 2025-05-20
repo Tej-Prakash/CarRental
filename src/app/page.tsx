@@ -30,7 +30,7 @@ export default function HomePage() {
       <section className="text-center py-12 md:py-20 bg-card rounded-lg shadow-lg">
         <div className="container mx-auto px-6">
           <h1 className="text-4xl md:text-5xl font-bold text-primary mb-6">
-            Welcome to Wheels on Clicks
+            Welcome to Travel Yatra
           </h1>
           <p className="text-lg md:text-xl text-foreground/80 mb-8 max-w-3xl mx-auto">
             Discover the freedom of the open road with our premium car rental service. We offer a diverse fleet, competitive prices, and a seamless booking experience.

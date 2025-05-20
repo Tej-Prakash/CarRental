@@ -13,7 +13,7 @@ export default function Footer() {
           <Link href="/cars" className="text-sm hover:text-primary transition-colors px-2">Browse Cars</Link>
           {/* Add other links like Contact, FAQ, Terms of Service as needed */}
         </div>
-        <p>&copy; {new Date().getFullYear()} Wheels on Clicks. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} Travel Yatra. All rights reserved.</p>
         <p className="text-sm mt-1">Your reliable partner for car rentals.</p>
       </div>
     </footer>

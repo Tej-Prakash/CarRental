@@ -33,7 +33,7 @@ export default function LearnMorePage() {
     <div className="container mx-auto py-12 px-4 space-y-12">
       <section className="text-center">
         <h1 className="text-4xl md:text-5xl font-bold text-primary mb-6">
-          Discover Wheels on Clicks
+          Discover Travel Yatra
         </h1>
         <p className="text-lg md:text-xl text-foreground/80 mb-8 max-w-3xl mx-auto">
           Learn more about our innovative features, commitment to value, and how we're revolutionizing the car rental experience.
@@ -49,10 +49,10 @@ export default function LearnMorePage() {
                     </CardHeader>
                     <CardContent className="p-0 space-y-4">
                         <p className="text-foreground/90 leading-relaxed">
-                        At Wheels on Clicks, we're not just another car rental service. We're a technology-driven platform designed to put you in control. We understand that finding the right car at the right price can be challenging, which is why we've built tools to make the process simpler, more transparent, and more engaging.
+                        At Travel Yatra, we're not just another car rental service. We're a technology-driven platform designed to put you in control. We understand that finding the right car at the right price can be challenging, which is why we've built tools to make the process simpler, more transparent, and more engaging.
                         </p>
                         <p className="text-foreground/90 leading-relaxed">
-                        Our core philosophy is built on providing exceptional value through innovation. Whether it's our AI negotiation assistant or our meticulously curated fleet, every aspect of Wheels on Clicks is designed with your satisfaction in mind.
+                        Our core philosophy is built on providing exceptional value through innovation. Whether it's our AI negotiation assistant or our meticulously curated fleet, every aspect of Travel Yatra is designed with your satisfaction in mind.
                         </p>
                     </CardContent>
                  </div>
@@ -91,7 +91,7 @@ export default function LearnMorePage() {
       <section className="text-center py-8 bg-secondary/50 rounded-lg">
         <h2 className="text-3xl font-bold text-primary mb-4">Ready to Find Your Perfect Ride?</h2>
         <p className="text-lg text-foreground/80 mb-6 max-w-2xl mx-auto">
-          Experience the Wheels on Clicks difference today. Browse our cars and start negotiating your best deal.
+          Experience the Travel Yatra difference today. Browse our cars and start negotiating your best deal.
         </p>
         <Button size="lg" asChild>
           <Link href="/cars">Browse Cars Now</Link>
