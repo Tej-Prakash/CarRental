@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { CarFront, LogIn, UserPlus, HomeIcon, Shield, UserCircle, LogOut } from 'lucide-react';
+import { CarFront, LogIn, UserPlus, HomeIcon, Shield, UserCircle, LogOut, CalendarCheck2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ const defaultNavItems = [
 
 const authNavItems = [
   { href: '/profile', label: 'Profile', icon: UserCircle, authRequired: true, publicOnly: false },
+  { href: '/profile/bookings', label: 'My Bookings', icon: CalendarCheck2, authRequired: true, publicOnly: false },
   { href: '/admin', label: 'Admin', icon: Shield, authRequired: true, publicOnly: false, adminOnly: true }, 
 ];
 
@@ -73,6 +74,8 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
     } else {
       setIsAdmin(false);
     }
+  // Check on pathname change to re-evaluate auth status if user logs in/out on another tab or window.
+  // More robust solutions might involve global state management or broadcast channels.
   }, [pathname]); 
 
   if (pathname.startsWith('/admin')) {

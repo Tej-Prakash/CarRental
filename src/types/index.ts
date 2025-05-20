@@ -55,7 +55,7 @@ export interface Booking {
   startDate: string; // ISO date string
   endDate: string; // ISO date string
   totalPrice: number;
-  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
+  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Cancellation Requested' | 'Cancellation Rejected';
   createdAt?: string; // ISO date string
   updatedAt?: string; // ISO date string
 }
