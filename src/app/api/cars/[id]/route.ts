@@ -15,7 +15,10 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    // Explicitly resolve params to satisfy Next.js/Turbopack check
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams.id;
+
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: 'Invalid car ID format' }, { status: 400 });
     }

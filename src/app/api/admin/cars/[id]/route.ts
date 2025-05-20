@@ -6,7 +6,7 @@ import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
 import type { Car } from '@/types';
 import { ObjectId } from 'mongodb';
-import { UpdateCarInputSchema, type UpdateCarInput } from '@/lib/schemas/car'; // Updated import
+import { UpdateCarInputSchema, type UpdateCarInput } from '@/lib/schemas/car'; 
 
 interface CarDocument extends Omit<Car, 'id'> {
   _id: ObjectId;
@@ -23,7 +23,10 @@ export async function GET(
   }
 
   try {
-    const { id } = params;
+    // Explicitly resolve params to satisfy Next.js/Turbopack check
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams.id;
+
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: 'Invalid car ID format' }, { status: 400 });
     }
@@ -82,7 +85,10 @@ export async function PUT(
   }
 
   try {
-    const { id } = params;
+    // Explicitly resolve params to satisfy Next.js/Turbopack check
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams.id;
+
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: 'Invalid car ID format' }, { status: 400 });
     }
@@ -173,7 +179,10 @@ export async function DELETE(
   }
 
   try {
-    const { id } = params;
+    // Explicitly resolve params to satisfy Next.js/Turbopack check
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams.id;
+
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: 'Invalid car ID format' }, { status: 400 });
     }
