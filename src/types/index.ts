@@ -33,7 +33,6 @@ export interface UserDocument {
   type: 'PhotoID' | 'DrivingLicense';
   fileName: string;
   uploadedAt: string; // ISO date string
-  // In a real app, you'd have a fileUrl here pointing to cloud storage
 }
 
 export interface User {
@@ -60,6 +59,8 @@ export interface Booking {
   status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Cancellation Requested' | 'Cancellation Rejected';
   createdAt?: string; // ISO date string
   updatedAt?: string; // ISO date string
+  razorpayOrderId?: string; // For Razorpay
+  razorpayPaymentId?: string; // For Razorpay
 }
 
 export interface SiteSettings {
@@ -68,4 +69,3 @@ export interface SiteSettings {
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
   updatedAt?: string; // ISO date string
 }
-

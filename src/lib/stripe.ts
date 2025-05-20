@@ -1,13 +1,13 @@
-// src/lib/stripe.ts
-import Stripe from 'stripe';
+MONGODB_URI="YOUR_MONGODB_CONNECTION_STRING"
+JWT_SECRET="YOUR_VERY_STRONG_JWT_SECRET_KEY_HERE"
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+# Remove Stripe keys
+# STRIPE_SECRET_KEY="sk_test_YOUR_STRIPE_SECRET_KEY"
+# NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_YOUR_STRIPE_PUBLISHABLE_KEY"
 
-if (!stripeSecretKey) {
-  throw new Error('Stripe secret key not found. Please set STRIPE_SECRET_KEY in your .env file.');
-}
+# Add Razorpay keys
+RAZORPAY_KEY_ID="YOUR_RAZORPAY_KEY_ID"
+RAZORPAY_KEY_SECRET="YOUR_RAZORPAY_KEY_SECRET"
+NEXT_PUBLIC_RAZORPAY_KEY_ID="YOUR_RAZORPAY_KEY_ID" # Key ID is public
 
-export const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2024-06-20', // Use the latest API version
-  typescript: true,
-});
+NEXT_PUBLIC_APP_URL="http://localhost:9002" # Or your deployed app URL
