@@ -1,3 +1,4 @@
+
 "use client";
 
 import CarCard from '@/components/CarCard';
@@ -5,23 +6,50 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockCars } from '@/lib/mockData';
-import { Car, Filter, Search } from 'lucide-react';
+import type { Car as CarType } from '@/types';
+import { Car, Filter, Search, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function CarsPage() {
-  const [cars, setCars] = useState(mockCars); // In a real app, fetch this data
+  const [allCars, setAllCars] = useState<CarType[]>([]); 
+  const [displayedCars, setDisplayedCars] = useState<CarType[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [carTypeFilter, setCarTypeFilter] = useState('all');
   const [priceFilter, setPriceFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
   
-  // Debounce search term
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+
+  useEffect(() => {
+    const fetchCarsData = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/cars');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch cars and parse error' }));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+        const data: CarType[] = await response.json();
+        setAllCars(data);
+        setDisplayedCars(data); 
+      } catch (error: any) {
+        toast({ title: "Error fetching cars", description: error.message, variant: "destructive" });
+        setAllCars([]); 
+        setDisplayedCars([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCarsData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-    }, 500);
+    }, 300); // Reduced debounce time
 
     return () => {
       clearTimeout(handler);
@@ -29,14 +57,15 @@ export default function CarsPage() {
   }, [searchTerm]);
 
 
-  // Filtering logic (client-side for this mock)
   useEffect(() => {
-    let filteredCars = mockCars;
+    if (isLoading) return; 
+    let filteredCars = allCars;
 
     if (debouncedSearchTerm) {
       filteredCars = filteredCars.filter(car => 
         car.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        car.description.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+        car.description.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        (car.longDescription && car.longDescription.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
       );
     }
 
@@ -45,24 +74,26 @@ export default function CarsPage() {
     }
 
     if (priceFilter !== 'all') {
-      const [min, max] = priceFilter.split('-').map(Number);
-      filteredCars = filteredCars.filter(car => car.pricePerDay >= min && (max ? car.pricePerDay <= max : true));
+      const [minStr, maxStr] = priceFilter.split('-');
+      const min = Number(minStr);
+      const max = maxStr ? Number(maxStr) : Infinity; // Handle '100-' as 100 to Infinity
+      filteredCars = filteredCars.filter(car => car.pricePerDay >= min && (max === Infinity ? true : car.pricePerDay <= max));
     }
     
-    setCars(filteredCars);
-  }, [debouncedSearchTerm, carTypeFilter, priceFilter]);
+    setDisplayedCars(filteredCars);
+  }, [debouncedSearchTerm, carTypeFilter, priceFilter, allCars, isLoading]);
 
 
-  const carTypes = ['all', ...new Set(mockCars.map(car => car.type))];
+  const carTypes = ['all', ...Array.from(new Set(allCars.map(car => car.type)))];
   const priceRanges = [
     { label: 'All Prices', value: 'all' },
     { label: '$0 - $50', value: '0-50' },
     { label: '$50 - $100', value: '50-100' },
-    { label: '$100+', value: '100-' },
+    { label: '$100+', value: '100-' }, // Representing $100 and above
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 container mx-auto py-8 px-4">
       <section className="bg-card p-6 rounded-lg shadow-md">
         <h1 className="text-3xl font-bold text-primary mb-2 flex items-center">
           <Car className="h-8 w-8 mr-3 text-accent" />
@@ -70,7 +101,7 @@ export default function CarsPage() {
         </h1>
         <p className="text-muted-foreground mb-6">Find the perfect vehicle for your next adventure.</p>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
           <div>
             <Label htmlFor="search" className="text-sm font-medium">Search by Name/Keyword</Label>
             <div className="relative mt-1">
@@ -111,25 +142,32 @@ export default function CarsPage() {
               </SelectContent>
             </Select>
           </div>
-          {/* Date filter placeholder, can be implemented with Calendar component */}
+          {/* Date filter placeholder, can be implemented with Calendar component 
           <div>
             <Label htmlFor="dateRange" className="text-sm font-medium">Date Range</Label>
             <Input id="dateRange" type="text" placeholder="Select dates (coming soon)" disabled className="mt-1" />
           </div>
+          */}
         </div>
       </section>
 
-      {cars.length > 0 ? (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {cars.map(car => (
-            <CarCard key={car.id} car={car} />
-          ))}
+      {isLoading ? (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
         </div>
-      ) : (
+      ) : displayedCars.length > 0 ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedCars.map(car => (
+              <CarCard key={car.id} car={car} />
+            ))}
+          </div>
+        ) : (
         <div className="text-center py-10">
           <Filter className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <p className="text-xl text-muted-foreground">No cars match your current filters.</p>
-          <p className="text-sm text-muted-foreground mt-2">Try adjusting your search or filter criteria.</p>
+          <p className="text-xl text-muted-foreground">
+            {allCars.length === 0 ? "No cars available at the moment." : "No cars match your current filters."}
+          </p>
+          {allCars.length > 0 && <p className="text-sm text-muted-foreground mt-2">Try adjusting your search or filter criteria.</p>}
         </div>
       )}
     </div>

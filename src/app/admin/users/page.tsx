@@ -5,9 +5,8 @@ import { useState, useEffect } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { mockUsers } from '@/lib/mockData';
 import type { User } from '@/types';
-import { PlusCircle, Edit3, Trash2, MoreHorizontal, UserCircle2 } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, MoreHorizontal, UserCircle2, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,40 +17,76 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
+import AddUserDialog from '@/components/admin/AddUserDialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+       if (!token) {
+        toast({ title: "Authentication Error", description: "No auth token found. Please log in.", variant: "destructive" });
+        setIsLoading(false);
+        return;
+      }
+      const response = await fetch('/api/admin/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch users and parse error' }));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setUsers(data);
+    } catch (error: any) {
+      toast({ title: "Error fetching users", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setUsers(mockUsers);
+    fetchUsers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleAddUser = () => {
-    console.log("Add new user clicked");
-    // TODO: Navigate to add user page or open modal
-  };
 
   const handleEditUser = (userId: string) => {
     console.log("Edit user:", userId);
     // TODO: Navigate to edit user page or open modal
+    toast({ title: "Edit (Demo)", description: `Would edit user ${userId}. Feature not implemented.`});
   };
 
   const handleDeleteUser = (userId: string) => {
     console.log("Delete user:", userId);
-    // TODO: Show confirmation and delete
-    setUsers(prevUsers => prevUsers.filter(user => user.id !== userId)); // Mock delete
+    // TODO: Implement actual delete API call with confirmation
+    toast({ title: "Delete (Demo)", description: `Would delete user ${userId}. Actual API call needed.`});
+    // setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
   };
 
   return (
     <div>
       <AdminPageHeader title="Manage Users" description="View, edit, or add system users.">
-        <Button onClick={handleAddUser}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New User
-        </Button>
+        <AddUserDialog onUserAdded={fetchUsers}>
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New User
+          </Button>
+        </AddUserDialog>
       </AdminPageHeader>
       <Card className="shadow-sm">
         <CardContent className="p-0">
-          <Table>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+          ) : users.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">No users found. Add a new user to get started.</p>
+          ) : (
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[60px] hidden sm:table-cell">Avatar</TableHead>
@@ -101,8 +136,8 @@ export default function AdminUsersPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
-          {users.length === 0 && <p className="text-center text-muted-foreground py-8">No users found.</p>}
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
