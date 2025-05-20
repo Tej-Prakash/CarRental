@@ -1,3 +1,4 @@
+
 // src/app/api/checkout/sessions/route.ts
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     const existingBookings = await db.collection<Booking>('bookings').find({
       carId: carId,
-      status: 'Confirmed', // Only check against confirmed bookings for availability
+      status: 'Confirmed', 
       $or: [
         { startDate: { $lt: endDateStr }, endDate: { $gt: startDateStr } },
       ],
@@ -70,9 +71,8 @@ export async function POST(req: NextRequest) {
      if (rentalDays < 1) {
         return NextResponse.json({ message: 'Minimum rental duration is 1 day.' }, { status: 400 });
     }
-    const totalPrice = rentalDays * car.pricePerDay; // Price in dollars
+    const totalPrice = rentalDays * car.pricePerDay; 
 
-    // Create booking in DB first (simplified flow)
     const nowISO = new Date().toISOString();
     const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : undefined;
 
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       startDate: startDateStr,
       endDate: endDateStr,
       totalPrice,
-      status: 'Confirmed', // Simplified: Confirming before payment
+      status: 'Confirmed', // Simplified: Confirming before payment. For production, use 'Pending' and confirm via webhook.
       createdAt: nowISO,
       updatedAt: nowISO,
     };
@@ -96,9 +96,8 @@ export async function POST(req: NextRequest) {
     }
     const newBookingId = bookingResult.insertedId.toHexString();
 
-    console.log(`SIMULATED EMAIL: Booking ${newBookingId} for ${car.name} by ${userName} confirmed (pending payment).`);
+    console.log(`SIMULATED EMAIL: Booking ${newBookingId} for ${car.name} by ${userName} initiated, proceeding to payment.`);
 
-    // Create Stripe Checkout Session
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
 
     const session = await stripe.checkout.sessions.create({
@@ -106,31 +105,29 @@ export async function POST(req: NextRequest) {
       line_items: [
         {
           price_data: {
-            currency: 'usd', // Assuming USD, adjust if currency is dynamic
+            currency: 'usd', 
             product_data: {
               name: `${car.name} - Rental (${rentalDays} day${rentalDays !== 1 ? 's' : ''})`,
-              images: primaryImageUrl ? [primaryImageUrl] : [],
+              images: primaryImageUrl ? [primaryImageUrl] : [], // Stripe wants absolute URLs for images if not serving from Stripe itself.
             },
-            unit_amount: Math.round(totalPrice * 100), // Stripe expects amount in cents
+            unit_amount: Math.round(totalPrice * 100), 
           },
           quantity: 1,
         },
       ],
       mode: 'payment',
       success_url: `${appUrl}/booking/success?booking_id=${newBookingId}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/cars/${carId}`,
+      cancel_url: `${appUrl}/cars/${carId}`, // Or a dedicated cancel page
       metadata: {
         bookingId: newBookingId,
         userId: userId,
         carId: carId,
       },
-      customer_email: authResult.user.email, // Pre-fill customer email
+      customer_email: authResult.user.email, 
     });
 
     if (!session.id) {
-      // If session creation fails, ideally, we would roll back the booking or mark it as 'failed_payment_initiation'
-      // For now, this is a simplified error.
-      await db.collection('bookings').updateOne({ _id: new ObjectId(newBookingId) }, { $set: { status: 'Pending' } }); // Revert to pending if stripe fails
+      await db.collection('bookings').updateOne({ _id: new ObjectId(newBookingId) }, { $set: { status: 'Pending' } }); 
       throw new Error('Failed to create Stripe session.');
     }
     
@@ -141,3 +138,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: error.message || 'Failed to create checkout session' }, { status: 500 });
   }
 }
+

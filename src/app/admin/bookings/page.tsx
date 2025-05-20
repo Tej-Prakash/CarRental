@@ -65,11 +65,12 @@ export default function AdminBookingsPage() {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsLoading(false);
-          return;
+        } else {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch bookings and parse error' }));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
-        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch bookings and parse error' }));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        setIsLoading(false);
+        return;
       }
       const data: Booking[] = await response.json();
       setBookings(data);
@@ -103,7 +104,7 @@ export default function AdminBookingsPage() {
     } else if (action === 'reject') {
       title = 'Reject Cancellation Request?';
       description = `Are you sure you want to reject the cancellation for booking ID ${booking.id.substring(0,8)}...? This will revert status to 'Confirmed'.`;
-      newStatus = 'Confirmed';
+      newStatus = 'Confirmed'; // Could also be 'Cancellation Rejected' based on desired flow
     } else if (action === 'delete') {
       title = 'Delete Booking?';
       description = `Are you sure you want to delete booking ID ${booking.id.substring(0,8)}...? This action cannot be undone. (Note: Backend for delete not yet implemented).`;
@@ -145,22 +146,19 @@ export default function AdminBookingsPage() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('authUser');
             router.push('/login');
-            // No need to throw error here as we are redirecting
           } else {
             const result = await response.json().catch(()=> ({message: `Failed to ${action} cancellation`}));
             throw new Error(result.message || `Failed to ${action} cancellation`);
           }
         } else {
-            const result = await response.json();
+            // const result = await response.json(); // Contains updated booking
             toast({ title: `Cancellation ${action === 'approve' ? 'Approved' : 'Rejected'}`, description: `Booking ${bookingId.substring(0,8)} status updated to ${newStatus}.` });
         }
       
       } else if (action === 'delete') {
-        // TODO: Implement actual DELETE API call
-        // For now, just show a toast and filter locally (if desired, but re-fetch is better)
         toast({ title: "Delete (Demo)", description: `Would delete booking ${bookingId}. API not implemented.`, variant: "destructive" });
       }
-      fetchBookings(); // Refresh the list
+      fetchBookings(); 
     } catch (error: any) {
       toast({ title: `Error ${action} booking`, description: error.message, variant: "destructive" });
     } finally {
@@ -175,9 +173,9 @@ export default function AdminBookingsPage() {
     switch (status) {
       case 'Confirmed': return 'default'; 
       case 'Pending': return 'secondary';
-      case 'Completed': return 'outline'; // Consider a success-like variant if Shadcn has one
+      case 'Completed': return 'outline'; 
       case 'Cancelled': return 'destructive';
-      case 'Cancellation Requested': return 'secondary'; // Could be 'warning' if you add custom variants
+      case 'Cancellation Requested': return 'secondary';
       case 'Cancellation Rejected': return 'destructive';
       default: return 'secondary';
     }
@@ -213,12 +211,13 @@ export default function AdminBookingsPage() {
                   <TableRow key={booking.id}>
                     <TableCell className="hidden sm:table-cell">
                       <Image 
-                        src={booking.carImageUrl || 'https://placehold.co/60x40.png'} 
+                        src={booking.carImageUrl || '/assets/images/default-car.png'} 
                         alt={booking.carName || 'Car image'}
                         width={60} 
                         height={40} 
                         className="rounded object-cover aspect-[3/2]"
                         data-ai-hint="car"
+                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/60x40.png?text=No+Img';}}
                       />
                     </TableCell>
                     <TableCell className="font-medium">{booking.id.substring(0,8)}...</TableCell>
@@ -260,7 +259,7 @@ export default function AdminBookingsPage() {
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => confirmAction(booking, 'delete')} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete/Cancel Booking
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete/Cancel Booking (Demo)
                               </DropdownMenuItem>
                             </>
                           )}

@@ -51,7 +51,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       try {
         const response = await fetch(`/api/cars/${params.id}`);
         if (!response.ok) {
-          // No need to check for 401 here as this is a public API
           const errorData = await response.json().catch(() => ({ message: `Car not found or server error (${response.status})` }));
           throw new Error(errorData.message);
         }
@@ -150,11 +149,12 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsBookingLoading(false);
-          return;
+        } else {
+          const sessionData = await response.json().catch(()=>({message: 'Failed to create checkout session.'}));
+          throw new Error(sessionData.message || 'Failed to create checkout session.');
         }
-        const sessionData = await response.json().catch(()=>({message: 'Failed to create checkout session.'}));
-        throw new Error(sessionData.message || 'Failed to create checkout session.');
+        setIsBookingLoading(false);
+        return;
       }
       const sessionData = await response.json();
 
@@ -222,7 +222,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   const rentalDays = dateRange?.from && dateRange?.to ? differenceInCalendarDays(dateRange.to, dateRange.from) : 0;
   const totalPrice = rentalDays > 0 ? rentalDays * car.pricePerDay : 0;
   const currencySymbol = siteSettings.defaultCurrency === 'INR' ? '₹' : siteSettings.defaultCurrency === 'EUR' ? '€' : siteSettings.defaultCurrency === 'GBP' ? '£' : '$';
-  const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : 'https://placehold.co/800x600.png';
+  const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
 
 
   return (
@@ -237,6 +237,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
               className="object-cover"
               data-ai-hint={car.aiHint || 'car'}
               priority
+              onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x600.png?text=Image+Error';}}
             />
           </div>
           <div className="p-6 md:p-8 flex flex-col">
@@ -377,3 +378,4 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
+

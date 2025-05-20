@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
 import type { Car } from '@/types';
-import { CarInputSchema, type CarInput } from '@/lib/schemas/car'; // Updated import
+import { CarInputSchema, type CarInput } from '@/lib/schemas/car'; 
 import { ObjectId } from 'mongodb';
 
 interface CarDocument extends Omit<Car, 'id'> {
@@ -28,10 +28,15 @@ export async function POST(req: NextRequest) {
     
     const carData: CarInput = validation.data;
 
+    // Here, carData.imageUrls are expected to be relative paths like /assets/images/filename.jpg
+    // In a real scenario with actual file uploads, this endpoint would handle multipart/form-data,
+    // save files to a designated storage (e.g., public/assets/images/ or a cloud storage),
+    // and then store the generated paths/URLs in the database.
+    // For this simulation, we trust the client-generated paths.
+
     const client = await clientPromise;
     const db = client.db();
     
-    // Ensure dates are stored as ISO strings if they are not already
     const newCarDocument = {
         ...carData,
         availability: carData.availability.map(a => ({
@@ -46,11 +51,10 @@ export async function POST(req: NextRequest) {
         throw new Error('Failed to insert car into database.');
     }
     
-    // Construct the response object based on Car type, ensuring dates are strings
     const insertedCar: Car = {
         id: result.insertedId.toHexString(),
-        ...carData, // Spread validated and typed data
-        availability: newCarDocument.availability, // Use the ISO string dates
+        ...carData, 
+        availability: newCarDocument.availability, 
     };
 
     return NextResponse.json(insertedCar, { status: 201 });
@@ -111,3 +115,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch cars' }, { status: 500 });
   }
 }
+

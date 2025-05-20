@@ -23,7 +23,6 @@ export async function GET(
   }
 
   try {
-    // Explicitly resolve params to satisfy Next.js/Turbopack check
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams.id;
 
@@ -85,7 +84,6 @@ export async function PUT(
   }
 
   try {
-    // Explicitly resolve params to satisfy Next.js/Turbopack check
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams.id;
 
@@ -102,7 +100,10 @@ export async function PUT(
     
     const carDataToUpdate: UpdateCarInput = validation.data;
     
-    // Convert date strings in availability to Date objects if present
+    // If imageUrls are provided, they are expected to be relative paths like /assets/images/filename.jpg
+    // In a real scenario with actual file uploads, this endpoint would handle multipart/form-data for image updates.
+    // For this simulation, we trust the client-generated paths.
+
     if (carDataToUpdate.availability) {
       carDataToUpdate.availability = carDataToUpdate.availability.map(a => ({
         startDate: new Date(a.startDate).toISOString(),
@@ -110,7 +111,6 @@ export async function PUT(
       }));
     }
 
-    // Remove fields that are undefined to prevent $set with undefined values if not intended
     const updatePayload: { [key: string]: any } = {};
     for (const key in carDataToUpdate) {
       if (carDataToUpdate[key as keyof UpdateCarInput] !== undefined) {
@@ -136,7 +136,6 @@ export async function PUT(
       return NextResponse.json({ message: 'Car not found for update' }, { status: 404 });
     }
      if (result.modifiedCount === 0 && result.matchedCount > 0) {
-      // If no fields were actually changed, return the current car data
       const currentCar = await carsCollection.findOne({ _id: new ObjectId(id) });
       const { _id, ...rest } = currentCar!;
        const carResponse: Car = {
@@ -179,7 +178,6 @@ export async function DELETE(
   }
 
   try {
-    // Explicitly resolve params to satisfy Next.js/Turbopack check
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams.id;
 
@@ -208,9 +206,13 @@ export async function DELETE(
       return NextResponse.json({ message: 'Car not found for deletion' }, { status: 404 });
     }
 
+    // Note: This does NOT delete the actual image files from public/assets/images/.
+    // That would require fs operations, which are complex to manage here and depend on deployment.
+
     return NextResponse.json({ message: 'Car deleted successfully' }, { status: 200 });
   } catch (error: any) {
     console.error('Failed to delete car:', error);
     return NextResponse.json({ message: error.message || 'Failed to delete car' }, { status: 500 });
   }
 }
+

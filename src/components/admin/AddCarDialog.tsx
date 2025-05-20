@@ -89,16 +89,19 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      const newImageUrls = Array.from(files).map(file => {
-        return `https://placehold.co/600x400.png?text=${encodeURIComponent(file.name)}`;
+      const newImagePaths = Array.from(files).map(file => {
+        // Sanitize filename: replace spaces and special characters
+        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        // Generate a pseudo-unique path for simulation
+        return `/assets/images/${Date.now()}-${sanitizedFileName}`;
       });
-      // Append new selections, ensuring not to exceed the limit
+      
       setCarData(prev => ({ 
         ...prev, 
-        imageUrls: [...(prev.imageUrls || []), ...newImageUrls].slice(0, 5) 
+        imageUrls: [...(prev.imageUrls || []), ...newImagePaths].slice(0, 5) 
       }));
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""; // Clear file input for next selection
+        fileInputRef.current.value = ""; 
       }
     }
   };
@@ -134,7 +137,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     setIsLoading(true);
 
     if (carData.imageUrls.length === 0) {
-      toast({ title: "Validation Error", description: "Please 'upload' at least one image by selecting files.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Please select at least one image.", variant: "destructive" });
       setIsLoading(false);
       return;
     }
@@ -191,7 +194,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload), // Sending JSON with image paths
       });
 
       if (!response.ok) {
@@ -200,17 +203,17 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsLoading(false);
-          return;
+        } else {
+          const result = await response.json().catch(()=> ({message: 'Failed to add car'}));
+          const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
+          throw new Error(errorMsg || 'Failed to add car');
         }
-        const result = await response.json().catch(()=> ({message: 'Failed to add car'}));
-        const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
-        throw new Error(errorMsg || 'Failed to add car');
+      } else {
+        const result = await response.json();
+        toast({ title: "Car Added", description: `${result.name} has been successfully added.` });
+        setIsOpen(false);
+        onCarAdded(); 
       }
-      const result = await response.json();
-      toast({ title: "Car Added", description: `${result.name} has been successfully added.` });
-      setIsOpen(false);
-      onCarAdded(); 
     } catch (error: any) {
       toast({ title: "Error Adding Car", description: error.message, variant: "destructive" });
     } finally {
@@ -235,8 +238,13 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Important: Image Handling Simulation</AlertTitle>
           <AlertDescription>
-            This form <strong className="text-destructive-foreground">simulates image selection</strong>. When you select files, placeholder image URLs are generated (e.g., from placehold.co using the filename).
-            For the application to display actual car images, you must host them externally (e.g., on a cloud storage service) and then manage their real URLs. The current system saves these placeholder URLs.
+            This form simulates image selection. When you select files, relative paths (e.g., `/assets/images/your-file.jpg`) are generated.
+            For these images to display in the application, you must:
+            <ol className="list-decimal list-inside pl-4 mt-1">
+              <li>Manually create the folder `public/assets/images/` in your project.</li>
+              <li>Place image files with matching names into this folder.</li>
+            </ol>
+            Actual file upload and server-side storage are not implemented here. For production, use a cloud storage service.
           </AlertDescription>
         </Alert>
 
@@ -280,25 +288,32 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
                   </Label>
                   <p className="pl-1">or drag and drop (visual only)</p>
                 </div>
-                <p className="text-xs text-muted-foreground">PNG, JPG, GIF supported for selection.</p>
+                <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WebP supported for selection.</p>
               </div>
             </div>
             
             {carData.imageUrls.length > 0 && (
               <div className="mt-2 space-y-2">
-                <Label>Selected Image Placeholders ({carData.imageUrls.length}/5):</Label>
+                <Label>Selected Images ({carData.imageUrls.length}/5):</Label>
                 {carData.imageUrls.map((url, index) => (
                   <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
                     <Image 
-                        src={url} 
-                        alt={`Placeholder for ${decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}`}
+                        src={url} // Use the relative path for preview
+                        alt={`Preview of ${url.substring(url.lastIndexOf('/') + 1)}`}
                         width={40} 
                         height={40} 
                         className="object-cover rounded-sm mr-2 aspect-square"
-                        data-ai-hint="car placeholder"
+                        // Note: data-ai-hint is not very useful here as these are user-selected files
+                        // but you can add a generic one if needed or remove it.
+                        data-ai-hint="car image" 
+                        onError={(e) => { 
+                          // Fallback for local dev if image doesn't exist yet in public/assets/images
+                          (e.target as HTMLImageElement).src = `https://placehold.co/40x40.png?text=Preview`; 
+                          (e.target as HTMLImageElement).alt = "Preview unavailable";
+                        }}
                     />
-                    <span className="truncate max-w-[60%] text-ellipsis" title={decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}>
-                        {decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}
+                    <span className="truncate max-w-[60%] text-ellipsis" title={url.substring(url.lastIndexOf('/') + 1)}>
+                        {url.substring(url.lastIndexOf('/') + 1)}
                     </span>
                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleImageUrlRemove(url)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -375,3 +390,4 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     </Dialog>
   );
 }
+

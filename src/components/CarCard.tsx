@@ -11,7 +11,10 @@ interface CarCardProps {
 }
 
 export default function CarCard({ car }: CarCardProps) {
-  const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : 'https://placehold.co/600x400.png';
+  // Use the first image URL if available, otherwise a local fallback or a placeholder
+  const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 
+    ? car.imageUrls[0] 
+    : '/assets/images/default-car.png'; // Consider adding a default local image
   
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
@@ -23,8 +26,9 @@ export default function CarCard({ car }: CarCardProps) {
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover"
-            data-ai-hint={car.aiHint || 'car'} // Use general aiHint or fallback
+            data-ai-hint={car.aiHint || 'car'}
             priority={false}
+            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/600x400.png?text=Image+Error';}}
           />
         </div>
       </CardHeader>
@@ -63,3 +67,4 @@ export default function CarCard({ car }: CarCardProps) {
     </Card>
   );
 }
+

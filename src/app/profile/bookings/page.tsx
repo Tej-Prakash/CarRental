@@ -53,11 +53,12 @@ export default function MyBookingsPage() {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsLoading(false);
-          return;
+        } else {
+          const errorData = await response.json().catch(() => ({ message: "Failed to fetch your bookings." }));
+          throw new Error(errorData.message);
         }
-        const errorData = await response.json().catch(() => ({ message: "Failed to fetch your bookings." }));
-        throw new Error(errorData.message);
+        setIsLoading(false);
+        return;
       }
       const data: Booking[] = await response.json();
       setBookings(data);
@@ -177,11 +178,12 @@ export default function MyBookingsPage() {
                   <div className="grid md:grid-cols-12 gap-0">
                     <div className="md:col-span-3 relative aspect-video md:aspect-auto min-h-[150px] md:min-h-full">
                        <Image 
-                        src={booking.carImageUrl || 'https://placehold.co/300x200.png'} 
+                        src={booking.carImageUrl || '/assets/images/default-car.png'} 
                         alt={booking.carName || 'Car image'}
                         fill
                         className="object-cover"
                         data-ai-hint="car rental"
+                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/300x200.png?text=No+Img';}}
                       />
                     </div>
                     <div className="md:col-span-9 p-4 flex flex-col">
@@ -256,3 +258,4 @@ export default function MyBookingsPage() {
     </div>
   );
 }
+

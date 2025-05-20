@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       startDate: startDateStr,
       endDate: endDateStr,
       totalPrice,
-      status: 'Confirmed' as Booking['status'],
+      status: 'Confirmed' as Booking['status'], // Simplified: Confirming before payment in non-Stripe flow
       createdAt: nowISO,
       updatedAt: nowISO,
     };
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         ...newBookingData,
     };
 
-    console.log('Simulating email notification for booking:', createdBooking.id, 'to user:', userName);
+    console.log('SIMULATED EMAIL: Booking', createdBooking.id, 'for', car.name, 'by', userName, 'confirmed. (Direct Booking API)');
 
     return NextResponse.json(createdBooking, { status: 201 });
 
@@ -109,3 +109,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: error.message || 'Failed to create booking' }, { status: 500 });
   }
 }
+

@@ -61,11 +61,12 @@ export default function AdminCarsPage() {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsLoading(false);
-          return;
+        } else {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to fetch cars and parse error' }));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
-        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch cars and parse error' }));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        setIsLoading(false);
+        return;
       }
       const data = await response.json();
       setCars(data);
@@ -84,6 +85,7 @@ export default function AdminCarsPage() {
   const handleEditCar = (carId: string) => {
     console.log("Edit car:", carId);
     toast({ title: "Edit Car", description: `Navigating to edit page for car ${carId} is not yet implemented. Backend API is ready.`});
+    // router.push(`/admin/cars/edit/${carId}`); // Example navigation
   };
 
   const confirmDeleteCar = (car: Car) => {
@@ -100,6 +102,7 @@ export default function AdminCarsPage() {
         toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
         router.push('/login');
         setIsDeleting(false);
+        setShowDeleteDialog(false);
         return;
       }
       const response = await fetch(`/api/admin/cars/${carToDelete.id}`, {
@@ -113,11 +116,13 @@ export default function AdminCarsPage() {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsDeleting(false);
-          return;
+        } else {
+          const errorData = await response.json().catch(() => ({ message: 'Failed to delete car' }));
+          throw new Error(errorData.message);
         }
-        const errorData = await response.json().catch(() => ({ message: 'Failed to delete car' }));
-        throw new Error(errorData.message);
+        setIsDeleting(false);
+        setShowDeleteDialog(false);
+        return;
       }
       toast({ title: "Car Deleted", description: `${carToDelete.name} has been successfully deleted.` });
       setCars(prevCars => prevCars.filter(car => car.id !== carToDelete.id));
@@ -166,12 +171,13 @@ export default function AdminCarsPage() {
                 <TableRow key={car.id}>
                   <TableCell className="hidden sm:table-cell">
                     <Image 
-                      src={car.imageUrls[0] || 'https://placehold.co/60x40.png'} 
+                      src={car.imageUrls[0] || '/assets/images/default-car.png'} // Default to a generic local image if needed
                       alt={car.name} 
                       width={60} 
                       height={40} 
                       className="rounded object-cover aspect-[3/2]"
                       data-ai-hint={car.aiHint || 'car'}
+                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/60x40.png?text=No+Img';}}
                     />
                   </TableCell>
                   <TableCell className="font-medium">{car.name}</TableCell>
@@ -212,7 +218,7 @@ export default function AdminCarsPage() {
             <AlertDialogTitle>Are you sure you want to delete this car?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the car
-              "{carToDelete?.name}" from the database.
+              "{carToDelete?.name}" from the database. This does not delete image files from the server.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -230,3 +236,4 @@ export default function AdminCarsPage() {
     </div>
   );
 }
+
