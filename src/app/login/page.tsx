@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -5,37 +6,78 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, Mail, KeyRound } from "lucide-react";
+import { LogIn, Mail, KeyRound, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function LoginPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic validation
+    setIsLoading(true);
+
     if (!email || !password) {
       toast({
         title: "Missing fields",
         description: "Please enter both email and password.",
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
-    // Mock login
-    console.log("Login attempt:", { email, password });
-    toast({
-      title: "Login Submitted (Demo)",
-      description: "Login functionality is for demonstration purposes.",
-    });
-    // In a real app, you'd call an auth API here.
+
+    try {
+      const response = await fetch(`/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Something went wrong');
+      }
+
+      toast({
+        title: "Login Successful!",
+        description: "Welcome back!",
+      });
+      
+      // Store the token (e.g., in localStorage)
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('authUser', JSON.stringify(data.user));
+
+
+      // Redirect based on role, or to a default page
+      if (data.user.role === 'Admin') {
+        router.push('/admin');
+      } else {
+        router.push('/cars'); // Or user dashboard
+      }
+
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast({
+        title: "Login Failed",
+        description: error.message || "Could not log you in. Please check your credentials.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-[calc(100vh-200px)] py-12">
+    <div className="flex justify-center items-center min-h-[calc(100vh-200px)] py-12 px-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <LogIn className="mx-auto h-12 w-12 text-primary mb-2" />
@@ -55,6 +97,7 @@ export default function LoginPage() {
                   required 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
                   className="pl-10"
                 />
               </div>
@@ -70,16 +113,18 @@ export default function LoginPage() {
                   required 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
                   className="pl-10"
                 />
               </div>
               <div className="text-right">
-                <Button variant="link" size="sm" asChild className="p-0 h-auto text-accent">
+                <Button variant="link" size="sm" asChild className="p-0 h-auto text-accent" disabled={isLoading}>
                   <Link href="#">Forgot password?</Link>
                 </Button>
               </div>
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
+              {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
               Sign In
             </Button>
           </form>
@@ -87,7 +132,7 @@ export default function LoginPage() {
         <CardFooter className="flex flex-col items-center space-y-2 text-sm">
           <p className="text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Button variant="link" asChild className="p-0 h-auto text-accent">
+            <Button variant="link" asChild className="p-0 h-auto text-accent" disabled={isLoading}>
               <Link href="/signup">Sign up here</Link>
             </Button>
           </p>

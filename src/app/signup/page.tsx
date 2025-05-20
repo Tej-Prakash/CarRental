@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -5,26 +6,31 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Mail, KeyRound, UserCircle } from "lucide-react";
+import { UserPlus, Mail, KeyRound, UserCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SignupPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic validation
+    setIsLoading(true);
+
     if (!fullName || !email || !password || !confirmPassword) {
       toast({
         title: "Missing fields",
         description: "Please fill in all required fields.",
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
     if (password !== confirmPassword) {
@@ -33,19 +39,54 @@ export default function SignupPage() {
         description: "Your passwords do not match.",
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
-    // Mock signup
-    console.log("Signup attempt:", { fullName, email, password });
-    toast({
-      title: "Signup Submitted (Demo)",
-      description: "Account creation is for demonstration purposes.",
-    });
-    // In a real app, you'd call an auth API here.
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullName, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Something went wrong');
+      }
+
+      toast({
+        title: "Signup Successful!",
+        description: "Your account has been created. Please log in.",
+      });
+      router.push('/login'); // Redirect to login page
+      
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      toast({
+        title: "Signup Failed",
+        description: error.message || "Could not create your account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-[calc(100vh-200px)] py-12">
+    <div className="flex justify-center items-center min-h-[calc(100vh-200px)] py-12 px-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <UserPlus className="mx-auto h-12 w-12 text-primary mb-2" />
@@ -65,6 +106,7 @@ export default function SignupPage() {
                   required 
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  disabled={isLoading}
                   className="pl-10"
                 />
               </div>
@@ -80,6 +122,7 @@ export default function SignupPage() {
                   required 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
                   className="pl-10"
                 />
               </div>
@@ -91,10 +134,11 @@ export default function SignupPage() {
                 <Input 
                   id="password" 
                   type="password" 
-                  placeholder="••••••••" 
+                  placeholder="•••••••• (min. 6 characters)" 
                   required 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
                   className="pl-10"
                 />
               </div>
@@ -110,11 +154,13 @@ export default function SignupPage() {
                   required 
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isLoading}
                   className="pl-10"
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
+              {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
               Create Account
             </Button>
           </form>
@@ -122,7 +168,7 @@ export default function SignupPage() {
         <CardFooter className="flex flex-col items-center space-y-2 text-sm">
           <p className="text-muted-foreground">
             Already have an account?{" "}
-            <Button variant="link" asChild className="p-0 h-auto text-accent">
+            <Button variant="link" asChild className="p-0 h-auto text-accent" disabled={isLoading}>
               <Link href="/login">Sign in here</Link>
             </Button>
           </p>
