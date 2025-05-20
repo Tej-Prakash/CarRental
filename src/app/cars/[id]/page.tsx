@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { Car, SiteSettings } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info } from 'lucide-react';
+import { CalendarIcon, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, CreditCard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -16,10 +16,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format, differenceInCalendarDays, isBefore, startOfToday } from "date-fns";
 import { cn } from '@/lib/utils';
 import type { DateRange } from "react-day-picker";
+import { loadStripe } from '@stripe/stripe-js';
 
 interface CarDetailsPageProps {
   params: { id: string };
 }
+
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null;
+
 
 export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   const [car, setCar] = useState<Car | null>(null);
@@ -68,11 +74,22 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       }
     };
 
+    if (!stripePromise) {
+      console.error("Stripe publishable key is not set. Payment functionality will be disabled.");
+      toast({
+        title: "Payment Configuration Error",
+        description: "Stripe is not configured. Please contact support.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
+
+
     if (params.id) {
       fetchCarDetails();
       fetchSiteSettings();
     }
-  }, [params.id]);
+  }, [params.id, toast]);
 
   const handleBookNow = async () => {
     if (!car || !dateRange?.from || !dateRange?.to) {
@@ -101,8 +118,15 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       return;
     }
 
+    if (!stripePromise) {
+      toast({ title: "Payment Error", description: "Stripe is not initialized. Cannot proceed with payment.", variant: "destructive"});
+      setIsBookingLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/bookings', {
+      // Call backend to create a Stripe Checkout Session
+      const response = await fetch('/api/checkout/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,18 +139,32 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
         }),
       });
 
-      const result = await response.json();
+      const sessionData = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || 'Failed to create booking.');
+        throw new Error(sessionData.message || 'Failed to create checkout session.');
       }
-      
-      toast({
-        title: "Booking Confirmed!",
-        description: `Your booking for ${car.name} from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")} is confirmed.`,
-        duration: 5000,
-      });
-      setDateRange({ from: undefined, to: undefined });
+
+      // Redirect to Stripe Checkout
+      const stripe = await stripePromise;
+      if (stripe) {
+        const { error: stripeError } = await stripe.redirectToCheckout({
+          sessionId: sessionData.sessionId,
+        });
+        if (stripeError) {
+          console.error("Stripe redirect error:", stripeError);
+          toast({
+            title: "Payment Error",
+            description: stripeError.message || "Could not redirect to Stripe. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } else {
+         throw new Error("Stripe.js not loaded");
+      }
+      // Note: Booking is created with 'Confirmed' status by the backend in this simplified flow.
+      // Email simulation also happens on the backend.
+      // No success toast here as user is redirected. Success page will handle confirmation message.
 
     } catch (bookingError: any) {
       toast({
@@ -279,11 +317,11 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
                   size="lg" 
                   onClick={handleBookNow} 
                   className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
-                  disabled={isBookingLoading || !dateRange?.from || !dateRange?.to}
+                  disabled={isBookingLoading || !dateRange?.from || !dateRange?.to || !stripePromise}
                 >
                   {isBookingLoading && <Loader2 className="animate-spin mr-2" />}
-                  <DollarSign className="mr-2 h-5 w-5" /> 
-                  {isBookingLoading ? 'Processing...' : 'Book Now'}
+                  <CreditCard className="mr-2 h-5 w-5" /> 
+                  {isBookingLoading ? 'Processing...' : 'Book & Pay'}
                 </Button>
               </div>
             </CardFooter>
