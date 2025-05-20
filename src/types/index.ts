@@ -8,7 +8,7 @@ export interface Car {
   description: string;
   longDescription: string;
   features: string[];
-  availability: { startDate: string; endDate:string }[];
+  availability: { startDate: string; endDate:string }[]; // General model availability, not real-time
   seats: number;
   engine: string;
   transmission: 'Automatic' | 'Manual';
@@ -28,13 +28,16 @@ export interface User {
 }
 
 export interface Booking {
-  id: string;
+  id: string; // from MongoDB _id
   carId: string;
-  carName?: string; // Denormalized for easier display
+  carName: string; 
+  carImageUrl: string;
   userId: string;
-  userName?: string; // Denormalized
+  userName: string; 
   startDate: string; // ISO date string
   endDate: string; // ISO date string
   totalPrice: number;
   status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
 }
