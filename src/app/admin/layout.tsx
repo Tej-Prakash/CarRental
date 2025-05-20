@@ -1,22 +1,75 @@
 
+"use client";
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
-import type { Metadata } from 'next';
+import type { Metadata } from 'next'; // Keep if you intend to set metadata statically, though dynamic might be better for admin
 import { Button } from '@/components/ui/button';
-import { PanelLeftOpen, CarFront } from 'lucide-react';
+import { PanelLeftOpen, CarFront, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
+import type { User } from '@/types';
 
-
-export const metadata: Metadata = {
-  title: 'Admin - Wheels on Clicks',
-  description: 'Admin panel for Wheels on Clicks.',
-};
+// Static metadata might still be useful for the general section title
+// export const metadata: Metadata = {
+//   title: 'Admin - Wheels on Clicks',
+//   description: 'Admin panel for Wheels on Clicks.',
+// };
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthorized'>('loading');
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userString = localStorage.getItem('authUser');
+    
+    if (!token || !userString) {
+      toast({ title: "Access Denied", description: "Please log in to access the admin panel.", variant: "destructive" });
+      router.replace('/login'); // Use replace to avoid adding admin route to history
+      setAuthStatus('unauthorized');
+      return;
+    }
+
+    try {
+      const user: User = JSON.parse(userString);
+      if (user.role !== 'Admin') {
+        toast({ title: "Access Denied", description: "You do not have permission to access the admin panel.", variant: "destructive" });
+        router.replace('/'); // Redirect non-admins to homepage
+        setAuthStatus('unauthorized');
+      } else {
+        setAuthStatus('authenticated');
+      }
+    } catch (error) {
+      toast({ title: "Authentication Error", description: "Invalid user data. Please log in again.", variant: "destructive" });
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('authUser');
+      router.replace('/login');
+      setAuthStatus('unauthorized');
+    }
+  }, [router, toast]);
+
+  if (authStatus === 'loading') {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (authStatus === 'unauthorized') {
+    // Optionally, show a brief "Redirecting..." message or just let the redirect happen.
+    // The router.replace() should handle the navigation.
+    return null; 
+  }
+
   return (
     <div className="flex min-h-screen w-full bg-muted/40">
       <AdminSidebar />
@@ -35,9 +88,7 @@ export default function AdminLayout({
                         Admin Panel
                     </Link>
                 </div>
-                {/* Re-render AdminSidebar content for mobile sheet or pass props */}
                 <nav className="flex-grow p-4 space-y-1">
-                    {/* Simplified nav items for mobile, or reuse AdminSidebar structure */}
                     <Button variant="ghost" className="w-full justify-start" asChild><Link href="/admin">Dashboard</Link></Button>
                     <Button variant="ghost" className="w-full justify-start" asChild><Link href="/admin/cars">Cars</Link></Button>
                     <Button variant="ghost" className="w-full justify-start" asChild><Link href="/admin/users">Users</Link></Button>
