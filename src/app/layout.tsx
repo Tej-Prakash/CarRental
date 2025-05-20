@@ -1,9 +1,11 @@
+
 import type {Metadata} from 'next';
 import {Geist} from 'next/font/google'; // Using GeistSans as 'Geist'
 import './globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Toaster } from "@/components/ui/toaster";
+import { cn } from '@/lib/utils';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -21,10 +23,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} font-sans antialiased flex flex-col min-h-screen`}>
+    <html lang="en" suppressHydrationWarning>
+      <body 
+        className={cn(
+          geistSans.variable, 
+          "font-sans antialiased flex flex-col min-h-screen",
+          // Apply bg-background only if not an admin page, admin layout handles its own bg
+          // This is a simple way; route groups would be cleaner for distinct root layouts
+          "bg-background" 
+        )}
+      >
         <Header />
-        <main className="flex-grow container mx-auto px-4 py-8">
+        <main className="flex-grow flex flex-col">
           {children}
         </main>
         <Footer />

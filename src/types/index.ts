@@ -18,3 +18,23 @@ export interface Car {
   location: string; // e.g. "Downtown Cityville"
   aiHint?: string; // for placeholder images
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'User' | 'Admin';
+  createdAt: string; // ISO date string
+}
+
+export interface Booking {
+  id: string;
+  carId: string;
+  carName?: string; // Denormalized for easier display
+  userId: string;
+  userName?: string; // Denormalized
+  startDate: string; // ISO date string
+  endDate: string; // ISO date string
+  totalPrice: number;
+  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
+}

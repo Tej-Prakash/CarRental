@@ -1,4 +1,5 @@
-import type { Car } from '@/types';
+
+import type { Car, User, Booking } from '@/types';
 
 export const mockCars: Car[] = [
   {
@@ -114,5 +115,47 @@ export const mockCars: Car[] = [
     rating: 4.6,
     reviews: 150,
     location: 'Adventure Rentals Co.',
+  },
+];
+
+export const mockUsers: User[] = [
+  { id: 'u1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'Admin', createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }, // 30 days ago
+  { id: 'u2', name: 'Bob The Builder', email: 'bob@example.com', role: 'User', createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() }, // 15 days ago
+  { id: 'u3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'User', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() }, // 5 days ago
+];
+
+export const mockBookings: Booking[] = [
+  { 
+    id: 'b1', 
+    carId: '1', 
+    carName: 'Toyota Camry', 
+    userId: 'u2', 
+    userName: 'Bob The Builder', 
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), 
+    endDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), 
+    totalPrice: 150, 
+    status: 'Completed' 
+  },
+  { 
+    id: 'b2', 
+    carId: '2', 
+    carName: 'Honda CR-V', 
+    userId: 'u3', 
+    userName: 'Charlie Brown',
+    startDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), 
+    endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), 
+    totalPrice: 210, 
+    status: 'Confirmed' 
+  },
+   { 
+    id: 'b3', 
+    carId: '3', 
+    carName: 'Ford Mustang', 
+    userId: 'u1', 
+    userName: 'Alice Wonderland',
+    startDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(), 
+    endDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString(), 
+    totalPrice: 240, 
+    status: 'Pending' 
   },
 ];
