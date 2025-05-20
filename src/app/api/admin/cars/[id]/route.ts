@@ -10,7 +10,11 @@ import { CarInputSchema as CreateCarInputSchema } from '../route'; // Import fro
 import { z } from 'zod';
 
 // Schema for updating a car (all fields optional)
-const UpdateCarInputSchema = CreateCarInputSchema.partial();
+// Ensure imageUrls is also an array of URLs in the partial schema
+const UpdateCarInputSchema = CreateCarInputSchema.extend({
+  imageUrls: z.array(z.string().url("Each image URL must be valid")).min(1, "At least one image URL is required").optional(),
+}).partial();
+
 type UpdateCarInput = z.infer<typeof UpdateCarInputSchema>;
 
 interface CarDocument extends Omit<Car, 'id'> {
@@ -49,7 +53,7 @@ export async function GET(
       name: rest.name,
       type: rest.type,
       pricePerDay: rest.pricePerDay,
-      imageUrl: rest.imageUrl,
+      imageUrls: rest.imageUrls, // Changed from imageUrl
       description: rest.description,
       longDescription: rest.longDescription,
       features: rest.features,
@@ -116,17 +120,33 @@ export async function PUT(
       return NextResponse.json({ message: 'Car not found for update' }, { status: 404 });
     }
      if (result.modifiedCount === 0 && result.matchedCount > 0) {
-      // No actual changes were made, but the car was found.
-      // Fetch and return current car data.
       const currentCar = await carsCollection.findOne({ _id: new ObjectId(id) });
-      const { _id, ...rest } = currentCar!; // Non-null assertion ok due to matchedCount
+      const { _id, ...rest } = currentCar!;
       return NextResponse.json({ id: _id.toHexString(), ...rest }, { status: 200 });
     }
 
-
-    const updatedCar = await carsCollection.findOne({ _id: new ObjectId(id) });
-    const { _id, ...rest } = updatedCar!;
-    return NextResponse.json({ id: _id.toHexString(), ...rest }, { status: 200 });
+    const updatedCarDoc = await carsCollection.findOne({ _id: new ObjectId(id) });
+    const { _id, ...rest } = updatedCarDoc!;
+    const carResponse: Car = {
+      id: _id.toHexString(),
+      name: rest.name,
+      type: rest.type,
+      pricePerDay: rest.pricePerDay,
+      imageUrls: rest.imageUrls,
+      description: rest.description,
+      longDescription: rest.longDescription,
+      features: rest.features,
+      availability: rest.availability.map(a => ({ startDate: String(a.startDate), endDate: String(a.endDate) })),
+      seats: rest.seats,
+      engine: rest.engine,
+      transmission: rest.transmission,
+      fuelType: rest.fuelType,
+      rating: rest.rating,
+      reviews: rest.reviews,
+      location: rest.location,
+      aiHint: rest.aiHint,
+    };
+    return NextResponse.json(carResponse, { status: 200 });
 
   } catch (error: any) {
     console.error('Failed to update car:', error);

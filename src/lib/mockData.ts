@@ -7,7 +7,7 @@ export const mockCars: Car[] = [
     name: 'Toyota Camry',
     type: 'Sedan',
     pricePerDay: 50,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrls: ['https://placehold.co/600x400.png?text=Camry+Front', 'https://placehold.co/600x400.png?text=Camry+Side'],
     aiHint: 'sedan silver',
     description: 'Reliable and fuel-efficient sedan.',
     longDescription: 'The Toyota Camry is a benchmark for midsize sedans, offering a comfortable ride, spacious interior, and excellent fuel economy. Perfect for city driving and long road trips, it comes equipped with modern safety features and a user-friendly infotainment system.',
@@ -26,7 +26,7 @@ export const mockCars: Car[] = [
     name: 'Honda CR-V',
     type: 'SUV',
     pricePerDay: 70,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrls: ['https://placehold.co/600x400.png?text=CRV+View'],
     aiHint: 'suv blue',
     description: 'Spacious and versatile SUV for families.',
     longDescription: 'The Honda CR-V is a compact SUV known for its practicality, reliability, and spacious cargo hold. It offers a smooth ride, comfortable seating for five, and a host of standard safety features, making it an ideal choice for families and adventurers alike.',
@@ -45,7 +45,7 @@ export const mockCars: Car[] = [
     name: 'Ford Mustang',
     type: 'Coupe',
     pricePerDay: 120,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrls: ['https://placehold.co/600x400.png?text=Mustang+Fast'],
     aiHint: 'muscle car red',
     description: 'Iconic American muscle car for a thrilling ride.',
     longDescription: 'Experience the thrill of the open road with the Ford Mustang. This iconic American muscle car boasts powerful engine options, aggressive styling, and a sporty interior. Whether you choose the EcoBoost or the V8, you\'re guaranteed an exhilarating driving experience.',
@@ -64,7 +64,7 @@ export const mockCars: Car[] = [
     name: 'Volkswagen Golf',
     type: 'Hatchback',
     pricePerDay: 45,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrls: ['https://placehold.co/600x400.png?text=Golf+City'],
     aiHint: 'hatchback gray',
     description: 'Compact and agile, perfect for city driving.',
     longDescription: 'The Volkswagen Golf is a versatile hatchback that excels in urban environments. It offers a refined driving experience, a high-quality interior, and impressive fuel efficiency. With its compact size and nimble handling, parking and navigating city streets is a breeze.',
@@ -83,7 +83,7 @@ export const mockCars: Car[] = [
     name: 'Tesla Model 3',
     type: 'Sedan',
     pricePerDay: 90,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrls: ['https://placehold.co/600x400.png?text=Tesla+Future'],
     aiHint: 'electric car white',
     description: 'Cutting-edge electric vehicle with Autopilot.',
     longDescription: 'The Tesla Model 3 offers a compelling blend of performance, range, and technology. Its minimalist interior, large touchscreen display, and available Autopilot features redefine the driving experience. Enjoy instant torque and zero tailpipe emissions with this innovative EV.',
@@ -102,7 +102,7 @@ export const mockCars: Car[] = [
     name: 'Jeep Wrangler',
     type: 'SUV',
     pricePerDay: 85,
-    imageUrl: 'https://placehold.co/600x400.png',
+    imageUrls: ['https://placehold.co/600x400.png?text=Jeep+Adventure'],
     aiHint: 'offroad vehicle green',
     description: 'Legendary off-road capability.',
     longDescription: 'The Jeep Wrangler is the ultimate adventure vehicle, renowned for its unparalleled off-road prowess. With removable doors and roof, rugged construction, and advanced 4x4 systems, it\'s ready to tackle any terrain you throw at it. Perfect for exploring the great outdoors.',
@@ -119,9 +119,9 @@ export const mockCars: Car[] = [
 ];
 
 export const mockUsers: User[] = [
-  { id: 'u1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'Admin', createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }, // 30 days ago
-  { id: 'u2', name: 'Bob The Builder', email: 'bob@example.com', role: 'User', createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() }, // 15 days ago
-  { id: 'u3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'User', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() }, // 5 days ago
+  { id: 'u1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'Admin', createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: 'u2', name: 'Bob The Builder', email: 'bob@example.com', role: 'User', createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() },
+  { id: 'u3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'User', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
 ];
 
 export const mockBookings: Booking[] = [
@@ -129,6 +129,7 @@ export const mockBookings: Booking[] = [
     id: 'b1', 
     carId: '1', 
     carName: 'Toyota Camry', 
+    carImageUrl: 'https://placehold.co/600x400.png?text=Camry+Front',
     userId: 'u2', 
     userName: 'Bob The Builder', 
     startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), 
@@ -140,6 +141,7 @@ export const mockBookings: Booking[] = [
     id: 'b2', 
     carId: '2', 
     carName: 'Honda CR-V', 
+    carImageUrl: 'https://placehold.co/600x400.png?text=CRV+View',
     userId: 'u3', 
     userName: 'Charlie Brown',
     startDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), 
@@ -151,6 +153,7 @@ export const mockBookings: Booking[] = [
     id: 'b3', 
     carId: '3', 
     carName: 'Ford Mustang', 
+    carImageUrl: 'https://placehold.co/600x400.png?text=Mustang+Fast',
     userId: 'u1', 
     userName: 'Alice Wonderland',
     startDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(), 

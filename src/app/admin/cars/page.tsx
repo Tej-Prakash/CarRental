@@ -47,7 +47,6 @@ export default function AdminCarsPage() {
       if (!token) {
         toast({ title: "Authentication Error", description: "No auth token found. Please log in.", variant: "destructive" });
         setIsLoading(false);
-        // router.push('/login'); // Optional: redirect to login
         return;
       }
       const response = await fetch('/api/admin/cars', {
@@ -73,7 +72,6 @@ export default function AdminCarsPage() {
 
   const handleEditCar = (carId: string) => {
     console.log("Edit car:", carId);
-    // TODO: Navigate to edit car page or open modal. E.g., router.push(`/admin/cars/edit/${carId}`);
     toast({ title: "Edit Car", description: `Navigating to edit page for car ${carId} is not yet implemented. Backend API is ready.`});
   };
 
@@ -143,7 +141,7 @@ export default function AdminCarsPage() {
                 <TableRow key={car.id}>
                   <TableCell className="hidden sm:table-cell">
                     <Image 
-                      src={car.imageUrl} 
+                      src={car.imageUrls[0] || 'https://placehold.co/60x40.png'} 
                       alt={car.name} 
                       width={60} 
                       height={40} 
@@ -207,4 +205,3 @@ export default function AdminCarsPage() {
     </div>
   );
 }
-

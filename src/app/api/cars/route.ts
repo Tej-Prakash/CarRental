@@ -58,13 +58,12 @@ export async function GET(req: NextRequest) {
 
     const cars: Car[] = carsFromDb.map(carDoc => {
       const { _id, ...rest } = carDoc;
-      // Ensure all fields from Car type are present and correctly typed
       const car: Car = {
         id: _id.toHexString(),
         name: rest.name,
         type: rest.type,
         pricePerDay: rest.pricePerDay,
-        imageUrl: rest.imageUrl,
+        imageUrls: rest.imageUrls, // Changed from imageUrl
         description: rest.description,
         longDescription: rest.longDescription,
         features: rest.features,
@@ -87,4 +86,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch cars' }, { status: 500 });
   }
 }
-

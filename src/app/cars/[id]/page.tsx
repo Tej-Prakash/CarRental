@@ -98,7 +98,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
     if (!token) {
       toast({ title: "Authentication Error", description: "Please log in to make a booking.", variant: "destructive" });
       setIsBookingLoading(false);
-      // Optionally redirect to login: router.push('/login');
       return;
     }
 
@@ -111,8 +110,8 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
         },
         body: JSON.stringify({
           carId: car.id,
-          startDate: format(dateRange.from, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // ISO format
-          endDate: format(dateRange.to, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),     // ISO format
+          startDate: format(dateRange.from, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+          endDate: format(dateRange.to, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
         }),
       });
 
@@ -127,7 +126,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
         description: `Your booking for ${car.name} from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")} is confirmed.`,
         duration: 5000,
       });
-      // Optionally, clear date range or redirect to a "my bookings" page
       setDateRange({ from: undefined, to: undefined });
 
     } catch (bookingError: any) {
@@ -163,7 +161,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   }
   
   if (!car) {
-    return ( // Should ideally be caught by error state, but as a fallback
+    return ( 
       <div className="text-center py-20">
         <h1 className="text-2xl font-semibold">Car not found</h1>
         <p className="text-muted-foreground">The car you are looking for does not exist or has been removed.</p>
@@ -177,6 +175,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
   const rentalDays = dateRange?.from && dateRange?.to ? differenceInCalendarDays(dateRange.to, dateRange.from) : 0;
   const totalPrice = rentalDays > 0 ? rentalDays * car.pricePerDay : 0;
   const currencySymbol = siteSettings.defaultCurrency === 'INR' ? '₹' : siteSettings.defaultCurrency === 'EUR' ? '€' : siteSettings.defaultCurrency === 'GBP' ? '£' : '$';
+  const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : 'https://placehold.co/800x600.png';
 
 
   return (
@@ -185,7 +184,7 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
         <div className="grid md:grid-cols-2 gap-0">
           <div className="relative aspect-video md:aspect-auto min-h-[300px] md:min-h-[400px]">
             <Image 
-              src={car.imageUrl} 
+              src={primaryImageUrl} 
               alt={car.name} 
               fill 
               className="object-cover"
@@ -289,7 +288,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
         </div>
       </Card>
 
-      {/* General Availability Info - Note: This is static as per car data, not real-time */}
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl font-semibold text-primary flex items-center">
@@ -327,4 +325,3 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
-

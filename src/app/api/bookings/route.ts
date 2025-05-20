@@ -49,50 +49,42 @@ export async function POST(req: NextRequest) {
     const client = await clientPromise;
     const db = client.db();
 
-    // Fetch car details
     const car = await db.collection<CarDocument>('cars').findOne({ _id: new ObjectId(carId) });
     if (!car) {
       return NextResponse.json({ message: 'Car not found.' }, { status: 404 });
     }
 
-    // Check for booking conflicts
     const existingBookings = await db.collection<Booking>('bookings').find({
       carId: carId,
       status: 'Confirmed',
       $or: [
-        { startDate: { $lt: endDateStr }, endDate: { $gt: startDateStr } }, // Existing booking overlaps new one
+        { startDate: { $lt: endDateStr }, endDate: { $gt: startDateStr } },
       ],
     }).toArray();
 
     if (existingBookings.length > 0) {
-      return NextResponse.json({ message: 'Car is not available for the selected dates.' }, { status: 409 }); // 409 Conflict
+      return NextResponse.json({ message: 'Car is not available for the selected dates.' }, { status: 409 });
     }
 
-    // Calculate price
     const rentalDays = differenceInCalendarDays(endDate, startDate);
     if (rentalDays < 1) {
         return NextResponse.json({ message: 'Minimum rental duration is 1 day.' }, { status: 400 });
     }
     const totalPrice = rentalDays * car.pricePerDay;
 
-    // Simulate payment processing
-    // console.log('Simulating payment processing for amount:', totalPrice);
-    // const paymentSuccessful = true; // Assume payment is successful
-    // if (!paymentSuccessful) {
-    //   return NextResponse.json({ message: 'Payment failed.' }, { status: 402 }); // 402 Payment Required
-    // }
-
     const nowISO = new Date().toISOString();
+    const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : undefined;
+
     const newBookingData = {
       carId: carId,
       carName: car.name,
-      carImageUrl: car.imageUrl,
+      carImageUrl: primaryImageUrl,
       userId,
       userName,
       startDate: startDateStr,
       endDate: endDateStr,
       totalPrice,
-      status: 'Confirmed' as Booking['status'], // Directly confirm after "payment"
+      status: 'Confirmed' as Booking['status'],
       createdAt: nowISO,
       updatedAt: nowISO,
     };
@@ -108,7 +100,6 @@ export async function POST(req: NextRequest) {
         ...newBookingData,
     };
 
-    // Simulate email notification
     console.log('Simulating email notification for booking:', createdBooking.id, 'to user:', userName);
 
     return NextResponse.json(createdBooking, { status: 201 });

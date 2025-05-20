@@ -13,7 +13,7 @@ export const CarInputSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(['Sedan', 'SUV', 'Hatchback', 'Truck', 'Van', 'Convertible', 'Coupe']),
   pricePerDay: z.number().positive("Price must be positive"),
-  imageUrl: z.string().url("Image URL must be valid"),
+  imageUrls: z.array(z.string().url("Each image URL must be valid")).min(1, "At least one image URL is required"), // Changed from imageUrl
   description: z.string().min(10, "Description must be at least 10 characters"),
   longDescription: z.string().min(20, "Long description must be at least 20 characters"),
   features: z.array(z.string()).min(1, "At least one feature is required"),
@@ -25,8 +25,8 @@ export const CarInputSchema = z.object({
   engine: z.string().min(1, "Engine details are required"),
   transmission: z.enum(['Automatic', 'Manual']),
   fuelType: z.enum(['Gasoline', 'Diesel', 'Electric', 'Hybrid']),
-  rating: z.number().min(0).max(5).optional().default(0), // Defaulted in schema
-  reviews: z.number().int().min(0).optional().default(0), // Defaulted in schema
+  rating: z.number().min(0).max(5).optional().default(0),
+  reviews: z.number().int().min(0).optional().default(0),
   location: z.string().min(1, "Location is required"),
   aiHint: z.string().optional(),
 });
@@ -58,11 +58,9 @@ export async function POST(req: NextRequest) {
     
     const newCarDocument = {
         ...carData,
-        // Convert availability date strings to Date objects if storing as BSON Dates
-        // For this example, they are stored as strings as per schema and Car type
         availability: carData.availability.map(a => ({
-          startDate: a.startDate, // Already string
-          endDate: a.endDate,     // Already string
+          startDate: a.startDate,
+          endDate: a.endDate,
       })),
     };
 
@@ -74,13 +72,13 @@ export async function POST(req: NextRequest) {
     
     const insertedCar: Car = {
         id: result.insertedId.toHexString(),
-        ...carData, // Spread validated data. Rating/reviews are defaulted by Zod if not provided.
+        ...carData,
     };
 
     return NextResponse.json(insertedCar, { status: 201 });
   } catch (error: any) {
     console.error('Failed to add car:', error);
-    if (error.name === 'MongoServerError' && error.code === 11000) { // Duplicate key error
+    if (error.name === 'MongoServerError' && error.code === 11000) {
       return NextResponse.json({ message: 'A car with similar identifying features already exists.' }, { status: 409 });
     }
     return NextResponse.json({ message: error.message || 'Failed to add car' }, { status: 500 });
@@ -107,7 +105,7 @@ export async function GET(req: NextRequest) {
         name: rest.name,
         type: rest.type,
         pricePerDay: rest.pricePerDay,
-        imageUrl: rest.imageUrl,
+        imageUrls: rest.imageUrls, // Changed from imageUrl
         description: rest.description,
         longDescription: rest.longDescription,
         features: rest.features,
@@ -130,4 +128,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Failed to fetch cars' }, { status: 500 });
   }
 }
-

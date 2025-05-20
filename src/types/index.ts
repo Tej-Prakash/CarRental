@@ -4,11 +4,11 @@ export interface Car {
   name: string;
   type: 'Sedan' | 'SUV' | 'Hatchback' | 'Truck' | 'Van' | 'Convertible' | 'Coupe';
   pricePerDay: number;
-  imageUrl: string;
+  imageUrls: string[]; // Changed from imageUrl: string
   description: string;
   longDescription: string;
   features: string[];
-  availability: { startDate: string; endDate:string }[]; // General model availability, not real-time
+  availability: { startDate: string; endDate:string }[];
   seats: number;
   engine: string;
   transmission: 'Automatic' | 'Manual';
@@ -16,7 +16,7 @@ export interface Car {
   rating: number; // 0-5
   reviews: number; // number of reviews
   location: string; // e.g., "Downtown Cityville"
-  aiHint?: string; // for placeholder images
+  aiHint?: string; // General hint for the car or its primary image
 }
 
 export interface Address {
@@ -49,7 +49,7 @@ export interface Booking {
   id: string; // from MongoDB _id
   carId: string;
   carName: string; 
-  carImageUrl: string;
+  carImageUrl?: string; // Made optional, will use first from car.imageUrls
   userId: string;
   userName: string; 
   startDate: string; // ISO date string
@@ -63,8 +63,6 @@ export interface Booking {
 export interface SiteSettings {
   id?: string; // In MongoDB, this will be _id
   siteTitle: string;
-  defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR'; // Added currency
-  // Add other settings like logoUrl, faviconUrl here later if needed
+  defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
   updatedAt?: string; // ISO date string
 }
-

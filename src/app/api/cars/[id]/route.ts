@@ -36,7 +36,7 @@ export async function GET(
       name: rest.name,
       type: rest.type,
       pricePerDay: rest.pricePerDay,
-      imageUrl: rest.imageUrl,
+      imageUrls: rest.imageUrls, // Changed from imageUrl
       description: rest.description,
       longDescription: rest.longDescription,
       features: rest.features,

@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { PlusCircle, Loader2, XCircle } from 'lucide-react';
+import { PlusCircle, Loader2, XCircle, Link as LinkIcon, Trash2 } from 'lucide-react';
 
 interface AddCarDialogProps {
   onCarAdded: () => void;
@@ -30,7 +30,7 @@ const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: numbe
   name: '',
   type: 'Sedan',
   pricePerDay: 50,
-  imageUrl: 'https://placehold.co/600x400.png',
+  imageUrls: ['https://placehold.co/600x400.png'], // Default to one placeholder
   description: '',
   longDescription: '',
   features: [],
@@ -41,8 +41,8 @@ const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: numbe
   fuelType: 'Gasoline',
   location: '',
   aiHint: '',
-  rating: 0, // Optional, will be defaulted by API if not sent
-  reviews: 0, // Optional
+  rating: 0,
+  reviews: 0,
 };
 
 
@@ -51,13 +51,14 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const [carData, setCarData] = useState(initialCarState);
   const [isLoading, setIsLoading] = useState(false);
   const [featureInput, setFeatureInput] = useState('');
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     let parsedValue: string | number = value;
     if (name === 'pricePerDay' || name === 'seats' || name === 'rating' || name === 'reviews') {
-      parsedValue = value === '' ? '' : Number(value); // Allow empty string for clearing, then parse
+      parsedValue = value === '' ? '' : Number(value);
     }
     setCarData(prev => ({ ...prev, [name]: parsedValue }));
   };
@@ -77,6 +78,24 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     setCarData(prev => ({ ...prev, features: prev.features.filter(f => f !== featureToRemove) }));
   };
 
+  const handleImageUrlAdd = () => {
+    if (imageUrlInput.trim()) {
+      try {
+        // Basic URL validation
+        new URL(imageUrlInput.trim());
+        setCarData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, imageUrlInput.trim()] }));
+        setImageUrlInput('');
+      } catch (_) {
+        toast({ title: "Invalid URL", description: "Please enter a valid image URL.", variant: "destructive" });
+      }
+    }
+  };
+
+  const handleImageUrlRemove = (urlToRemove: string) => {
+    setCarData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter(url => url !== urlToRemove) }));
+  };
+
+
   const handleAvailabilityChange = (index: number, field: 'startDate' | 'endDate', value: string) => {
     const newAvailability = [...carData.availability];
     newAvailability[index] = { ...newAvailability[index], [field]: value };
@@ -86,6 +105,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const resetForm = () => {
     setCarData(initialCarState);
     setFeatureInput('');
+    setImageUrlInput('');
   }
 
   useEffect(() => {
@@ -98,6 +118,12 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    if (carData.imageUrls.length === 0) {
+      toast({ title: "Validation Error", description: "Please add at least one image URL.", variant: "destructive" });
+      setIsLoading(false);
+      return;
+    }
 
     const payload = {
       ...carData,
@@ -122,7 +148,6 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
         setIsLoading(false);
         return;
     }
-
 
     try {
       const token = localStorage.getItem('authToken');
@@ -160,7 +185,9 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle>Add New Car</DialogTitle>
-          <DialogDescription>Fill in the details for the new car listing.</DialogDescription>
+          <DialogDescription>
+            Fill in the details for the new car listing. For images, please upload them to a hosting service and provide the URLs.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -175,12 +202,37 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
             </div>
           </div>
           <div><Label htmlFor="pricePerDay">Price Per Day ($)</Label><Input id="pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay} onChange={handleChange} required min="0.01" step="0.01" /></div>
-          <div><Label htmlFor="imageUrl">Image URL</Label><Input id="imageUrl" name="imageUrl" type="url" value={carData.imageUrl} onChange={handleChange} required /></div>
+          
+          {/* Image URLs Management */}
+          <div>
+            <Label htmlFor="imageUrlInput">Image URLs</Label>
+             <p className="text-xs text-muted-foreground mb-1">Add URLs for car images. The first URL will be the primary image.</p>
+            <div className="flex gap-2 mb-2">
+              <Input id="imageUrlInput" value={imageUrlInput} onChange={(e) => setImageUrlInput(e.target.value)} placeholder="https://example.com/image.png" />
+              <Button type="button" variant="outline" onClick={handleImageUrlAdd}><LinkIcon className="mr-2 h-4 w-4" />Add URL</Button>
+            </div>
+            {carData.imageUrls.length > 0 && (
+              <div className="space-y-1">
+                {carData.imageUrls.map((url, index) => (
+                  <div key={index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
+                    <span className="truncate max-w-[80%]">{url}</span>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleImageUrlRemove(url)}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+             {carData.imageUrls.length === 0 && (
+                <p className="text-xs text-destructive mt-1">Please add at least one image URL.</p>
+            )}
+          </div>
+
           <div><Label htmlFor="description">Short Description</Label><Textarea id="description" name="description" value={carData.description} onChange={handleChange} required minLength={10} /></div>
           <div><Label htmlFor="longDescription">Long Description</Label><Textarea id="longDescription" name="longDescription" value={carData.longDescription} onChange={handleChange} required minLength={20}/></div>
           
           <div>
-            <Label htmlFor="featureInput">Features (comma separated or add one by one)</Label>
+            <Label htmlFor="featureInput">Features</Label>
             <div className="flex gap-2">
               <Input id="featureInput" value={featureInput} onChange={(e) => setFeatureInput(e.target.value)} placeholder="e.g., GPS Navigation" />
               <Button type="button" variant="outline" onClick={handleFeatureAdd}>Add</Button>
@@ -225,11 +277,11 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
             </div>
           </div>
           <div><Label htmlFor="location">Location</Label><Input id="location" name="location" value={carData.location} onChange={handleChange} required /></div>
-          <div><Label htmlFor="aiHint">AI Hint (e.g. sedan silver)</Label><Input id="aiHint" name="aiHint" value={carData.aiHint || ''} onChange={handleChange} placeholder="2 keywords for image search" /></div>
+          <div><Label htmlFor="aiHint">AI Hint (e.g. sedan silver)</Label><Input id="aiHint" name="aiHint" value={carData.aiHint || ''} onChange={handleChange} placeholder="Keywords for primary image" /></div>
 
           <DialogFooter className="pt-4">
             <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || carData.imageUrls.length === 0}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Add Car
             </Button>
@@ -239,4 +291,3 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     </Dialog>
   );
 }
-
