@@ -19,12 +19,30 @@ export interface Car {
   aiHint?: string; // for placeholder images
 }
 
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
+export interface UserDocument {
+  type: 'PhotoID' | 'DrivingLicense';
+  fileName: string;
+  uploadedAt: string; // ISO date string
+  // In a real app, you'd have a fileUrl here pointing to cloud storage
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: 'User' | 'Admin';
   createdAt: string; // ISO date string
+  address?: Address;
+  location?: string;
+  documents?: UserDocument[];
 }
 
 export interface Booking {
