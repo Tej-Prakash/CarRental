@@ -20,7 +20,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { Loader2, XCircle, Trash2, UploadCloud } from 'lucide-react';
+import { Loader2, XCircle, Trash2, UploadCloud, AlertTriangle } from 'lucide-react';
+import Image from 'next/image';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 
 interface AddCarDialogProps {
   onCarAdded: () => void;
@@ -61,7 +64,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     const { name, value } = e.target;
     let parsedValue: string | number | undefined = value;
     if (['pricePerDay', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
-      parsedValue = value === '' ? undefined : Number(value); // Use undefined for empty optional numbers
+      parsedValue = value === '' ? undefined : Number(value);
     }
     setCarData(prev => ({ ...prev, [name]: parsedValue }));
   };
@@ -87,9 +90,13 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
       const newImageUrls = Array.from(files).map(file => {
         return `https://placehold.co/600x400.png?text=${encodeURIComponent(file.name)}`;
       });
-      setCarData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...newImageUrls].slice(0, 5) })); // Limit to 5 images
+      // Append new selections, ensuring not to exceed the limit
+      setCarData(prev => ({ 
+        ...prev, 
+        imageUrls: [...(prev.imageUrls || []), ...newImageUrls].slice(0, 5) 
+      }));
       if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+        fileInputRef.current.value = ""; // Clear file input for next selection
       }
     }
   };
@@ -125,7 +132,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     setIsLoading(true);
 
     if (carData.imageUrls.length === 0) {
-      toast({ title: "Validation Error", description: "Please add at least one image by selecting files.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Please 'upload' at least one image by selecting files.", variant: "destructive" });
       setIsLoading(false);
       return;
     }
@@ -209,6 +216,16 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
             Fill in the details for the new car listing.
           </DialogDescription>
         </DialogHeader>
+
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Important: Image Handling</AlertTitle>
+          <AlertDescription>
+            This form <strong className="text-destructive-foreground">simulates image uploads</strong>. When you select files, placeholder image URLs are generated based on file names.
+            For the application to display actual car images, you must host them externally (e.g., on a cloud storage service) and manage their real URLs. The current system saves these placeholder URLs.
+          </AlertDescription>
+        </Alert>
+
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><Label htmlFor="name">Name</Label><Input id="name" name="name" value={carData.name} onChange={handleChange} required /></div>
@@ -235,7 +252,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           </div>
           
           <div>
-            <Label htmlFor="imageUpload">Upload Car Images (Max 5)</Label>
+            <Label htmlFor="imageUpload">Select Car Images (Max 5)</Label>
             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md">
               <div className="space-y-1 text-center">
                 <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -247,21 +264,28 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
                     <span>Select files</span>
                     <input id="image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} disabled={carData.imageUrls.length >= 5} />
                   </Label>
-                  <p className="pl-1">or drag and drop</p>
+                  <p className="pl-1">or drag and drop (visual only)</p>
                 </div>
-                <p className="text-xs text-muted-foreground">PNG, JPG, GIF (simulated upload)</p>
+                <p className="text-xs text-muted-foreground">PNG, JPG, GIF supported for selection.</p>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Note: This simulates file selection. Placeholder images will be generated. For real use, ensure images are hosted and actual URLs are managed.
-            </p>
+            
             {carData.imageUrls.length > 0 && (
-              <div className="mt-2 space-y-1">
-                <Label>Selected Images (Placeholders):</Label>
+              <div className="mt-2 space-y-2">
+                <Label>Selected Image Placeholders ({carData.imageUrls.length}/5):</Label>
                 {carData.imageUrls.map((url, index) => (
-                  <div key={index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
-                    <img src={url} alt={`Preview ${index + 1}`} className="h-10 w-10 object-cover rounded-sm mr-2"/>
-                    <span className="truncate max-w-[70%]">{decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}</span>
+                  <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
+                    <Image 
+                        src={url} 
+                        alt={`Placeholder for ${decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}`}
+                        width={40} 
+                        height={40} 
+                        className="object-cover rounded-sm mr-2 aspect-square"
+                        data-ai-hint="car placeholder" // Generic hint for placeholders
+                    />
+                    <span className="truncate max-w-[60%] text-ellipsis" title={decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}>
+                        {decodeURIComponent(url.substring(url.indexOf("?text=") + 6))}
+                    </span>
                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleImageUrlRemove(url)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
@@ -270,7 +294,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
               </div>
             )}
              {carData.imageUrls.length === 0 && (
-                <p className="text-xs text-destructive mt-1">Please select at least one image.</p>
+                <p className="text-xs text-destructive mt-1">Please select at least one image file.</p>
             )}
           </div>
 
@@ -323,7 +347,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
             </div>
           </div>
           <div><Label htmlFor="location">Location</Label><Input id="location" name="location" value={carData.location} onChange={handleChange} required /></div>
-          <div><Label htmlFor="aiHint">AI Hint (e.g. sedan silver)</Label><Input id="aiHint" name="aiHint" value={carData.aiHint || ''} onChange={handleChange} placeholder="Keywords for primary image" /></div>
+          <div><Label htmlFor="aiHint">AI Hint (e.g. sedan silver - max 2 words)</Label><Input id="aiHint" name="aiHint" value={carData.aiHint || ''} onChange={handleChange} placeholder="Keywords for primary image" /></div>
 
           <DialogFooter className="pt-4">
             <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
@@ -337,3 +361,4 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     </Dialog>
   );
 }
+
