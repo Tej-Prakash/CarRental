@@ -1,6 +1,7 @@
 
 "use client";
 
+import * as React from 'react'; // Added React import
 import { useState, useEffect, ChangeEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import {
@@ -312,5 +313,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     </Dialog>
   );
 }
+
+    
 
     
