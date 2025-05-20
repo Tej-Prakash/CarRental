@@ -5,59 +5,8 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
 import type { Car } from '@/types';
-import { z } from 'zod';
+import { CarInputSchema, type CarInput } from '@/lib/schemas/car'; // Updated import
 import { ObjectId } from 'mongodb';
-
-// Zod schema for car validation - export for reuse
-export const CarInputSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  type: z.enum(['Sedan', 'SUV', 'Hatchback', 'Truck', 'Van', 'Convertible', 'Coupe']),
-  pricePerDay: z.number().positive("Price must be positive"),
-  minNegotiablePrice: z.number().positive("Minimum negotiable price must be positive").optional(),
-  maxNegotiablePrice: z.number().positive("Maximum negotiable price must be positive").optional(),
-  imageUrls: z.array(z.string().url("Each image URL must be valid")).min(1, "At least one image URL is required"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-  longDescription: z.string().min(20, "Long description must be at least 20 characters"),
-  features: z.array(z.string()).min(1, "At least one feature is required"),
-  availability: z.array(z.object({
-    startDate: z.string().refine((date) => !isNaN(Date.parse(date)), "Invalid start date"),
-    endDate: z.string().refine((date) => !isNaN(Date.parse(date)), "Invalid end date"),
-  })).min(1, "Availability is required"),
-  seats: z.number().int().min(1, "Seats must be at least 1"),
-  engine: z.string().min(1, "Engine details are required"),
-  transmission: z.enum(['Automatic', 'Manual']),
-  fuelType: z.enum(['Gasoline', 'Diesel', 'Electric', 'Hybrid']),
-  rating: z.number().min(0).max(5).optional().default(0),
-  reviews: z.number().int().min(0).optional().default(0),
-  location: z.string().min(1, "Location is required"),
-  aiHint: z.string().optional(),
-}).refine(data => {
-  if (data.minNegotiablePrice && data.minNegotiablePrice > data.pricePerDay) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Minimum negotiable price cannot be greater than the daily price.",
-  path: ["minNegotiablePrice"],
-}).refine(data => {
-  if (data.maxNegotiablePrice && data.maxNegotiablePrice < data.pricePerDay) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Maximum negotiable price cannot be less than the daily price.",
-  path: ["maxNegotiablePrice"],
-}).refine(data => {
-  if (data.minNegotiablePrice && data.maxNegotiablePrice && data.minNegotiablePrice > data.maxNegotiablePrice) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Minimum negotiable price cannot be greater than maximum negotiable price.",
-  path: ["minNegotiablePrice"],
-});
-
-type CarInput = z.infer<typeof CarInputSchema>;
 
 interface CarDocument extends Omit<Car, 'id'> {
   _id: ObjectId;
@@ -82,11 +31,12 @@ export async function POST(req: NextRequest) {
     const client = await clientPromise;
     const db = client.db();
     
+    // Ensure dates are stored as ISO strings if they are not already
     const newCarDocument = {
         ...carData,
         availability: carData.availability.map(a => ({
-          startDate: a.startDate,
-          endDate: a.endDate,
+          startDate: new Date(a.startDate).toISOString(),
+          endDate: new Date(a.endDate).toISOString(),
       })),
     };
 
@@ -96,9 +46,11 @@ export async function POST(req: NextRequest) {
         throw new Error('Failed to insert car into database.');
     }
     
+    // Construct the response object based on Car type, ensuring dates are strings
     const insertedCar: Car = {
         id: result.insertedId.toHexString(),
-        ...carData,
+        ...carData, // Spread validated and typed data
+        availability: newCarDocument.availability, // Use the ISO string dates
     };
 
     return NextResponse.json(insertedCar, { status: 201 });
@@ -137,7 +89,10 @@ export async function GET(req: NextRequest) {
         description: rest.description,
         longDescription: rest.longDescription,
         features: rest.features,
-        availability: rest.availability.map(a => ({ startDate: String(a.startDate), endDate: String(a.endDate) })),
+        availability: rest.availability.map(a => ({ 
+            startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
+            endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
+        })),
         seats: rest.seats,
         engine: rest.engine,
         transmission: rest.transmission,

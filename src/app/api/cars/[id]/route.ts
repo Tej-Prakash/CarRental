@@ -42,7 +42,10 @@ export async function GET(
       description: rest.description,
       longDescription: rest.longDescription,
       features: rest.features,
-      availability: rest.availability.map(a => ({ startDate: String(a.startDate), endDate: String(a.endDate) })),
+      availability: rest.availability.map(a => ({ 
+          startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
+          endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
+      })),
       seats: rest.seats,
       engine: rest.engine,
       transmission: rest.transmission,

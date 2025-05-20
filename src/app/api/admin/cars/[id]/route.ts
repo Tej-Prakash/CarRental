@@ -6,16 +6,7 @@ import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
 import type { Car } from '@/types';
 import { ObjectId } from 'mongodb';
-import { CarInputSchema as CreateCarInputSchema } from '../route'; // Import from sibling route.ts
-import { z } from 'zod';
-
-// Schema for updating a car (all fields optional)
-// Ensure imageUrls is also an array of URLs in the partial schema
-const UpdateCarInputSchema = CreateCarInputSchema.extend({
-  imageUrls: z.array(z.string().url("Each image URL must be valid")).min(1, "At least one image URL is required").optional(),
-}).partial();
-
-type UpdateCarInput = z.infer<typeof UpdateCarInputSchema>;
+import { UpdateCarInputSchema, type UpdateCarInput } from '@/lib/schemas/car'; // Updated import
 
 interface CarDocument extends Omit<Car, 'id'> {
   _id: ObjectId;
@@ -59,7 +50,10 @@ export async function GET(
       description: rest.description,
       longDescription: rest.longDescription,
       features: rest.features,
-      availability: rest.availability.map(a => ({ startDate: String(a.startDate), endDate: String(a.endDate) })),
+      availability: rest.availability.map(a => ({ 
+        startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
+        endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
+      })),
       seats: rest.seats,
       engine: rest.engine,
       transmission: rest.transmission,
@@ -101,14 +95,26 @@ export async function PUT(
     }
     
     const carDataToUpdate: UpdateCarInput = validation.data;
+    
+    // Convert date strings in availability to Date objects if present
+    if (carDataToUpdate.availability) {
+      carDataToUpdate.availability = carDataToUpdate.availability.map(a => ({
+        startDate: new Date(a.startDate).toISOString(),
+        endDate: new Date(a.endDate).toISOString(),
+      }));
+    }
 
-    // Ensure numbers are correctly typed if they arrive as strings from partial schema
-    if (carDataToUpdate.pricePerDay !== undefined) carDataToUpdate.pricePerDay = Number(carDataToUpdate.pricePerDay);
-    if (carDataToUpdate.minNegotiablePrice !== undefined) carDataToUpdate.minNegotiablePrice = Number(carDataToUpdate.minNegotiablePrice);
-    if (carDataToUpdate.maxNegotiablePrice !== undefined) carDataToUpdate.maxNegotiablePrice = Number(carDataToUpdate.maxNegotiablePrice);
-    if (carDataToUpdate.seats !== undefined) carDataToUpdate.seats = Number(carDataToUpdate.seats);
-    if (carDataToUpdate.rating !== undefined) carDataToUpdate.rating = Number(carDataToUpdate.rating);
-    if (carDataToUpdate.reviews !== undefined) carDataToUpdate.reviews = Number(carDataToUpdate.reviews);
+    // Remove fields that are undefined to prevent $set with undefined values if not intended
+    const updatePayload: { [key: string]: any } = {};
+    for (const key in carDataToUpdate) {
+      if (carDataToUpdate[key as keyof UpdateCarInput] !== undefined) {
+        updatePayload[key] = carDataToUpdate[key as keyof UpdateCarInput];
+      }
+    }
+    
+    if (Object.keys(updatePayload).length === 0) {
+        return NextResponse.json({ message: "No fields to update provided." }, { status: 400 });
+    }
 
 
     const client = await clientPromise;
@@ -117,40 +123,36 @@ export async function PUT(
 
     const result = await carsCollection.updateOne(
       { _id: new ObjectId(id) },
-      { $set: carDataToUpdate }
+      { $set: updatePayload }
     );
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ message: 'Car not found for update' }, { status: 404 });
     }
      if (result.modifiedCount === 0 && result.matchedCount > 0) {
+      // If no fields were actually changed, return the current car data
       const currentCar = await carsCollection.findOne({ _id: new ObjectId(id) });
       const { _id, ...rest } = currentCar!;
-      return NextResponse.json({ id: _id.toHexString(), ...rest }, { status: 200 });
+       const carResponse: Car = {
+        id: _id.toHexString(),
+        ...rest,
+        availability: rest.availability.map(a => ({ 
+            startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
+            endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
+        })),
+      };
+      return NextResponse.json(carResponse, { status: 200 });
     }
 
     const updatedCarDoc = await carsCollection.findOne({ _id: new ObjectId(id) });
     const { _id, ...rest } = updatedCarDoc!;
     const carResponse: Car = {
       id: _id.toHexString(),
-      name: rest.name,
-      type: rest.type,
-      pricePerDay: rest.pricePerDay,
-      minNegotiablePrice: rest.minNegotiablePrice,
-      maxNegotiablePrice: rest.maxNegotiablePrice,
-      imageUrls: rest.imageUrls,
-      description: rest.description,
-      longDescription: rest.longDescription,
-      features: rest.features,
-      availability: rest.availability.map(a => ({ startDate: String(a.startDate), endDate: String(a.endDate) })),
-      seats: rest.seats,
-      engine: rest.engine,
-      transmission: rest.transmission,
-      fuelType: rest.fuelType,
-      rating: rest.rating,
-      reviews: rest.reviews,
-      location: rest.location,
-      aiHint: rest.aiHint,
+      ...rest,
+      availability: rest.availability.map(a => ({ 
+        startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
+        endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
+      })),
     };
     return NextResponse.json(carResponse, { status: 200 });
 
@@ -179,6 +181,17 @@ export async function DELETE(
     const client = await clientPromise;
     const db = client.db();
     const carsCollection = db.collection<CarDocument>('cars');
+    
+    // Optional: Check for active bookings before deleting a car
+    const bookingsCollection = db.collection('bookings');
+    const activeBookings = await bookingsCollection.countDocuments({ 
+      carId: id, 
+      status: { $in: ['Confirmed', 'Pending', 'Cancellation Requested'] } 
+    });
+
+    if (activeBookings > 0) {
+      return NextResponse.json({ message: `Cannot delete car. It has ${activeBookings} active or pending booking(s). Please resolve them first.` }, { status: 400 });
+    }
 
     const result = await carsCollection.deleteOne({ _id: new ObjectId(id) });
 
