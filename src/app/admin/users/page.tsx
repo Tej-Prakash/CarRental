@@ -6,7 +6,7 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { User } from '@/types';
-import { PlusCircle, Edit3, Trash2, MoreHorizontal, UserCircle2, Loader2, FileCheck2 } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, MoreHorizontal, UserCircle2, Loader2, FileCheck2, Eye } from 'lucide-react'; // Added Eye
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,12 +14,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge'; // Corrected import for BadgeProps
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import AddUserDialog from '@/components/admin/AddUserDialog';
 import EditUserDialog from '@/components/admin/EditUserDialog';
-import AdminUserDocumentsDialog from '@/components/admin/AdminUserDocumentsDialog'; // Import the new dialog
+import AdminUserDocumentsDialog from '@/components/admin/AdminUserDocumentsDialog';
+import ViewUserDialog from '@/components/admin/ViewUserDialog'; // Import the new dialog
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -35,10 +36,8 @@ export default function AdminUsersPage() {
   const [showDocumentsDialog, setShowDocumentsDialog] = useState(false);
   const [userForDocuments, setUserForDocuments] = useState<User | null>(null);
 
-  // Placeholder for delete functionality as it's not fully implemented yet.
-  // const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  // const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  // const [isDeleting, setIsDeleting] = useState(false);
+  const [showViewUserDialog, setShowViewUserDialog] = useState(false);
+  const [userToView, setUserToView] = useState<User | null>(null);
 
 
   const fetchUsers = async () => {
@@ -91,17 +90,20 @@ export default function AdminUsersPage() {
     setShowDocumentsDialog(true);
   };
 
+  const handleOpenViewUserDialog = (user: User) => {
+    setUserToView(user);
+    setShowViewUserDialog(true);
+  };
+
   const handleUserDocumentsUpdated = (updatedUser: User) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u));
-    setUserForDocuments(updatedUser); // Keep dialog updated if it's still open for the same user
+    setUserForDocuments(updatedUser); 
   };
 
 
   const handleDeleteUser = (userId: string) => {
     console.log("Delete user:", userId);
-    // TODO: Implement actual delete API call with confirmation
     toast({ title: "Delete (Demo)", description: `Would delete user ${userId}. Actual API call for user deletion not yet implemented. Generally, users are disabled, not hard-deleted.`, variant:"default" });
-    // setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
   };
 
   const getDocumentOverallStatus = (user: User): { text: string; variant: BadgeProps['variant'] } => {
@@ -114,8 +116,8 @@ export default function AdminUsersPage() {
 
     if (hasPending) return { text: 'Pending Review', variant: 'secondary' };
     if (hasRejected) return { text: 'Rejected Docs', variant: 'destructive' };
-    if (allApproved && user.documents.length > 0) return { text: 'Verified', variant: 'default' }; // Like success
-    return { text: 'Needs Action', variant: 'outline' }; // Default or mixed states
+    if (allApproved && user.documents.length > 0) return { text: 'Verified', variant: 'default' }; 
+    return { text: 'Needs Action', variant: 'outline' }; 
   };
 
 
@@ -156,7 +158,6 @@ export default function AdminUsersPage() {
                 <TableRow key={user.id}>
                   <TableCell className="hidden sm:table-cell">
                     <Avatar className="h-9 w-9">
-                      {/* <AvatarImage src="/path-to-user-avatar.png" alt={user.name} /> */}
                       <AvatarFallback>
                         <UserCircle2 className="h-5 w-5 text-muted-foreground"/>
                       </AvatarFallback>
@@ -170,7 +171,7 @@ export default function AdminUsersPage() {
                   <TableCell className="hidden lg:table-cell">
                     <Badge variant={docStatus.variant} className="text-xs">{docStatus.text}</Badge>
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -180,6 +181,9 @@ export default function AdminUsersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleOpenViewUserDialog(user)}>
+                          <Eye className="mr-2 h-4 w-4" /> View Details
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenEditDialog(user)}>
                           <Edit3 className="mr-2 h-4 w-4" /> Edit User
                         </DropdownMenuItem>
@@ -216,7 +220,7 @@ export default function AdminUsersPage() {
              if (!open) setUserToEdit(null);
           }}
         >
-          <></> 
+          {/* Empty fragment as children prop is no longer required by EditUserDialog */}
         </EditUserDialog>
       )}
 
@@ -229,6 +233,17 @@ export default function AdminUsersPage() {
                 if (!open) setUserForDocuments(null);
             }}
             onDocumentsUpdated={handleUserDocumentsUpdated}
+        />
+      )}
+
+      {userToView && (
+        <ViewUserDialog
+          user={userToView}
+          isOpen={showViewUserDialog}
+          onOpenChange={(open) => {
+            setShowViewUserDialog(open);
+            if (!open) setUserToView(null);
+          }}
         />
       )}
 
