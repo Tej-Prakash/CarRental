@@ -15,6 +15,10 @@ export default function CarCard({ car }: CarCardProps) {
     ? car.imageUrls[0] 
     : '/assets/images/default-car.png';
   
+  const displayPrice = typeof car.pricePerHour === 'number' 
+    ? car.pricePerHour.toFixed(2) 
+    : 'N/A';
+
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
       <CardHeader className="p-0">
@@ -27,7 +31,10 @@ export default function CarCard({ car }: CarCardProps) {
             className="object-cover"
             data-ai-hint={car.aiHint || 'car'}
             priority={false}
-            onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png';}}
+            onError={(e) => { 
+              (e.target as HTMLImageElement).src = '/assets/images/default-car.png';
+              (e.target as HTMLImageElement).alt = 'Image failed to load';
+            }}
           />
         </div>
       </CardHeader>
@@ -57,7 +64,7 @@ export default function CarCard({ car }: CarCardProps) {
       <CardFooter className="p-4 flex justify-between items-center border-t mt-auto">
         <div>
           <p className="text-lg font-bold text-primary flex items-center">
-            <Clock className="h-4 w-4 mr-1 text-accent" /> ₹{car.pricePerHour.toFixed(2)}
+            <Clock className="h-4 w-4 mr-1 text-accent" /> ₹{displayPrice}
           </p>
           <p className="text-xs text-muted-foreground ml-1">per hour</p>
         </div>
