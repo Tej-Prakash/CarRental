@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { Car, SiteSettings } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart } from 'lucide-react';
+import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart, Image as ImageIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -25,8 +25,8 @@ interface CarDetailsPageProps {
 }
 
 export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPageProps) {
-  const resolvedParams = use(paramsFromProps as any); 
-  const carId = resolvedParams.id;
+  const params = use(paramsFromProps as any); 
+  const carId = params.id;
 
   const [car, setCar] = useState<Car | null>(null);
   const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({ defaultCurrency: 'INR' });
@@ -48,6 +48,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
 
   const [selectedStartDateTime, setSelectedStartDateTime] = useState<Date | null>(null);
   const [selectedEndDateTime, setSelectedEndDateTime] = useState<Date | null>(null);
+  const [currentMainImage, setCurrentMainImage] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -69,6 +70,11 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
         }
         const data: Car = await response.json();
         setCar(data);
+        if (data.imageUrls && data.imageUrls.length > 0) {
+            setCurrentMainImage(data.imageUrls[0]);
+        } else {
+            setCurrentMainImage('/assets/images/default-car.png');
+        }
       } catch (err: any) {
         setError(err.message); setCar(null);
       } finally {
@@ -107,12 +113,19 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       
       if (isValid(tempStartDateTime) && isValid(tempEndDateTime)) {
         if (isBefore(tempEndDateTime, tempStartDateTime) || tempEndDateTime.getTime() === tempStartDateTime.getTime()) {
-           if (dateRange.to.getTime() === dateRange.from.getTime()) {
-            tempEndDateTime = addHours(tempStartDateTime, 1);
-            setEndTime(format(tempEndDateTime, 'HH:mm'));
-             if (!isBefore(dateRange.to, tempEndDateTime) && dateRange.to.getDate() !== tempEndDateTime.getDate()) { // Check if it pushed to next day
-                 setDateRange(prev => ({...prev, to: tempEndDateTime}));
-             }
+           if (dateRange.to.getTime() === dateRange.from.getTime()) { // Same day selection
+            // Ensure end time is at least 1 hour after start time
+            if (tempEndDateTime <= tempStartDateTime) {
+                tempEndDateTime = addHours(tempStartDateTime, 1);
+                setEndTime(format(tempEndDateTime, 'HH:mm')); 
+                 // If this pushes end time to next day, calendar needs update (more complex UI)
+                if (dateRange.to.getDate() !== tempEndDateTime.getDate()){
+                     setDateRange(prev => ({...prev, to: tempEndDateTime}));
+                }
+            }
+          } else { // Different days, but time makes end before start (e.g. end time earlier than start time)
+             // This case can be complex, for now, we assume user will select valid times across days.
+             // Or, we could reset end time if it becomes invalid due to start time change.
           }
         }
         if (isBefore(tempStartDateTime, new Date())) {
@@ -182,7 +195,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
 
     localStorage.setItem('checkoutBookingDetails', JSON.stringify(checkoutDetails));
     router.push('/checkout');
-    setIsProceedingToCheckout(false); 
+    // setIsProceedingToCheckout(false); // No need to set this here, page navigates away
   };
 
   if (isLoading) {
@@ -225,23 +238,57 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
   
   const displayCurrency = siteSettings.defaultCurrency || 'INR';
   const currencySymbol = displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : displayCurrency === 'GBP' ? '£' : '$'; 
-  const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
-
+  
 
   return (
     <div className="space-y-8 container mx-auto py-8 px-4">
       <Card className="overflow-hidden shadow-xl">
         <div className="grid md:grid-cols-2 gap-0">
-          <div className="relative aspect-video md:aspect-auto min-h-[300px] md:min-h-[400px]">
-            <Image 
-              src={primaryImageUrl} 
-              alt={car.name} 
-              fill 
-              className="object-cover"
-              data-ai-hint={car.aiHint || 'car'}
-              priority
-              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png'; (e.target as HTMLImageElement).alt = "Image error, fallback shown"; }}
-            />
+          <div className="p-4 md:p-6">
+             {currentMainImage && (
+                <div className="relative aspect-video w-full rounded-lg overflow-hidden shadow-md mb-4">
+                    <Image 
+                    src={currentMainImage} 
+                    alt={car.name} 
+                    fill 
+                    className="object-cover"
+                    data-ai-hint={car.aiHint || 'car'}
+                    priority
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png'; (e.target as HTMLImageElement).alt = "Image error, fallback shown"; }}
+                    />
+                </div>
+            )}
+            {(car.imageUrls && car.imageUrls.length > 1) && (
+                <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-2">More Images:</h3>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {car.imageUrls.map((imgUrl, index) => (
+                            <button 
+                                key={index} 
+                                className={cn(
+                                    "relative aspect-square rounded-md overflow-hidden border-2 transition-all",
+                                    imgUrl === currentMainImage ? "border-primary ring-2 ring-primary ring-offset-2" : "border-transparent hover:border-primary/50"
+                                )}
+                                onClick={() => setCurrentMainImage(imgUrl)}
+                            >
+                                <Image 
+                                    src={imgUrl} 
+                                    alt={`${car.name} - image ${index + 1}`} 
+                                    fill 
+                                    className="object-cover" 
+                                    sizes="(max-width: 640px) 25vw, (max-width: 768px) 20vw, 15vw"
+                                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png'; }}
+                                />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+             {(!car.imageUrls || car.imageUrls.length === 0) && !currentMainImage && (
+                <div className="relative aspect-video w-full rounded-lg overflow-hidden shadow-md mb-4 bg-muted flex items-center justify-center">
+                    <ImageIcon className="h-16 w-16 text-muted-foreground" />
+                </div>
+            )}
           </div>
           <div className="p-6 md:p-8 flex flex-col">
             <CardHeader className="p-0 mb-4">
@@ -314,10 +361,10 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
                             onSelect={(selectedRange) => {
                                 setDateRange(selectedRange);
                                 if (selectedRange?.from && selectedRange.to) {
-                                    setIsDatePickerOpen(false); // Auto-close popover
+                                    setIsDatePickerOpen(false); 
                                 }
                             }}
-                            numberOfMonths={1} // Simplified to 1 month
+                            numberOfMonths={1} 
                             disabled={{ before: today }}
                         />
                         </PopoverContent>
