@@ -227,10 +227,7 @@ export default function AdminCarsPage() {
             setShowEditDialog(open);
             if (!open) setCarToEdit(null);
           }}
-        >
-          {/* This children prop for EditCarDialog is not strictly needed if trigger is handled by DropdownMenuItem */}
-          <></> 
-        </EditCarDialog>
+        />
       )}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

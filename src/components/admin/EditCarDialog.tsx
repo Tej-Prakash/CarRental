@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -24,16 +23,16 @@ import { Loader2, XCircle, Trash2, UploadCloud, AlertTriangle } from 'lucide-rea
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
+import { UpdateCarInputSchema } from '@/lib/schemas/car';
 
 interface EditCarDialogProps {
   car: Car;
   onCarUpdated: () => void;
-  children: React.ReactNode; 
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onOpenChange }: EditCarDialogProps) {
+export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange }: EditCarDialogProps) {
   const [carData, setCarData] = useState<Partial<Car>>(car);
   const [isLoading, setIsLoading] = useState(false);
   const [featureInput, setFeatureInput] = useState('');
@@ -45,12 +44,15 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
     if (isOpen && car) {
       setCarData({
         ...car,
-        pricePerHour: car.pricePerHour, // Ensure this is correct
+        pricePerHour: car.pricePerHour,
         minNegotiablePrice: car.minNegotiablePrice ?? undefined,
         maxNegotiablePrice: car.maxNegotiablePrice ?? undefined,
         imageUrls: Array.isArray(car.imageUrls) ? car.imageUrls : [],
         features: Array.isArray(car.features) ? car.features : [],
-        availability: Array.isArray(car.availability) && car.availability.length > 0 ? car.availability : [{ startDate: '', endDate: '' }],
+        availability: Array.isArray(car.availability) && car.availability.length > 0 ? car.availability.map(a => ({
+          startDate: a.startDate ? new Date(a.startDate).toISOString().split('T')[0] : '',
+          endDate: a.endDate ? new Date(a.endDate).toISOString().split('T')[0] : '',
+        })) : [{ startDate: '', endDate: '' }],
         aiHint: car.aiHint ?? '',
       });
       setFeatureInput('');
@@ -62,6 +64,10 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
     let parsedValue: string | number | undefined = value;
     if (['pricePerHour', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
       parsedValue = value === '' ? undefined : Number(value);
+      if (isNaN(Number(parsedValue))) {
+        if(value === '') parsedValue = undefined; // Allow clearing optional numeric fields
+        else return; // Prevent non-numeric input for number fields
+      }
     }
     setCarData(prev => ({ ...prev, [name]: parsedValue }));
   };
@@ -121,43 +127,35 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
         return;
     }
     
-    const payload: Partial<Car> = { ...carData };
-    payload.pricePerHour = carData.pricePerHour ? Number(carData.pricePerHour) : undefined;
-    payload.seats = carData.seats ? Number(carData.seats) : undefined;
-    payload.rating = carData.rating ? Number(carData.rating) : undefined;
-    payload.reviews = carData.reviews ? Number(carData.reviews) : undefined;
-    payload.minNegotiablePrice = carData.minNegotiablePrice ? Number(carData.minNegotiablePrice) : undefined;
-    payload.maxNegotiablePrice = carData.maxNegotiablePrice ? Number(carData.maxNegotiablePrice) : undefined;
+    const payloadForValidation = {
+      ...carData,
+      pricePerHour: carData.pricePerHour !== undefined ? Number(carData.pricePerHour) : undefined,
+      seats: carData.seats !== undefined ? Number(carData.seats) : undefined,
+      rating: carData.rating !== undefined ? Number(carData.rating) : undefined,
+      reviews: carData.reviews !== undefined ? Number(carData.reviews) : undefined,
+      minNegotiablePrice: carData.minNegotiablePrice !== undefined ? Number(carData.minNegotiablePrice) : undefined,
+      maxNegotiablePrice: carData.maxNegotiablePrice !== undefined ? Number(carData.maxNegotiablePrice) : undefined,
+      availability: (carData.availability || []).filter(a => a.startDate && a.endDate).map(a => ({
+        startDate: new Date(a.startDate).toISOString(),
+        endDate: new Date(a.endDate).toISOString(),
+      })),
+    };
 
-    delete payload.id;
+    const validationResult = UpdateCarInputSchema.safeParse(payloadForValidation);
 
-    if (payload.pricePerHour !== undefined && payload.pricePerHour <= 0) {
-         toast({ title: "Validation Error", description: "Price per hour must be greater than 0.", variant: "destructive" });
-         setIsLoading(false); return;
-    }
-    if (payload.seats !== undefined && payload.seats <= 0) {
-         toast({ title: "Validation Error", description: "Number of seats must be greater than 0.", variant: "destructive" });
-         setIsLoading(false); return;
-    }
-    const effectivePricePerHour = payload.pricePerHour ?? car.pricePerHour;
-    if (payload.minNegotiablePrice && payload.minNegotiablePrice > effectivePricePerHour) {
-        toast({ title: "Validation Error", description: "Min negotiable hourly price cannot exceed hourly price.", variant: "destructive" });
-        setIsLoading(false); return;
-    }
-    if (payload.maxNegotiablePrice && payload.maxNegotiablePrice < effectivePricePerHour) {
-        toast({ title: "Validation Error", description: "Max negotiable hourly price cannot be less than hourly price.", variant: "destructive" });
-        setIsLoading(false); return;
-    }
-    if (payload.minNegotiablePrice && payload.maxNegotiablePrice && payload.minNegotiablePrice > payload.maxNegotiablePrice) {
-        toast({ title: "Validation Error", description: "Min negotiable hourly price cannot exceed max negotiable hourly price.", variant: "destructive" });
-        setIsLoading(false); return;
-    }
-    const currentAvailability = payload.availability || [];
-    if (currentAvailability.length === 0 || !currentAvailability[0]?.startDate || !currentAvailability[0]?.endDate) {
-        toast({ title: "Validation Error", description: "Please provide at least one availability start and end date.", variant: "destructive" });
-        setIsLoading(false); return;
+    if (!validationResult.success) {
+      const errors = validationResult.error.flatten().fieldErrors;
+      let errorMessages = "Validation failed: ";
+      Object.entries(errors).forEach(([field, messages]) => {
+        if (messages) errorMessages += `${field}: ${messages.join(', ')}. `;
+      });
+      toast({ title: "Validation Error", description: errorMessages, variant: "destructive" });
+      setIsLoading(false);
+      return;
     }
 
+    const finalPayload = { ...validationResult.data };
+    delete (finalPayload as any).id; // Ensure id is not in payload for update
 
     try {
       const token = localStorage.getItem('authToken');
@@ -171,7 +169,7 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(finalPayload),
       });
 
       if (!response.ok) {
@@ -197,9 +195,6 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle>Edit Car: {car.name}</DialogTitle>
@@ -218,7 +213,7 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
               <li>Manually create the folder `public/assets/images/` in your project root if it doesn't exist.</li>
               <li>Place image files with matching names into this folder.</li>
             </ol>
-            The system stores these relative paths. Actual file upload to the server is not implemented here.
+            The system stores these relative paths. Actual file upload to the server is not implemented here. For production, use a cloud storage service.
           </AlertDescription>
         </Alert>
 
