@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import type { DateRange } from "react-day-picker";
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label'; // Ensure Label is imported
 
 interface CarDetailsPageProps {
   params: { id: string };
@@ -85,8 +86,13 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       }
     };
     
-    fetchCarDetails();
-    fetchSiteSettings();
+    if (carId) {
+        fetchCarDetails();
+        fetchSiteSettings();
+    } else {
+        setError("Car ID is missing.");
+        setIsLoading(false);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carId, router, toast]);
 
@@ -405,3 +411,5 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
+
+    
