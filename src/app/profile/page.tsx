@@ -10,9 +10,16 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { User, Address, UserDocument as UserDocumentType, DocumentStatus } from '@/types';
 import { Loader2, UserCircle, Mail, Home, MapPin, UploadCloud, FileText, ShieldAlert, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import Image from 'next/image'; // For document previews
-import { Badge, BadgeProps } from '@/components/ui/badge'; // For status badges
+import Image from 'next/image';
+import { Badge, BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+
+const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'tiff', 'svg'];
+const isImageFile = (filePathOrName: string): boolean => {
+  if (!filePathOrName) return false;
+  const extension = filePathOrName.split('.').pop()?.toLowerCase();
+  return !!extension && imageExtensions.includes(extension);
+};
 
 export default function ProfilePage() {
   const { toast } = useToast();
@@ -175,9 +182,10 @@ export default function ProfilePage() {
 
     let uploadedFilePath = '';
     try {
-      const uploadResponse = await fetch('/api/upload?destination=documents', {
+      const uploadResponse = await fetch(`/api/upload?destination=documents`, { // Ensure destination is set
         method: 'POST',
         body: formData,
+         headers: { 'Authorization': `Bearer ${token}` }, // Assuming upload needs auth
       });
       const uploadResult = await uploadResponse.json();
       if (!uploadResponse.ok || !uploadResult.success) {
@@ -366,20 +374,37 @@ export default function ProfilePage() {
                     doc.status === 'Rejected' ? 'border-destructive bg-destructive/10' :
                     'border-border bg-secondary/50'
                   )}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center">
-                        <FileText className="h-5 w-5 mr-2 text-accent" />
-                        <span className="font-medium"><strong>{doc.type}:</strong> 
-                          <a href={doc.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">{doc.fileName}</a>
-                        </span>
+                    <div className="flex items-start gap-3">
+                      {isImageFile(doc.filePath || doc.fileName) ? (
+                        <div className="relative w-16 h-12 rounded overflow-hidden border">
+                          <Image
+                            src={doc.filePath}
+                            alt={`Preview of ${doc.fileName}`}
+                            fill
+                            className="object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }}
+                          />
+                           <div className="hidden absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs">Preview N/A</div>
+                        </div>
+                      ) : (
+                        <div className="w-16 h-12 flex items-center justify-center bg-muted rounded border">
+                          <FileText className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-grow">
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-sm"><strong>{doc.type}:</strong> 
+                            <a href={doc.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">{doc.fileName}</a>
+                            </span>
+                          <Badge variant={getStatusBadgeVariant(doc.status)} className="flex items-center gap-1 text-xs">
+                            {getStatusIcon(doc.status)}
+                            {doc.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleString()}</p>
+                        {doc.verifiedAt && <p className="text-xs text-muted-foreground">Reviewed: {new Date(doc.verifiedAt).toLocaleString()}</p>}
                       </div>
-                      <Badge variant={getStatusBadgeVariant(doc.status)} className="flex items-center gap-1">
-                        {getStatusIcon(doc.status)}
-                        {doc.status}
-                      </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleString()}</p>
-                    {doc.verifiedAt && <p className="text-xs text-muted-foreground">Reviewed: {new Date(doc.verifiedAt).toLocaleString()}</p>}
                     {doc.adminComments && (
                       <p className={cn("text-sm mt-2 p-2 rounded-md", 
                         doc.status === 'Rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
@@ -397,5 +422,4 @@ export default function ProfilePage() {
     </div>
   );
 }
-
     

@@ -16,9 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserDocument, DocumentType, DocumentStatus } from '@/types';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, DownloadCloud } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, FileText, DownloadCloud } from 'lucide-react'; // Removed AlertTriangle, DownloadCloud
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface AdminUserDocumentsDialogProps {
   user: User | null;
@@ -32,6 +33,13 @@ type EditableDocumentState = {
     comments: string;
     isProcessing: boolean;
   }
+};
+
+const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'tiff', 'svg'];
+const isImageFile = (filePathOrName: string): boolean => {
+  if (!filePathOrName) return false;
+  const extension = filePathOrName.split('.').pop()?.toLowerCase();
+  return !!extension && imageExtensions.includes(extension);
 };
 
 export default function AdminUserDocumentsDialog({ user, isOpen, onOpenChange, onDocumentsUpdated }: AdminUserDocumentsDialogProps) {
@@ -72,8 +80,8 @@ export default function AdminUserDocumentsDialog({ user, isOpen, onOpenChange, o
     const token = localStorage.getItem('authToken');
     if (!token) {
       toast({ title: "Authentication Error", description: "Action requires login. Please log in again.", variant: "destructive" });
-      localStorage.removeItem('authToken'); // Ensure clear
-      localStorage.removeItem('authUser');  // Ensure clear
+      localStorage.removeItem('authToken'); 
+      localStorage.removeItem('authUser');  
       router.push('/login');
       setDocumentsState(prev => ({
         ...prev,
@@ -180,11 +188,32 @@ export default function AdminUserDocumentsDialog({ user, isOpen, onOpenChange, o
                   <h3 className="font-semibold text-lg">{doc.type}</h3>
                   <Badge variant={getStatusVariant(doc.status)}>{doc.status}</Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  File: <a href={doc.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{doc.fileName}</a>
-                </p>
-                <p className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleString()}</p>
-                {doc.verifiedAt && <p className="text-xs text-muted-foreground">Reviewed: {new Date(doc.verifiedAt).toLocaleString()}</p>}
+
+                <div className="flex items-start gap-3 mb-3">
+                  {isImageFile(doc.filePath || doc.fileName) ? (
+                    <div className="relative w-24 h-16 rounded overflow-hidden border flex-shrink-0">
+                       <Image
+                        src={doc.filePath}
+                        alt={`Preview of ${doc.fileName}`}
+                        fill
+                        className="object-contain"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }}
+                      />
+                      <div className="hidden absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-xs">Preview N/A</div>
+                    </div>
+                  ) : (
+                    <div className="w-24 h-16 flex items-center justify-center bg-muted rounded border flex-shrink-0">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-grow">
+                    <p className="text-sm text-muted-foreground break-all">
+                      File: <a href={doc.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{doc.fileName}</a>
+                    </p>
+                    <p className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleString()}</p>
+                    {doc.verifiedAt && <p className="text-xs text-muted-foreground">Reviewed: {new Date(doc.verifiedAt).toLocaleString()}</p>}
+                  </div>
+                </div>
                 
                 <div className="mt-3">
                   <Label htmlFor={`${doc.type}-comments`}>Admin Comments</Label>
