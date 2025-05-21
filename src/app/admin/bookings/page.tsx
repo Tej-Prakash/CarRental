@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { format, parseISO } from 'date-fns';
+import BookingDetailsDialog from '@/components/admin/BookingDetailsDialog'; // Import the new dialog
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -45,6 +46,9 @@ export default function AdminBookingsPage() {
     newStatus?: Booking['status'];
   } | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+
+  const [showBookingDetailsDialog, setShowBookingDetailsDialog] = useState(false);
+  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
 
 
   const fetchBookings = async () => {
@@ -88,9 +92,9 @@ export default function AdminBookingsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleViewBooking = (bookingId: string) => {
-    console.log("View booking:", bookingId);
-    toast({title: "View Details (Demo)", description: `Viewing details for booking ${bookingId}. Not implemented.`});
+  const handleViewBooking = (booking: Booking) => {
+    setSelectedBookingForDetails(booking);
+    setShowBookingDetailsDialog(true);
   };
   
   const confirmAction = (booking: Booking, action: 'approve' | 'reject' | 'delete') => {
@@ -123,6 +127,8 @@ export default function AdminBookingsPage() {
     const token = localStorage.getItem('authToken');
     if (!token) {
         toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
         router.push('/login');
         setIsProcessingAction(false);
         setShowConfirmDialog(false);
@@ -239,7 +245,7 @@ export default function AdminBookingsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewBooking(booking.id)}>
+                          <DropdownMenuItem onClick={() => handleViewBooking(booking)}>
                             <Eye className="mr-2 h-4 w-4" /> View Details
                           </DropdownMenuItem>
                           
@@ -273,6 +279,17 @@ export default function AdminBookingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <BookingDetailsDialog 
+        booking={selectedBookingForDetails}
+        isOpen={showBookingDetailsDialog}
+        onOpenChange={(open) => {
+            setShowBookingDetailsDialog(open);
+            if (!open) {
+                setSelectedBookingForDetails(null);
+            }
+        }}
+      />
 
       {dialogConfig && (
         <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
