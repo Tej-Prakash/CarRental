@@ -3,14 +3,14 @@ export interface Car {
   id: string;
   name: string;
   type: 'Sedan' | 'SUV' | 'Hatchback' | 'Truck' | 'Van' | 'Convertible' | 'Coupe';
-  pricePerDay: number;
-  minNegotiablePrice?: number;
-  maxNegotiablePrice?: number;
+  pricePerHour: number; // Changed from pricePerDay
+  minNegotiablePrice?: number; // Now refers to hourly rate
+  maxNegotiablePrice?: number; // Now refers to hourly rate
   imageUrls: string[]; 
   description: string;
   longDescription: string;
   features: string[];
-  availability: { startDate: string; endDate:string }[];
+  availability: { startDate: string; endDate:string }[]; // These remain as full dates for general car availability
   seats: number;
   engine: string;
   transmission: 'Automatic' | 'Manual';
@@ -55,8 +55,8 @@ export interface Booking {
   carImageUrl?: string; 
   userId: string;
   userName: string; 
-  startDate: string; // ISO date string
-  endDate: string; // ISO date string
+  startDate: string; // Full ISO date-time string
+  endDate: string; // Full ISO date-time string
   totalPrice: number;
   status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Cancellation Requested' | 'Cancellation Rejected';
   createdAt?: string; // ISO date string
@@ -71,3 +71,4 @@ export interface SiteSettings {
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
   updatedAt?: string; // ISO date string
 }
+

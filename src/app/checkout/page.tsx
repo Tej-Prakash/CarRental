@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertTriangle, CreditCard, CalendarDays, Tag, CarIcon, Info } from 'lucide-react';
+import { Loader2, AlertTriangle, CreditCard, CalendarDays, Tag, CarIcon, Info, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
@@ -15,10 +15,10 @@ interface CheckoutBookingDetails {
   carId: string;
   carName: string;
   carImageUrl?: string;
-  startDate: string; // ISO string
-  endDate: string; // ISO string
-  rentalDays: number;
-  pricePerDay: number;
+  startDate: string; // Full ISO date-time string
+  endDate: string; // Full ISO date-time string
+  rentalHours: number; // Changed from rentalDays
+  pricePerHour: number; // Changed from pricePerDay
   totalPrice: number;
   currency: string;
   currencySymbol: string;
@@ -63,16 +63,12 @@ export default function CheckoutPage() {
       });
     }
 
-    // Cleanup localStorage if user navigates away using browser back/forward or closes tab
     const handleBeforeUnload = () => {
       localStorage.removeItem('checkoutBookingDetails');
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Also clear if component unmounts for other reasons (e.g. successful navigation)
-      // but specifically not if payment is processing.
-      // This is tricky, main cleanup should happen after payment attempt.
     };
 
   }, [router, toast]);
@@ -87,7 +83,7 @@ export default function CheckoutPage() {
     const token = localStorage.getItem('authToken');
     if (!token) {
       toast({ title: "Authentication Error", description: "Please log in to make a booking.", variant: "destructive" });
-      localStorage.removeItem('checkoutBookingDetails'); // Clear stale data
+      localStorage.removeItem('checkoutBookingDetails'); 
       router.push('/login?redirect=/checkout');
       setIsPaymentProcessing(false);
       return;
@@ -105,8 +101,8 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           carId: bookingDetails.carId,
-          startDate: bookingDetails.startDate,
-          endDate: bookingDetails.endDate,
+          startDate: bookingDetails.startDate, // Full ISO string
+          endDate: bookingDetails.endDate,     // Full ISO string
         }),
       });
 
@@ -130,7 +126,7 @@ export default function CheckoutPage() {
         key: orderData.keyId, 
         amount: orderData.amount.toString(), 
         currency: orderData.currency,
-        name: "Travel Yatra", // Use your actual site name, can be fetched from settings too
+        name: "Travel Yatra", 
         description: `Booking for ${bookingDetails.carName}`,
         image: bookingDetails.carImageUrl || `${process.env.NEXT_PUBLIC_APP_URL}/icon.svg`,
         order_id: orderData.razorpayOrderId,
@@ -146,7 +142,7 @@ export default function CheckoutPage() {
             }),
           });
 
-          localStorage.removeItem('checkoutBookingDetails'); // Clean up after payment attempt
+          localStorage.removeItem('checkoutBookingDetails'); 
           const verifyResult = await verifyResponse.json();
           if (verifyResponse.ok) {
             toast({ title: "Booking Confirmed!", description: `Your booking for ${bookingDetails.carName} is confirmed. Booking ID: ${orderData.bookingId.substring(0,8)}...` });
@@ -169,7 +165,6 @@ export default function CheckoutPage() {
                 toast({ title: "Payment Cancelled", description: "Your payment was not completed.", variant: "default" });
                 localStorage.removeItem('checkoutBookingDetails');
                 setIsPaymentProcessing(false);
-                // Optionally redirect or offer to try again
                 router.push(`/cars/${bookingDetails.carId}`);
             }
         }
@@ -187,7 +182,6 @@ export default function CheckoutPage() {
             setIsPaymentProcessing(false);
       });
       rzp.open();
-      // setIsPaymentProcessing is set to false by ondismiss or if handler fails before this.
 
     } catch (bookingError: any) {
       toast({ title: "Booking Error", description: bookingError.message || "Could not process your booking.", variant: "destructive" });
@@ -254,16 +248,16 @@ export default function CheckoutPage() {
             <div className="flex justify-between items-center">
               <span className="font-medium text-muted-foreground flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-accent" />Rental Period:</span>
               <span className="font-semibold text-right">
-                {format(parseISO(bookingDetails.startDate), 'MMM dd, yyyy')} to {format(parseISO(bookingDetails.endDate), 'MMM dd, yyyy')}
+                {format(parseISO(bookingDetails.startDate), 'MMM dd, yyyy, hh:mm a')} to {format(parseISO(bookingDetails.endDate), 'MMM dd, yyyy, hh:mm a')}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="font-medium text-muted-foreground flex items-center"><Info className="mr-2 h-5 w-5 text-accent" />Duration:</span>
-              <span className="font-semibold">{bookingDetails.rentalDays} day{bookingDetails.rentalDays !== 1 ? 's' : ''}</span>
+              <span className="font-semibold">{bookingDetails.rentalHours} hour{bookingDetails.rentalHours !== 1 ? 's' : ''}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="font-medium text-muted-foreground flex items-center"><Tag className="mr-2 h-5 w-5 text-accent" />Price per Day:</span>
-              <span className="font-semibold">{bookingDetails.currencySymbol}{bookingDetails.pricePerDay.toFixed(2)}</span>
+              <span className="font-medium text-muted-foreground flex items-center"><Tag className="mr-2 h-5 w-5 text-accent" />Price per Hour:</span>
+              <span className="font-semibold">{bookingDetails.currencySymbol}{bookingDetails.pricePerHour.toFixed(2)}</span>
             </div>
           </div>
 
@@ -286,7 +280,7 @@ export default function CheckoutPage() {
             {isPaymentProcessing ? 'Processing Payment...' : 'Confirm & Pay'}
           </Button>
           {!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && <p className="text-xs text-destructive text-center">Razorpay payments are currently disabled due to missing configuration.</p>}
-          <Button variant="outline" className="w-full" onClick={() => { localStorage.removeItem('checkoutBookingDetails'); router.back();}} disabled={isPaymentProcessing}>
+          <Button variant="outline" className="w-full" onClick={() => { router.back();}} disabled={isPaymentProcessing}>
             Back to Car Details
           </Button>
         </CardFooter>

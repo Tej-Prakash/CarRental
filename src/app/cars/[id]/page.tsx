@@ -1,30 +1,31 @@
 
 "use client";
 
-import React, { useState, useEffect, use } from 'react'; // Added React and use
+import React, { useState, useEffect, use, ChangeEvent } from 'react';
 import Image from 'next/image';
 import type { Car, SiteSettings } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, DollarSign, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, CreditCard, ShoppingCart } from 'lucide-react';
+import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, differenceInCalendarDays, isBefore, startOfToday, parseISO } from "date-fns";
+import { format, differenceInHours, isBefore, startOfToday, parseISO, setHours, setMinutes, isValid, addHours, subHours } from "date-fns";
 import { cn } from '@/lib/utils';
 import type { DateRange } from "react-day-picker";
 import { useRouter } from 'next/navigation';
+import { Input } from '@/components/ui/input';
 
 interface CarDetailsPageProps {
   params: { id: string };
 }
 
 export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPageProps) {
-  const params = use(paramsFromProps as any); // Use React.use to unwrap params
-  const carId = params.id;
+  const resolvedParams = use(paramsFromProps as any); 
+  const carId = resolvedParams.id;
 
   const [car, setCar] = useState<Car | null>(null);
   const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({ defaultCurrency: 'INR' });
@@ -40,30 +41,34 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     from: undefined, 
     to: undefined,  
   });
+  const [startTime, setStartTime] = useState<string>('09:00'); // Default start time
+  const [endTime, setEndTime] = useState<string>('17:00');   // Default end time
+
+  const [selectedStartDateTime, setSelectedStartDateTime] = useState<Date | null>(null);
+  const [selectedEndDateTime, setSelectedEndDateTime] = useState<Date | null>(null);
+
 
   useEffect(() => {
     const fetchCarDetails = async () => {
+      if (!carId) return;
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/cars/${carId}`); // Use resolved carId
+        const response = await fetch(`/api/cars/${carId}`);
         if (!response.ok) {
           if (response.status === 401) {
             toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('authUser');
-            router.push('/login');
-            setIsLoading(false);
-            return;
+            localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
+          } else {
+            const errorData = await response.json().catch(() => ({ message: `Car not found or server error (${response.status})` }));
+            throw new Error(errorData.message);
           }
-          const errorData = await response.json().catch(() => ({ message: `Car not found or server error (${response.status})` }));
-          throw new Error(errorData.message);
+          setCar(null); setIsLoading(false); return;
         }
         const data: Car = await response.json();
         setCar(data);
       } catch (err: any) {
-        setError(err.message);
-        setCar(null);
+        setError(err.message); setCar(null);
       } finally {
         setIsLoading(false);
       }
@@ -72,32 +77,76 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     const fetchSiteSettings = async () => {
       try {
         const response = await fetch('/api/settings');
-        if (response.ok) {
-          const settingsData: SiteSettings = await response.json();
-          setSiteSettings(settingsData);
-        }
+        if (response.ok) setSiteSettings(await response.json());
+        else setSiteSettings({ defaultCurrency: 'INR' });
       } catch (settingsError) {
-        console.warn("Could not fetch site settings for currency display, defaulting to INR.", settingsError);
-         setSiteSettings({ defaultCurrency: 'INR' });
+        console.warn("Could not fetch site settings, defaulting to INR.", settingsError);
+        setSiteSettings({ defaultCurrency: 'INR' });
       }
     };
-
-    if (carId) { // Use resolved carId
-      fetchCarDetails();
-      fetchSiteSettings();
-    }
+    
+    fetchCarDetails();
+    fetchSiteSettings();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carId, router, toast]); // Depend on resolved carId and other stable dependencies
+  }, [carId, router, toast]);
+
+  useEffect(() => {
+    if (dateRange?.from && dateRange?.to && startTime && endTime) {
+      const [startH, startM] = startTime.split(':').map(Number);
+      const [endH, endM] = endTime.split(':').map(Number);
+
+      let tempStartDateTime = setMinutes(setHours(dateRange.from, startH), startM);
+      let tempEndDateTime = setMinutes(setHours(dateRange.to, endH), endM);
+      
+      // Ensure endDateTime is after startDateTime
+      if (isValid(tempStartDateTime) && isValid(tempEndDateTime)) {
+        if (isBefore(tempEndDateTime, tempStartDateTime) || tempEndDateTime.getTime() === tempStartDateTime.getTime()) {
+          // If same day and end time is before start time, or if dates make it invalid, adjust end date/time
+          // A simple heuristic: if end time is before start time on the same day, set end time to one hour after start on the same day.
+          // Or, if the 'to' date from calendar is same as 'from' date, and end time is earlier, adjust.
+           if (dateRange.to.getTime() === dateRange.from.getTime()) {
+            tempEndDateTime = addHours(tempStartDateTime, 1);
+            setEndTime(format(tempEndDateTime, 'HH:mm'));
+            // If dates were same, and end was before start, calendar 'to' might need to reflect this
+             if (isBefore(tempEndDateTime, dateRange.to)) {
+                 setDateRange(prev => ({...prev, to: tempEndDateTime}));
+             }
+          }
+        }
+        // Prevent booking in the past
+        if (isBefore(tempStartDateTime, new Date())) {
+            setSelectedStartDateTime(null);
+            setSelectedEndDateTime(null);
+            toast({title: "Invalid Time", description: "Start date and time cannot be in the past.", variant: "destructive"});
+            return;
+        }
+
+        setSelectedStartDateTime(tempStartDateTime);
+        setSelectedEndDateTime(tempEndDateTime);
+
+      } else {
+        setSelectedStartDateTime(null);
+        setSelectedEndDateTime(null);
+      }
+    } else {
+      setSelectedStartDateTime(null);
+      setSelectedEndDateTime(null);
+    }
+  }, [dateRange, startTime, endTime, toast]);
 
 
   const handleProceedToCheckout = () => {
-    if (!car || !dateRange?.from || !dateRange?.to) {
-      toast({ title: "Missing Information", description: "Please select a car and a valid date range.", variant: "destructive" });
+    if (!car || !selectedStartDateTime || !selectedEndDateTime) {
+      toast({ title: "Missing Information", description: "Please select a car and a valid date-time range.", variant: "destructive" });
       return;
     }
-    if (isBefore(dateRange.from, today) || (dateRange.to && isBefore(dateRange.to, dateRange.from))) {
-      toast({ title: "Invalid Dates", description: "Please select valid future dates.", variant: "destructive" });
+    if (!isValid(selectedStartDateTime) || !isValid(selectedEndDateTime) || isBefore(selectedEndDateTime, selectedStartDateTime) || selectedEndDateTime.getTime() === selectedStartDateTime.getTime()) {
+      toast({ title: "Invalid Dates/Times", description: "Please select a valid future date-time range. End time must be after start time.", variant: "destructive" });
       return;
+    }
+    if (isBefore(selectedStartDateTime, new Date())) {
+        toast({ title: "Invalid Start Time", description: "Start date and time cannot be in the past.", variant: "destructive" });
+        return;
     }
     
     setIsProceedingToCheckout(true);
@@ -109,18 +158,23 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       return;
     }
 
-    const rentalDays = differenceInCalendarDays(dateRange.to, dateRange.from);
-    const totalPrice = rentalDays * car.pricePerDay;
+    const rentalHours = differenceInHours(selectedEndDateTime, selectedStartDateTime);
+    if (rentalHours <= 0) {
+      toast({ title: "Invalid Duration", description: "Rental duration must be at least 1 hour.", variant: "destructive" });
+      setIsProceedingToCheckout(false);
+      return;
+    }
+    const totalPrice = rentalHours * car.pricePerHour;
     const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
 
     const checkoutDetails = {
       carId: car.id,
       carName: car.name,
       carImageUrl: primaryImageUrl,
-      startDate: format(dateRange.from, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-      endDate: format(dateRange.to, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-      rentalDays,
-      pricePerDay: car.pricePerDay,
+      startDate: selectedStartDateTime.toISOString(),
+      endDate: selectedEndDateTime.toISOString(),
+      rentalHours, // Changed from rentalDays
+      pricePerHour: car.pricePerHour, // Changed from pricePerDay
       totalPrice,
       currency: siteSettings.defaultCurrency || 'INR',
       currencySymbol: siteSettings.defaultCurrency === 'INR' ? '₹' : siteSettings.defaultCurrency === 'EUR' ? '€' : siteSettings.defaultCurrency === 'GBP' ? '£' : '$',
@@ -128,9 +182,8 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
 
     localStorage.setItem('checkoutBookingDetails', JSON.stringify(checkoutDetails));
     router.push('/checkout');
-    // setIsProceedingToCheckout will be reset when user navigates away or component unmounts
+    setIsProceedingToCheckout(false); 
   };
-
 
   if (isLoading) {
     return (
@@ -165,8 +218,10 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     );
   }
   
-  const rentalDays = dateRange?.from && dateRange?.to ? differenceInCalendarDays(dateRange.to, dateRange.from) : 0;
-  const totalPrice = rentalDays > 0 ? rentalDays * car.pricePerDay : 0;
+  const rentalHours = selectedStartDateTime && selectedEndDateTime && isValid(selectedStartDateTime) && isValid(selectedEndDateTime) && isBefore(selectedStartDateTime, selectedEndDateTime)
+    ? differenceInHours(selectedEndDateTime, selectedStartDateTime) 
+    : 0;
+  const totalPrice = rentalHours > 0 ? rentalHours * car.pricePerHour : 0;
   
   const displayCurrency = siteSettings.defaultCurrency || 'INR';
   const currencySymbol = displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : displayCurrency === 'GBP' ? '£' : '$'; 
@@ -185,7 +240,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
               className="object-cover"
               data-ai-hint={car.aiHint || 'car'}
               priority
-              onError={(e) => { (e.target as HTMLImageElement).src = `/assets/images/default-car.png`; (e.target as HTMLImageElement).alt = "Image error, fallback shown"; }}
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png'; (e.target as HTMLImageElement).alt = "Image error, fallback shown"; }}
             />
           </div>
           <div className="p-6 md:p-8 flex flex-col">
@@ -219,55 +274,75 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
               </div>
             </CardContent>
 
-            <CardFooter className="p-0 mt-6 pt-6 border-t flex flex-col items-center gap-4">
+            <CardFooter className="p-0 mt-6 pt-6 border-t flex flex-col items-start gap-4">
               <div className="w-full">
-                <h3 className="font-semibold text-md mb-2 text-primary">Select Rental Dates:</h3>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="date"
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !dateRange?.from && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange?.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "LLL dd, y")} -{" "}
-                            {format(dateRange.to, "LLL dd, y")}
-                          </>
-                        ) : (
-                          format(dateRange.from, "LLL dd, y")
-                        )
-                      ) : (
-                        <span>Pick a date range</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                      disabled={{ before: today }}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div className="text-center sm:text-left w-full mt-2">
-                <p className="text-3xl font-bold text-primary">{currencySymbol}{car.pricePerDay.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">per day ({displayCurrency})</span></p>
-                {rentalDays > 0 && (
-                   <p className="text-xl font-semibold text-primary mt-1">Total: {currencySymbol}{totalPrice.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">for {rentalDays} day{rentalDays !== 1 && 's'}</span></p>
+                <h3 className="font-semibold text-md mb-2 text-primary">Select Rental Dates & Times:</h3>
+                <div className="flex flex-col sm:flex-row gap-2 items-start">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            id="date"
+                            variant={"outline"}
+                            className={cn(
+                            "w-full sm:w-auto justify-start text-left font-normal flex-grow",
+                            !dateRange?.from && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (
+                            dateRange.to ? (
+                                <>
+                                {format(dateRange.from, "LLL dd, y")} -{" "}
+                                {format(dateRange.to, "LLL dd, y")}
+                                </>
+                            ) : (
+                                format(dateRange.from, "LLL dd, y")
+                            )
+                            ) : (
+                            <span>Pick dates</span>
+                            )}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={dateRange?.from}
+                            selected={dateRange}
+                            onSelect={setDateRange}
+                            numberOfMonths={2}
+                            disabled={{ before: today }}
+                        />
+                        </PopoverContent>
+                    </Popover>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <div className="flex-1">
+                            <Label htmlFor="startTime" className="sr-only">Start Time</Label>
+                            <Input type="time" id="startTime" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full" disabled={!dateRange?.from}/>
+                        </div>
+                        <div className="flex-1">
+                            <Label htmlFor="endTime" className="sr-only">End Time</Label>
+                            <Input type="time" id="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full" disabled={!dateRange?.to}/>
+                        </div>
+                    </div>
+                </div>
+                {selectedStartDateTime && selectedEndDateTime && (
+                     <p className="text-xs text-muted-foreground mt-1">
+                        Selected: {format(selectedStartDateTime, "MMM dd, yyyy, hh:mm a")} to {format(selectedEndDateTime, "MMM dd, yyyy, hh:mm a")}
+                    </p>
                 )}
               </div>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-4">
+              
+              <div className="text-left w-full mt-2">
+                <p className="text-3xl font-bold text-primary flex items-center">
+                    <Clock className="h-6 w-6 mr-2 text-accent" /> {currencySymbol}{car.pricePerHour.toFixed(2)} 
+                    <span className="text-sm font-normal text-muted-foreground ml-1">per hour ({displayCurrency})</span>
+                </p>
+                {rentalHours > 0 && (
+                   <p className="text-xl font-semibold text-primary mt-1">Total: {currencySymbol}{totalPrice.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">for {rentalHours} hour{rentalHours !== 1 && 's'}</span></p>
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 w-full mt-4">
                 <Button size="lg" variant="outline" onClick={() => setIsChatbotOpen(true)} className="w-full sm:w-auto">
                   <MessageCircle className="mr-2 h-5 w-5" /> Negotiate Price
                 </Button>
@@ -275,7 +350,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
                   size="lg" 
                   onClick={handleProceedToCheckout} 
                   className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
-                  disabled={isProceedingToCheckout || !dateRange?.from || !dateRange?.to}
+                  disabled={isProceedingToCheckout || !selectedStartDateTime || !selectedEndDateTime || rentalHours <= 0}
                 >
                   {isProceedingToCheckout && <Loader2 className="animate-spin mr-2" />}
                   <ShoppingCart className="mr-2 h-5 w-5" /> 
@@ -297,7 +372,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
            {car.availability && car.availability.length > 0 ? (
             <p className="text-muted-foreground">
               This model is generally available from {format(parseISO(car.availability[0].startDate), "PP")} to {format(parseISO(car.availability[0].endDate), "PP")}.
-              Please use the date picker above to select specific dates for your rental. Availability will be checked upon booking.
+              Please use the date & time picker above to select specific rental times. Availability will be checked upon booking.
             </p>
           ) : (
             <p className="text-muted-foreground">Availability information not specified for this car.</p>
@@ -310,7 +385,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
             isOpen={isChatbotOpen} 
             onOpenChange={setIsChatbotOpen} 
             car={car} 
-            rentalDays={rentalDays > 0 ? rentalDays : 1} 
+            rentalHours={rentalHours > 0 ? rentalHours : 1} 
          />
       )}
     </div>
@@ -330,4 +405,3 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
-

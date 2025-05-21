@@ -43,9 +43,9 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
 
   useEffect(() => {
     if (isOpen && car) {
-      // Ensure all fields are correctly initialized, especially optional ones
       setCarData({
         ...car,
+        pricePerHour: car.pricePerHour, // Ensure this is correct
         minNegotiablePrice: car.minNegotiablePrice ?? undefined,
         maxNegotiablePrice: car.maxNegotiablePrice ?? undefined,
         imageUrls: Array.isArray(car.imageUrls) ? car.imageUrls : [],
@@ -60,7 +60,7 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     let parsedValue: string | number | undefined = value;
-    if (['pricePerDay', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
+    if (['pricePerHour', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
       parsedValue = value === '' ? undefined : Number(value);
     }
     setCarData(prev => ({ ...prev, [name]: parsedValue }));
@@ -122,37 +122,34 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
     }
     
     const payload: Partial<Car> = { ...carData };
-    // Ensure numeric fields are numbers or undefined
-    payload.pricePerDay = carData.pricePerDay ? Number(carData.pricePerDay) : undefined;
+    payload.pricePerHour = carData.pricePerHour ? Number(carData.pricePerHour) : undefined;
     payload.seats = carData.seats ? Number(carData.seats) : undefined;
     payload.rating = carData.rating ? Number(carData.rating) : undefined;
     payload.reviews = carData.reviews ? Number(carData.reviews) : undefined;
     payload.minNegotiablePrice = carData.minNegotiablePrice ? Number(carData.minNegotiablePrice) : undefined;
     payload.maxNegotiablePrice = carData.maxNegotiablePrice ? Number(carData.maxNegotiablePrice) : undefined;
 
-    // Remove id from payload as it's part of the URL
     delete payload.id;
 
-    if (payload.pricePerDay !== undefined && payload.pricePerDay <= 0) {
-         toast({ title: "Validation Error", description: "Price per day must be greater than 0.", variant: "destructive" });
+    if (payload.pricePerHour !== undefined && payload.pricePerHour <= 0) {
+         toast({ title: "Validation Error", description: "Price per hour must be greater than 0.", variant: "destructive" });
          setIsLoading(false); return;
     }
     if (payload.seats !== undefined && payload.seats <= 0) {
          toast({ title: "Validation Error", description: "Number of seats must be greater than 0.", variant: "destructive" });
          setIsLoading(false); return;
     }
-    // Optional fields, only validate if present and pricePerDay is also present/unchanged
-    const effectivePricePerDay = payload.pricePerDay ?? car.pricePerDay;
-    if (payload.minNegotiablePrice && payload.minNegotiablePrice > effectivePricePerDay) {
-        toast({ title: "Validation Error", description: "Min negotiable price cannot exceed daily price.", variant: "destructive" });
+    const effectivePricePerHour = payload.pricePerHour ?? car.pricePerHour;
+    if (payload.minNegotiablePrice && payload.minNegotiablePrice > effectivePricePerHour) {
+        toast({ title: "Validation Error", description: "Min negotiable hourly price cannot exceed hourly price.", variant: "destructive" });
         setIsLoading(false); return;
     }
-    if (payload.maxNegotiablePrice && payload.maxNegotiablePrice < effectivePricePerDay) {
-        toast({ title: "Validation Error", description: "Max negotiable price cannot be less than daily price.", variant: "destructive" });
+    if (payload.maxNegotiablePrice && payload.maxNegotiablePrice < effectivePricePerHour) {
+        toast({ title: "Validation Error", description: "Max negotiable hourly price cannot be less than hourly price.", variant: "destructive" });
         setIsLoading(false); return;
     }
     if (payload.minNegotiablePrice && payload.maxNegotiablePrice && payload.minNegotiablePrice > payload.maxNegotiablePrice) {
-        toast({ title: "Validation Error", description: "Min negotiable price cannot exceed max negotiable price.", variant: "destructive" });
+        toast({ title: "Validation Error", description: "Min negotiable hourly price cannot exceed max negotiable hourly price.", variant: "destructive" });
         setIsLoading(false); return;
     }
     const currentAvailability = payload.availability || [];
@@ -237,15 +234,15 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
               </Select>
             </div>
           </div>
-          <div><Label htmlFor="edit-pricePerDay">Price Per Day (₹)</Label><Input id="edit-pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay ?? ''} onChange={handleChange} required min="0.01" step="0.01" /></div>
+          <div><Label htmlFor="edit-pricePerHour">Price Per Hour (₹)</Label><Input id="edit-pricePerHour" name="pricePerHour" type="number" value={carData.pricePerHour ?? ''} onChange={handleChange} required min="0.01" step="0.01" /></div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="edit-minNegotiablePrice">Min Negotiable Price (₹)</Label>
+              <Label htmlFor="edit-minNegotiablePrice">Min Negotiable Hourly Price (₹)</Label>
               <Input id="edit-minNegotiablePrice" name="minNegotiablePrice" type="number" value={carData.minNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
             </div>
             <div>
-              <Label htmlFor="edit-maxNegotiablePrice">Max Negotiable Price (₹)</Label>
+              <Label htmlFor="edit-maxNegotiablePrice">Max Negotiable Hourly Price (₹)</Label>
               <Input id="edit-maxNegotiablePrice" name="maxNegotiablePrice" type="number" value={carData.maxNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
             </div>
           </div>
@@ -275,14 +272,14 @@ export default function EditCarDialog({ car, onCarUpdated, children, isOpen, onO
                 {(carData.imageUrls || []).map((url, index) => (
                   <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
                     <Image 
-                        src={url.startsWith('/') ? url : `https://placehold.co/40x40.png?text=Preview`} // Use relative if it starts with /, else placeholder
+                        src={url.startsWith('/') ? url : `https://placehold.co/40x30.png?text=Preview`} 
                         alt={`Preview of ${url.substring(url.lastIndexOf('/') + 1)}`}
                         width={40} 
-                        height={40} 
-                        className="object-cover rounded-sm mr-2 aspect-square"
+                        height={30} 
+                        className="object-cover rounded-sm mr-2 aspect-[4/3]"
                         data-ai-hint="car image" 
                         onError={(e) => { 
-                          (e.target as HTMLImageElement).src = `https://placehold.co/40x40.png?text=No+Img`; 
+                          (e.target as HTMLImageElement).src = `https://placehold.co/40x30.png?text=NoImg`; 
                           (e.target as HTMLImageElement).alt = "Preview unavailable";
                         }}
                     />

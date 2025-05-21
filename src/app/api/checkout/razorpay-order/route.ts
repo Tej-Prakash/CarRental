@@ -7,13 +7,13 @@ import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
 import type { Car, Booking, SiteSettings } from '@/types';
 import { ObjectId } from 'mongodb';
-import { differenceInCalendarDays, isFuture, parseISO } from 'date-fns';
+import { differenceInHours, isFuture, parseISO, isValid } from 'date-fns';
 import { z } from 'zod';
 
 const CheckoutInputSchema = z.object({
   carId: z.string().refine((val) => ObjectId.isValid(val), { message: "Invalid car ID" }),
-  startDate: z.string().refine((date) => !isNaN(Date.parse(date)), "Invalid start date"),
-  endDate: z.string().refine((date) => !isNaN(Date.parse(date)), "Invalid end date"),
+  startDate: z.string().refine((date) => isValid(parseISO(date)), "Invalid start date-time"),
+  endDate: z.string().refine((date) => isValid(parseISO(date)), "Invalid end date-time"),
 });
 
 interface CarDocument extends Omit<Car, 'id'> {
@@ -46,10 +46,10 @@ export async function POST(req: NextRequest) {
     const endDate = parseISO(endDateStr);
 
     if (!isFuture(startDate)) {
-      return NextResponse.json({ message: 'Start date must be in the future.' }, { status: 400 });
+      return NextResponse.json({ message: 'Start date-time must be in the future.' }, { status: 400 });
     }
     if (endDate <= startDate) {
-      return NextResponse.json({ message: 'End date must be after start date.' }, { status: 400 });
+      return NextResponse.json({ message: 'End date-time must be after start date-time.' }, { status: 400 });
     }
 
     const client = await clientPromise;
@@ -60,10 +60,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Car not found.' }, { status: 404 });
     }
 
-    // Fetch site settings for currency
     const settingsCollection = db.collection<SiteSettingsDocument>('settings');
     let siteSettings = await settingsCollection.findOne({ settingsId: SETTINGS_DOC_ID });
-    const currency = siteSettings?.defaultCurrency || 'INR'; // Default to INR if not set, or use your app's default. Razorpay supports INR well.
+    const currency = siteSettings?.defaultCurrency || 'INR'; 
 
     const existingBookings = await db.collection<Booking>('bookings').find({
       carId: carId,
@@ -74,20 +73,19 @@ export async function POST(req: NextRequest) {
     }).toArray();
 
     if (existingBookings.length > 0) {
-      return NextResponse.json({ message: 'Car is not available for the selected dates.' }, { status: 409 });
+      return NextResponse.json({ message: 'Car is not available for the selected date-time range.' }, { status: 409 });
     }
 
-    const rentalDays = differenceInCalendarDays(endDate, startDate);
-    if (rentalDays < 1) {
-        return NextResponse.json({ message: 'Minimum rental duration is 1 day.' }, { status: 400 });
+    const rentalHours = differenceInHours(endDate, startDate);
+    if (rentalHours < 1) { // Assuming minimum 1 hour rental
+        return NextResponse.json({ message: 'Minimum rental duration is 1 hour.' }, { status: 400 });
     }
-    const totalPrice = rentalDays * car.pricePerDay; 
-    const amountInPaise = Math.round(totalPrice * 100); // Razorpay expects amount in smallest currency unit
+    const totalPrice = rentalHours * car.pricePerHour; 
+    const amountInPaise = Math.round(totalPrice * 100); 
 
     const nowISO = new Date().toISOString();
     const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : undefined;
 
-    // Create a 'Pending' booking first
     const newBookingData: Omit<Booking, 'id'> = {
       carId: carId,
       carName: car.name,
@@ -108,11 +106,10 @@ export async function POST(req: NextRequest) {
     }
     const newBookingId = bookingResult.insertedId.toHexString();
 
-    // Create Razorpay Order
     const orderOptions = {
       amount: amountInPaise,
       currency: currency,
-      receipt: newBookingId, // Use your internal booking ID as receipt
+      receipt: newBookingId, 
       notes: {
         bookingId: newBookingId,
         carName: car.name,
@@ -123,12 +120,10 @@ export async function POST(req: NextRequest) {
     const razorpayOrder = await razorpayInstance.orders.create(orderOptions);
 
     if (!razorpayOrder || !razorpayOrder.id) {
-      // If Razorpay order creation fails, consider reverting the pending booking or marking it as failed
       await db.collection('bookings').updateOne({ _id: new ObjectId(newBookingId) }, { $set: { status: 'Cancelled', updatedAt: new Date().toISOString() } });
       throw new Error('Failed to create Razorpay order.');
     }
 
-    // Store razorpay_order_id in the pending booking
     await db.collection('bookings').updateOne(
       { _id: new ObjectId(newBookingId) },
       { $set: { razorpayOrderId: razorpayOrder.id, updatedAt: new Date().toISOString() } }
@@ -138,12 +133,11 @@ export async function POST(req: NextRequest) {
       message: 'Razorpay order created',
       bookingId: newBookingId,
       razorpayOrderId: razorpayOrder.id,
-      amount: razorpayOrder.amount, // amount in paise
+      amount: razorpayOrder.amount, 
       currency: razorpayOrder.currency,
-      keyId: process.env.RAZORPAY_KEY_ID, // Public key for frontend
+      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, 
       userName: userName,
       userEmail: userEmail,
-      // You might want to prefill phone, but ensure you have it
     });
 
   } catch (error: any) {

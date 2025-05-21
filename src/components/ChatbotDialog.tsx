@@ -9,14 +9,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { priceNegotiationChatbot, PriceNegotiationInput } from '@/ai/flows/price-negotiation-chatbot';
 import type { Car } from '@/types';
 import { Bot, User, Loader2, Send } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Removed AvatarImage as it's not used
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'; 
 import { useToast } from '@/hooks/use-toast';
 
 interface ChatbotDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   car: Car;
-  rentalDays?: number;
+  rentalHours?: number; // Changed from rentalDays
 }
 
 interface Message {
@@ -26,22 +26,22 @@ interface Message {
   timestamp: Date;
 }
 
-export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 1 }: ChatbotDialogProps) {
+export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalHours = 1 }: ChatbotDialogProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [negotiatedPrice, setNegotiatedPrice] = useState<number>(car.pricePerDay);
+  const [negotiatedHourlyPrice, setNegotiatedHourlyPrice] = useState<number>(car.pricePerHour); // Changed from pricePerDay
   const [isFinalOffer, setIsFinalOffer] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
-      let initialBotMessage = `Hello! I'm here to help you negotiate the price for the ${car.name}. The current daily price is ₹${car.pricePerDay}.`;
+      let initialBotMessage = `Hello! I'm here to help you negotiate the price for the ${car.name}. The current hourly price is ₹${car.pricePerHour}.`;
       if (car.minNegotiablePrice) {
-        initialBotMessage += ` We might be able to go as low as ₹${car.minNegotiablePrice}/day.`;
+        initialBotMessage += ` We might be able to go as low as ₹${car.minNegotiablePrice}/hour.`;
       }
-      initialBotMessage += ` Let's talk about a price for your ${rentalDays} day rental!`;
+      initialBotMessage += ` Let's talk about a price for your ${rentalHours} hour rental!`;
       
       setMessages([
         {
@@ -51,14 +51,13 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
           timestamp: new Date(),
         }
       ]);
-      setNegotiatedPrice(car.pricePerDay);
+      setNegotiatedHourlyPrice(car.pricePerHour);
       setIsFinalOffer(false);
       setUserInput('');
     }
-  }, [isOpen, car, rentalDays]);
+  }, [isOpen, car, rentalHours]);
 
   useEffect(() => {
-    // Find the viewport element within ScrollArea
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (viewport) {
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
@@ -81,10 +80,10 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
     try {
       const chatbotInput: PriceNegotiationInput = {
         carModel: car.name,
-        rentalDays: rentalDays,
-        initialPrice: car.pricePerDay, // This is the listed daily price
-        minNegotiablePrice: car.minNegotiablePrice,
-        maxNegotiablePrice: car.maxNegotiablePrice || car.pricePerDay, // Default max to initial if not set
+        rentalHours: rentalHours, // Changed from rentalDays
+        initialHourlyPrice: car.pricePerHour, // Changed from initialPrice
+        minNegotiablePrice: car.minNegotiablePrice, // Now hourly
+        maxNegotiablePrice: car.maxNegotiablePrice || car.pricePerHour, // Now hourly
         userInput: newUserMessage.text,
       };
       
@@ -97,13 +96,13 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, newBotMessage]);
-      setNegotiatedPrice(result.negotiatedPrice); // This is the daily price from bot
+      setNegotiatedHourlyPrice(result.negotiatedPrice); // This is the hourly price from bot
       setIsFinalOffer(result.isFinalOffer);
 
       if (result.isFinalOffer) {
         toast({
           title: "Final Offer",
-          description: `The current negotiated daily price of ₹${result.negotiatedPrice} is our best offer.`,
+          description: `The current negotiated hourly price of ₹${result.negotiatedPrice} is our best offer.`,
         });
       }
 
@@ -134,7 +133,7 @@ export default function ChatbotDialog({ isOpen, onOpenChange, car, rentalDays = 
             <Bot className="h-6 w-6 mr-2 text-primary" /> Price Negotiation Assistant
           </DialogTitle>
           <DialogDescription>
-            For {car.name}. Current daily price: ₹{negotiatedPrice}.
+            For {car.name}. Current hourly price: ₹{negotiatedHourlyPrice.toFixed(2)}.
             {isFinalOffer && <span className="text-destructive font-semibold"> (Final Offer)</span>}
           </DialogDescription>
         </DialogHeader>

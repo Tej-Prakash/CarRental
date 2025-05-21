@@ -15,7 +15,6 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Explicitly resolve params to satisfy Next.js/Turbopack check
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams.id;
 
@@ -38,7 +37,7 @@ export async function GET(
       id: _id.toHexString(),
       name: rest.name,
       type: rest.type,
-      pricePerDay: rest.pricePerDay,
+      pricePerHour: rest.pricePerHour, // Changed from pricePerDay
       minNegotiablePrice: rest.minNegotiablePrice,
       maxNegotiablePrice: rest.maxNegotiablePrice,
       imageUrls: rest.imageUrls,

@@ -34,7 +34,7 @@ interface AddCarDialogProps {
 const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: number; reviews?: number } = {
   name: '',
   type: 'Sedan',
-  pricePerDay: 50,
+  pricePerHour: 10, // Changed from pricePerDay
   minNegotiablePrice: undefined,
   maxNegotiablePrice: undefined,
   imageUrls: [],
@@ -65,7 +65,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     let parsedValue: string | number | undefined = value;
-    if (['pricePerDay', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
+    if (['pricePerHour', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
       parsedValue = value === '' ? undefined : Number(value);
     }
     setCarData(prev => ({ ...prev, [name]: parsedValue }));
@@ -91,9 +91,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     if (files && files.length > 0) {
       const currentImageUrls = carData.imageUrls || [];
       const newImagePaths = Array.from(files).map(file => {
-        // Sanitize filename: replace spaces and special characters
         const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        // Generate a pseudo-unique path for simulation
         return `/assets/images/${Date.now()}-${sanitizedFileName}`;
       });
       
@@ -145,7 +143,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
 
     const payload = {
       ...carData,
-      pricePerDay: Number(carData.pricePerDay),
+      pricePerHour: Number(carData.pricePerHour), // Changed from pricePerDay
       seats: Number(carData.seats),
       rating: Number(carData.rating || 0),
       reviews: Number(carData.reviews || 0),
@@ -153,8 +151,8 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
       maxNegotiablePrice: carData.maxNegotiablePrice ? Number(carData.maxNegotiablePrice) : undefined,
     };
     
-    if (payload.pricePerDay <= 0) {
-         toast({ title: "Validation Error", description: "Price per day must be greater than 0.", variant: "destructive" });
+    if (payload.pricePerHour <= 0) {
+         toast({ title: "Validation Error", description: "Price per hour must be greater than 0.", variant: "destructive" });
          setIsLoading(false);
          return;
     }
@@ -163,16 +161,16 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
          setIsLoading(false);
          return;
     }
-    if (payload.minNegotiablePrice && payload.minNegotiablePrice > payload.pricePerDay) {
-        toast({ title: "Validation Error", description: "Min negotiable price cannot exceed daily price.", variant: "destructive" });
+    if (payload.minNegotiablePrice && payload.minNegotiablePrice > payload.pricePerHour) {
+        toast({ title: "Validation Error", description: "Min negotiable hourly price cannot exceed hourly price.", variant: "destructive" });
         setIsLoading(false); return;
     }
-    if (payload.maxNegotiablePrice && payload.maxNegotiablePrice < payload.pricePerDay) {
-        toast({ title: "Validation Error", description: "Max negotiable price cannot be less than daily price.", variant: "destructive" });
+    if (payload.maxNegotiablePrice && payload.maxNegotiablePrice < payload.pricePerHour) {
+        toast({ title: "Validation Error", description: "Max negotiable hourly price cannot be less than hourly price.", variant: "destructive" });
         setIsLoading(false); return;
     }
     if (payload.minNegotiablePrice && payload.maxNegotiablePrice && payload.minNegotiablePrice > payload.maxNegotiablePrice) {
-        toast({ title: "Validation Error", description: "Min negotiable price cannot exceed max negotiable price.", variant: "destructive" });
+        toast({ title: "Validation Error", description: "Min negotiable hourly price cannot exceed max negotiable hourly price.", variant: "destructive" });
         setIsLoading(false); return;
     }
     if (!payload.availability[0]?.startDate || !payload.availability[0]?.endDate) {
@@ -195,7 +193,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(payload), // Sending JSON with image paths
+        body: JSON.stringify(payload), 
       });
 
       if (!response.ok) {
@@ -261,15 +259,15 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
               </Select>
             </div>
           </div>
-          <div><Label htmlFor="pricePerDay">Price Per Day (₹)</Label><Input id="pricePerDay" name="pricePerDay" type="number" value={carData.pricePerDay} onChange={handleChange} required min="0.01" step="0.01" /></div>
+          <div><Label htmlFor="pricePerHour">Price Per Hour (₹)</Label><Input id="pricePerHour" name="pricePerHour" type="number" value={carData.pricePerHour} onChange={handleChange} required min="0.01" step="0.01" /></div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="minNegotiablePrice">Min Negotiable Price (₹)</Label>
+              <Label htmlFor="minNegotiablePrice">Min Negotiable Hourly Price (₹)</Label>
               <Input id="minNegotiablePrice" name="minNegotiablePrice" type="number" value={carData.minNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
             </div>
             <div>
-              <Label htmlFor="maxNegotiablePrice">Max Negotiable Price (₹)</Label>
+              <Label htmlFor="maxNegotiablePrice">Max Negotiable Hourly Price (₹)</Label>
               <Input id="maxNegotiablePrice" name="maxNegotiablePrice" type="number" value={carData.maxNegotiablePrice ?? ''} onChange={handleChange} placeholder="Optional" min="0" step="0.01" />
             </div>
           </div>
@@ -299,14 +297,14 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
                 {carData.imageUrls.map((url, index) => (
                   <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
                     <Image 
-                        src={url.startsWith('/') ? url : `https://placehold.co/40x40.png?text=Preview`} // Use relative if it starts with /, else placeholder
+                        src={url.startsWith('/') ? url : `https://placehold.co/40x30.png?text=Preview`} 
                         alt={`Preview of ${url.substring(url.lastIndexOf('/') + 1)}`}
                         width={40} 
-                        height={40} 
-                        className="object-cover rounded-sm mr-2 aspect-square"
+                        height={30} 
+                        className="object-cover rounded-sm mr-2 aspect-[4/3]"
                         data-ai-hint="car image" 
                         onError={(e) => { 
-                          (e.target as HTMLImageElement).src = `https://placehold.co/40x40.png?text=No+Img`; 
+                          (e.target as HTMLImageElement).src = `https://placehold.co/40x30.png?text=NoImg`; 
                           (e.target as HTMLImageElement).alt = "Preview unavailable";
                         }}
                     />

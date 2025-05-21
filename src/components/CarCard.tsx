@@ -4,17 +4,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Gauge, GitCommitVertical, Fuel, Star } from 'lucide-react';
+import { Users, Gauge, GitCommitVertical, Fuel, Star, Clock } from 'lucide-react';
 
 interface CarCardProps {
   car: Car;
 }
 
 export default function CarCard({ car }: CarCardProps) {
-  // Use the first image URL if available, otherwise a local fallback or a placeholder
   const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 
     ? car.imageUrls[0] 
-    : '/assets/images/default-car.png'; // Consider adding a default local image
+    : '/assets/images/default-car.png';
   
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
@@ -28,7 +27,7 @@ export default function CarCard({ car }: CarCardProps) {
             className="object-cover"
             data-ai-hint={car.aiHint || 'car'}
             priority={false}
-            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/600x400.png?text=Image+Error';}}
+            onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png';}}
           />
         </div>
       </CardHeader>
@@ -57,8 +56,10 @@ export default function CarCard({ car }: CarCardProps) {
       </CardContent>
       <CardFooter className="p-4 flex justify-between items-center border-t mt-auto">
         <div>
-          <p className="text-lg font-bold text-primary">₹{car.pricePerDay.toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground">per day</p>
+          <p className="text-lg font-bold text-primary flex items-center">
+            <Clock className="h-4 w-4 mr-1 text-accent" /> ₹{car.pricePerHour.toFixed(2)}
+          </p>
+          <p className="text-xs text-muted-foreground ml-1">per hour</p>
         </div>
         <Button asChild variant="default">
           <Link href={`/cars/${car.id}`}>View Details</Link>

@@ -29,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { format, parseISO } from 'date-fns';
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -104,7 +105,7 @@ export default function AdminBookingsPage() {
     } else if (action === 'reject') {
       title = 'Reject Cancellation Request?';
       description = `Are you sure you want to reject the cancellation for booking ID ${booking.id.substring(0,8)}...? This will revert status to 'Confirmed'.`;
-      newStatus = 'Confirmed'; // Could also be 'Cancellation Rejected' based on desired flow
+      newStatus = 'Confirmed'; 
     } else if (action === 'delete') {
       title = 'Delete Booking?';
       description = `Are you sure you want to delete booking ID ${booking.id.substring(0,8)}...? This action cannot be undone. (Note: Backend for delete not yet implemented).`;
@@ -151,7 +152,6 @@ export default function AdminBookingsPage() {
             throw new Error(result.message || `Failed to ${action} cancellation`);
           }
         } else {
-            // const result = await response.json(); // Contains updated booking
             toast({ title: `Cancellation ${action === 'approve' ? 'Approved' : 'Rejected'}`, description: `Booking ${bookingId.substring(0,8)} status updated to ${newStatus}.` });
         }
       
@@ -200,7 +200,7 @@ export default function AdminBookingsPage() {
                   <TableHead>Booking ID</TableHead>
                   <TableHead className="hidden md:table-cell">Car</TableHead>
                   <TableHead>User</TableHead>
-                  <TableHead>Dates</TableHead>
+                  <TableHead>Dates & Times</TableHead>
                   <TableHead className="hidden lg:table-cell">Price</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right w-[100px]">Actions</TableHead>
@@ -217,14 +217,14 @@ export default function AdminBookingsPage() {
                         height={40} 
                         className="rounded object-cover aspect-[3/2]"
                         data-ai-hint="car"
-                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/60x40.png?text=No+Img';}}
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png';}}
                       />
                     </TableCell>
                     <TableCell className="font-medium">{booking.id.substring(0,8)}...</TableCell>
                     <TableCell className="hidden md:table-cell">{booking.carName}</TableCell>
                     <TableCell>{booking.userName}</TableCell>
-                    <TableCell>
-                      {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
+                    <TableCell className="text-xs">
+                      {format(parseISO(booking.startDate), "MMM dd, yy, hh:mm a")} - <br/>{format(parseISO(booking.endDate), "MMM dd, yy, hh:mm a")}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">₹{booking.totalPrice.toFixed(2)}</TableCell>
                     <TableCell>

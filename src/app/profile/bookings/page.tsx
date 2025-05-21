@@ -183,7 +183,7 @@ export default function MyBookingsPage() {
                         fill
                         className="object-cover"
                         data-ai-hint="car rental"
-                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/300x200.png?text=No+Img';}}
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png';}}
                       />
                     </div>
                     <div className="md:col-span-9 p-4 flex flex-col">
@@ -199,7 +199,7 @@ export default function MyBookingsPage() {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="p-0 flex-grow space-y-2 text-sm">
-                        <p><strong>Dates:</strong> {format(parseISO(booking.startDate), "MMM dd, yyyy")} - {format(parseISO(booking.endDate), "MMM dd, yyyy")}</p>
+                        <p><strong>Dates:</strong> {format(parseISO(booking.startDate), "MMM dd, yyyy, hh:mm a")} - {format(parseISO(booking.endDate), "MMM dd, yyyy, hh:mm a")}</p>
                         <p><strong>Total Price:</strong> ₹{booking.totalPrice.toFixed(2)}</p>
                         {booking.createdAt && <p className="text-xs text-muted-foreground">Booked on: {format(parseISO(booking.createdAt), "MMM dd, yyyy, HH:mm")}</p>}
                       </CardContent>
@@ -238,8 +238,8 @@ export default function MyBookingsPage() {
             <AlertDialogTitle>Request Cancellation?</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to request cancellation for the booking of "{bookingToCancel?.carName}" 
-              from {bookingToCancel ? format(parseISO(bookingToCancel.startDate), "MMM dd, yyyy") : ''}
-              to {bookingToCancel ? format(parseISO(bookingToCancel.endDate), "MMM dd, yyyy") : ''}?
+              from {bookingToCancel ? format(parseISO(bookingToCancel.startDate), "MMM dd, yyyy, hh:mm a") : ''}
+              to {bookingToCancel ? format(parseISO(bookingToCancel.endDate), "MMM dd, yyyy, hh:mm a") : ''}?
               This request will be sent to an admin for approval.
             </AlertDialogDescription>
           </AlertDialogHeader>

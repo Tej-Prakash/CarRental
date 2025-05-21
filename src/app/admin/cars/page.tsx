@@ -18,7 +18,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import AddCarDialog from '@/components/admin/AddCarDialog';
-import EditCarDialog from '@/components/admin/EditCarDialog'; // Import EditCarDialog
+import EditCarDialog from '@/components/admin/EditCarDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import {
@@ -162,7 +162,7 @@ export default function AdminCarsPage() {
                 <TableHead className="w-[80px] hidden sm:table-cell">Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead className="hidden md:table-cell">Type</TableHead>
-                <TableHead>Price/Day</TableHead>
+                <TableHead>Price/Hour</TableHead> 
                 <TableHead className="hidden lg:table-cell">Seats</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right w-[100px]">Actions</TableHead>
@@ -179,12 +179,12 @@ export default function AdminCarsPage() {
                       height={40} 
                       className="rounded object-cover aspect-[3/2]"
                       data-ai-hint={car.aiHint || 'car'}
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/60x40.png?text=No+Img';}}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png';}}
                     />
                   </TableCell>
                   <TableCell className="font-medium">{car.name}</TableCell>
                   <TableCell className="hidden md:table-cell">{car.type}</TableCell>
-                  <TableCell>₹{car.pricePerDay.toFixed(2)}</TableCell>
+                  <TableCell>₹{car.pricePerHour.toFixed(2)}</TableCell>
                   <TableCell className="hidden lg:table-cell">{car.seats}</TableCell>
                   <TableCell><Badge variant="secondary">{/* TODO: Dynamic Status */}Active</Badge></TableCell>
                   <TableCell className="text-right">
@@ -218,11 +218,15 @@ export default function AdminCarsPage() {
         <EditCarDialog 
           car={carToEdit} 
           onCarUpdated={() => {
-            fetchCars(); // Refresh list after update
-            setShowEditDialog(false); // Close dialog
+            fetchCars(); 
+            setShowEditDialog(false); 
+            setCarToEdit(null);
           }}
           isOpen={showEditDialog}
-          onOpenChange={setShowEditDialog}
+          onOpenChange={(open) => {
+            setShowEditDialog(open);
+            if (!open) setCarToEdit(null);
+          }}
         >
           {/* This children prop for EditCarDialog is not strictly needed if trigger is handled by DropdownMenuItem */}
           <></> 

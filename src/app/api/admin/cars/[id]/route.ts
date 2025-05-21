@@ -45,7 +45,7 @@ export async function GET(
       id: _id.toHexString(),
       name: rest.name,
       type: rest.type,
-      pricePerDay: rest.pricePerDay,
+      pricePerHour: rest.pricePerHour, // Changed from pricePerDay
       minNegotiablePrice: rest.minNegotiablePrice,
       maxNegotiablePrice: rest.maxNegotiablePrice,
       imageUrls: rest.imageUrls,
@@ -100,16 +100,16 @@ export async function PUT(
     
     const carDataToUpdate: UpdateCarInput = validation.data;
     
-    // If imageUrls are provided, they are expected to be relative paths like /assets/images/filename.jpg
-    // In a real scenario with actual file uploads, this endpoint would handle multipart/form-data for image updates.
-    // For this simulation, we trust the client-generated paths.
-
     if (carDataToUpdate.availability) {
       carDataToUpdate.availability = carDataToUpdate.availability.map(a => ({
         startDate: new Date(a.startDate).toISOString(),
         endDate: new Date(a.endDate).toISOString(),
       }));
     }
+    if (carDataToUpdate.pricePerHour !== undefined) {
+        carDataToUpdate.pricePerHour = Number(carDataToUpdate.pricePerHour);
+    }
+
 
     const updatePayload: { [key: string]: any } = {};
     for (const key in carDataToUpdate) {
@@ -141,6 +141,7 @@ export async function PUT(
        const carResponse: Car = {
         id: _id.toHexString(),
         ...rest,
+        pricePerHour: rest.pricePerHour, // ensure this is returned
         availability: rest.availability.map(a => ({ 
             startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
             endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
@@ -154,6 +155,7 @@ export async function PUT(
     const carResponse: Car = {
       id: _id.toHexString(),
       ...rest,
+      pricePerHour: rest.pricePerHour, // ensure this is returned
       availability: rest.availability.map(a => ({ 
         startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
         endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
@@ -189,7 +191,6 @@ export async function DELETE(
     const db = client.db();
     const carsCollection = db.collection<CarDocument>('cars');
     
-    // Optional: Check for active bookings before deleting a car
     const bookingsCollection = db.collection('bookings');
     const activeBookings = await bookingsCollection.countDocuments({ 
       carId: id, 
@@ -206,13 +207,9 @@ export async function DELETE(
       return NextResponse.json({ message: 'Car not found for deletion' }, { status: 404 });
     }
 
-    // Note: This does NOT delete the actual image files from public/assets/images/.
-    // That would require fs operations, which are complex to manage here and depend on deployment.
-
     return NextResponse.json({ message: 'Car deleted successfully' }, { status: 200 });
   } catch (error: any) {
     console.error('Failed to delete car:', error);
     return NextResponse.json({ message: error.message || 'Failed to delete car' }, { status: 500 });
   }
 }
-

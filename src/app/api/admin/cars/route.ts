@@ -28,17 +28,12 @@ export async function POST(req: NextRequest) {
     
     const carData: CarInput = validation.data;
 
-    // Here, carData.imageUrls are expected to be relative paths like /assets/images/filename.jpg
-    // In a real scenario with actual file uploads, this endpoint would handle multipart/form-data,
-    // save files to a designated storage (e.g., public/assets/images/ or a cloud storage),
-    // and then store the generated paths/URLs in the database.
-    // For this simulation, we trust the client-generated paths.
-
     const client = await clientPromise;
     const db = client.db();
     
     const newCarDocument = {
         ...carData,
+        pricePerHour: Number(carData.pricePerHour), // Ensure it's a number
         availability: carData.availability.map(a => ({
           startDate: new Date(a.startDate).toISOString(),
           endDate: new Date(a.endDate).toISOString(),
@@ -53,7 +48,8 @@ export async function POST(req: NextRequest) {
     
     const insertedCar: Car = {
         id: result.insertedId.toHexString(),
-        ...carData, 
+        ...carData,
+        pricePerHour: newCarDocument.pricePerHour, 
         availability: newCarDocument.availability, 
     };
 
@@ -86,7 +82,7 @@ export async function GET(req: NextRequest) {
         id: _id.toHexString(),
         name: rest.name,
         type: rest.type,
-        pricePerDay: rest.pricePerDay,
+        pricePerHour: rest.pricePerHour, // Changed from pricePerDay
         minNegotiablePrice: rest.minNegotiablePrice,
         maxNegotiablePrice: rest.maxNegotiablePrice,
         imageUrls: rest.imageUrls, 

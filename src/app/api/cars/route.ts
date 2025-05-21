@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const searchTerm = searchParams.get('search');
     const carType = searchParams.get('type');
-    const minPriceStr = searchParams.get('minPrice');
-    const maxPriceStr = searchParams.get('maxPrice');
+    const minPriceStr = searchParams.get('minPrice'); // This will now be minPricePerHour
+    const maxPriceStr = searchParams.get('maxPrice'); // This will now be maxPricePerHour
 
     const query: Filter<CarDocument> = {};
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (Object.keys(priceConditions).length > 0) {
-      query.pricePerDay = priceConditions;
+      query.pricePerHour = priceConditions; // Changed from pricePerDay
     }
     
     const carsFromDb = await carsCollection.find(query).sort({ name: 1 }).toArray();
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
         id: _id.toHexString(),
         name: rest.name,
         type: rest.type,
-        pricePerDay: rest.pricePerDay,
+        pricePerHour: rest.pricePerHour, // Changed from pricePerDay
         minNegotiablePrice: rest.minNegotiablePrice,
         maxNegotiablePrice: rest.maxNegotiablePrice,
         imageUrls: rest.imageUrls,
