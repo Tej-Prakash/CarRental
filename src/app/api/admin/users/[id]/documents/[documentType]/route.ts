@@ -20,20 +20,20 @@ const UpdateDocumentStatusSchema = z.object({
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string; documentType: string } } // Changed 'userId' to 'id'
+  { params }: { params: { id: string; documentType: string } }
 ) {
   const authResult = await verifyAuth(req, 'Admin'); 
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  if (authResult.error || !authResult.admin) { // Check for authResult.admin specifically
+    return NextResponse.json({ message: authResult.error || 'Authentication required or not an admin.' }, { status: authResult.status || 401 });
   }
 
-  if (!authResult.admin || !authResult.admin.userId) {
+  if (!authResult.admin.userId) { // Ensure admin has a userId
     console.error('Admin details not found in token after verification for document update.');
     return NextResponse.json({ message: 'Admin user ID not found in token. Cannot perform action.' }, { status: 500 });
   }
   const adminUserId = authResult.admin.userId;
 
-  const { id: userIdFromParams, documentType } = params; // Use 'id' from params, can alias internally if needed
+  const { id: userIdFromParams, documentType } = params; 
 
   if (!ObjectId.isValid(userIdFromParams)) {
     return NextResponse.json({ message: 'Invalid user ID format' }, { status: 400 });
@@ -75,7 +75,6 @@ export async function PUT(
     if (adminComments !== undefined) { 
       updateFields[`documents.${documentIndex}.adminComments`] = adminComments;
     } else if (status === 'Approved') { 
-      // Clear comments if approving and no new comments are provided
       if (user.documents && user.documents[documentIndex].adminComments && adminComments === undefined){
           updateFields[`documents.${documentIndex}.adminComments`] = ''; 
       } else if (adminComments === '') {
@@ -111,8 +110,8 @@ export async function PUT(
         location: restOfUser.location,
         documents: (restOfUser.documents || []).map(d => ({
             ...d,
-            uploadedAt: String(d.uploadedAt), // Ensure string
-            verifiedAt: d.verifiedAt ? String(d.verifiedAt) : undefined, // Ensure string
+            uploadedAt: String(d.uploadedAt), 
+            verifiedAt: d.verifiedAt ? String(d.verifiedAt) : undefined, 
         })) as UserDocType[],
     };
     
