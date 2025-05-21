@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { Loader2, XCircle, Trash2, UploadCloud, AlertTriangle } from 'lucide-react';
+import { Loader2, XCircle, Trash2, UploadCloud, AlertTriangle, ImagePlus } from 'lucide-react';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
@@ -32,24 +32,15 @@ interface EditCarDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const isValidHttpUrl = (stringInput: string | undefined): boolean => {
-  if (!stringInput) return false;
-  try {
-    const url = new URL(stringInput);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch (_) {
-    return false;
-  }
-};
 
 export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange }: EditCarDialogProps) {
   const [carData, setCarData] = useState<Partial<Car>>(car);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [featureInput, setFeatureInput] = useState('');
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const imageCloudBaseUrl = process.env.NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL;
 
   useEffect(() => {
     if (isOpen && car) {
@@ -99,43 +90,57 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
     setCarData(prev => ({ ...prev, features: (prev.features || []).filter(f => f !== featureToRemove) }));
   };
 
-  const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-     if (!imageCloudBaseUrl) {
-      toast({
-        title: "Configuration Error",
-        description: "Image cloud base URL (NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL) is not configured in .env. Image selection is disabled.",
-        variant: "destructive",
-        duration: 10000,
-      });
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-    if (!isValidHttpUrl(imageCloudBaseUrl)) {
-      toast({
-        title: "Configuration Error",
-        description: "NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL in .env is not a valid absolute URL (must start with http:// or https://).",
-        variant: "destructive",
-        duration: 10000,
-      });
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-
     if (files && files.length > 0) {
-      const currentImageUrls = carData.imageUrls || [];
-      const newImageFullUrls = Array.from(files).map(file => {
-        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        return `${imageCloudBaseUrl}${Date.now()}-${sanitizedFileName}`;
-      });
-      
-      setCarData(prev => ({ 
-        ...prev, 
-        imageUrls: [...currentImageUrls, ...newImageFullUrls].slice(0, 5) 
-      }));
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""; 
+       if ((carData.imageUrls || []).length + files.length > 5) {
+        toast({
+          title: "Image Limit Exceeded",
+          description: "You can upload a maximum of 5 images.",
+          variant: "destructive",
+        });
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
       }
+      setIsUploading(true);
+      const uploadedPaths: string[] = [];
+
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          const result = await response.json();
+          if (response.ok && result.success && result.filePath) {
+            uploadedPaths.push(result.filePath);
+          } else {
+            toast({
+              title: `Failed to upload ${file.name}`,
+              description: result.message || "Unknown error during upload.",
+              variant: "destructive",
+            });
+          }
+        } catch (uploadError: any) {
+           toast({
+            title: `Error uploading ${file.name}`,
+            description: uploadError.message || "Network or server error.",
+            variant: "destructive",
+          });
+        }
+      }
+      
+      if (uploadedPaths.length > 0) {
+        setCarData(prev => ({ 
+          ...prev, 
+          imageUrls: [...(prev.imageUrls || []), ...uploadedPaths].slice(0, 5) 
+        }));
+      }
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -153,12 +158,6 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
     e.preventDefault();
     setIsLoading(true);
 
-    if (!imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl)) {
-      toast({ title: "Configuration Error", description: "Image cloud base URL is not configured correctly. Cannot update car.", variant: "destructive" });
-      setIsLoading(false);
-      return;
-    }
-
     if ((carData.imageUrls || []).length === 0) {
         toast({ title: "Validation Error", description: "Please provide at least one image.", variant: "destructive" });
         setIsLoading(false);
@@ -173,6 +172,7 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
       reviews: carData.reviews !== undefined ? Number(carData.reviews) : undefined,
       minNegotiablePrice: carData.minNegotiablePrice !== undefined ? Number(carData.minNegotiablePrice) : undefined,
       maxNegotiablePrice: carData.maxNegotiablePrice !== undefined ? Number(carData.maxNegotiablePrice) : undefined,
+      imageUrls: carData.imageUrls || [],
       availability: (carData.availability || []).filter(a => a.startDate && a.endDate).map(a => ({
         startDate: new Date(a.startDate).toISOString(),
         endDate: new Date(a.endDate).toISOString(),
@@ -241,14 +241,13 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
           </DialogDescription>
         </DialogHeader>
 
-        <Alert variant="destructive" className="my-4">
+         <Alert variant="destructive" className="my-4">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Important: Image Handling & Cloud Storage</AlertTitle>
+          <AlertTitle>Important: Image Upload & Storage</AlertTitle>
           <AlertDescription>
-            Set the <code>NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL</code> in your <code>.env</code> file to your cloud storage base path (e.g., <code>https://your-bucket.s3.amazonaws.com/images/</code>). Ensure it's a full, valid URL ending with a <code>/</code>.
-            When you select new image files below, the system constructs full URLs using this base URL, a timestamp, and sanitized filenames.
-            <strong className='block my-1'>Action Required: You must manually upload the selected image files to the exact constructed path in your cloud storage for them to be displayed.</strong>
-            This system stores the URL; it does not perform the actual file upload. Image selection is disabled if the base URL is not configured or is invalid.
+            Images selected below will be uploaded to the server and stored in the <code>public/assets/images/</code> directory.
+            <strong className='block my-1'>For Production:</strong> This local server storage is NOT recommended for serverless deployments (e.g., Vercel, Netlify) as the filesystem can be ephemeral. Use a dedicated cloud storage service (AWS S3, Google Cloud Storage, Cloudinary) for production.
+             <strong className='block my-1'>Manual Setup:</strong> Ensure your project has a <code>public/assets/images/</code> directory. The application will attempt to create it if it doesn't exist, but write permissions are required.
           </AlertDescription>
         </Alert>
 
@@ -281,56 +280,51 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
             <Label htmlFor="edit-imageUpload">Car Images (Max 5)</Label>
             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md">
               <div className="space-y-1 text-center">
-                <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
+                <ImagePlus className="mx-auto h-12 w-12 text-muted-foreground" />
                 <div className="flex text-sm text-muted-foreground">
                   <Label
                     htmlFor="edit-image-files"
-                     className={`relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring ${!imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                     className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring"
                   >
                     <span>Select new files</span>
-                    <input id="edit-image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} disabled={(carData.imageUrls || []).length >= 5 || !imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl)} />
+                    <input id="edit-image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/jpeg,image/png,image/gif,image/webp" ref={fileInputRef} disabled={(carData.imageUrls || []).length >= 5 || isUploading} />
                   </Label>
                   <p className="pl-1">or drag and drop (visual only)</p>
                 </div>
-                <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WebP supported for selection.</p>
-                {(!imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl)) && <p className="text-xs text-destructive">Image cloud URL not configured or invalid.</p>}
+                <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WebP up to 5MB each.</p>
+                {isUploading && <div className="flex items-center justify-center text-sm text-primary"><Loader2 className="h-4 w-4 animate-spin mr-1" /> Uploading...</div>}
               </div>
             </div>
             
             {(carData.imageUrls || []).length > 0 && (
               <div className="mt-2 space-y-2">
-                <Label>Current & Added Images ({(carData.imageUrls || []).length}/5):</Label>
-                {(carData.imageUrls || []).map((url, index) => {
-                  const isUrlValidForImage = isValidHttpUrl(url);
-                  const previewSrc = isUrlValidForImage ? url : `https://placehold.co/40x30.png?text=InvalidURL`;
-                  const previewAlt = isUrlValidForImage ? `Preview of ${url.substring(url.lastIndexOf('/') + 1)}` : "Invalid URL format for preview";
-                  return (
+                <Label>Current & Uploaded Images ({(carData.imageUrls || []).length}/5):</Label>
+                {(carData.imageUrls || []).map((url, index) => (
                     <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
                       <Image 
-                          src={previewSrc} 
-                          alt={previewAlt}
+                          src={url} 
+                          alt={`Preview of ${url.substring(url.lastIndexOf('/') + 1)}`}
                           width={40} 
                           height={30} 
                           className="object-cover rounded-sm mr-2 aspect-[4/3]"
                           data-ai-hint="car image" 
                           onError={(e) => { 
-                            (e.target as HTMLImageElement).src = `https://placehold.co/40x30.png?text=PreviewErr`; 
+                            (e.target as HTMLImageElement).src = 'https://placehold.co/40x30.png?text=LoadErr'; 
                             (e.target as HTMLImageElement).alt = "Preview error";
                           }}
                       />
                       <span className="truncate max-w-[60%] text-ellipsis" title={url.substring(url.lastIndexOf('/') + 1)}>
                           {url.substring(url.lastIndexOf('/') + 1)}
                       </span>
-                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleImageUrlRemove(url)}>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleImageUrlRemove(url)} disabled={isUploading}>
                         <Trash2 className="h-3 w-3 text-destructive" />
                       </Button>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             )}
              {(carData.imageUrls || []).length === 0 && (
-                <p className="text-xs text-destructive mt-1">Please select or keep at least one image file.</p>
+                <p className="text-xs text-destructive mt-1">Please upload or keep at least one image file.</p>
             )}
           </div>
 
@@ -387,8 +381,8 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
 
           <DialogFooter className="pt-4">
             <DialogClose asChild><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isLoading || (carData.imageUrls || []).length === 0 || !imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl)}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isLoading || isUploading || (carData.imageUrls || []).length === 0}>
+              {(isLoading || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Update Car
             </Button>
           </DialogFooter>
@@ -397,3 +391,4 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
     </Dialog>
   );
 }
+
