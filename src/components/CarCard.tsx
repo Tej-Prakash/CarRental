@@ -1,7 +1,9 @@
 
+"use client"; // Required for useRouter
+
 import type { Car } from '@/types';
 import Image from 'next/image';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // Import useRouter
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Gauge, GitCommitVertical, Fuel, Star, Clock } from 'lucide-react';
@@ -11,6 +13,8 @@ interface CarCardProps {
 }
 
 export default function CarCard({ car }: CarCardProps) {
+  const router = useRouter(); // Initialize useRouter
+
   const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 
     ? car.imageUrls[0] 
     : '/assets/images/default-car.png';
@@ -18,6 +22,10 @@ export default function CarCard({ car }: CarCardProps) {
   const displayPrice = typeof car.pricePerHour === 'number' 
     ? car.pricePerHour.toFixed(2) 
     : 'N/A';
+
+  const handleViewDetails = () => {
+    router.push(`/cars/${car.id}`);
+  };
 
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
@@ -30,7 +38,7 @@ export default function CarCard({ car }: CarCardProps) {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover"
             data-ai-hint={car.aiHint || 'car'}
-            priority={false}
+            priority={false} // Generally false for list items, true for LCP
             onError={(e) => { 
               (e.target as HTMLImageElement).src = '/assets/images/default-car.png';
               (e.target as HTMLImageElement).alt = 'Image failed to load';
@@ -68,8 +76,8 @@ export default function CarCard({ car }: CarCardProps) {
           </p>
           <p className="text-xs text-muted-foreground ml-1">per hour</p>
         </div>
-        <Button asChild variant="default">
-          <Link href={`/cars/${car.id}`}>View Details</Link>
+        <Button variant="default" onClick={handleViewDetails}>
+          View Details
         </Button>
       </CardFooter>
     </Card>
