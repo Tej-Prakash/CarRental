@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react'; // Added React and use
 import Image from 'next/image';
 import type { Car, SiteSettings } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -17,13 +17,15 @@ import { format, differenceInCalendarDays, isBefore, startOfToday, parseISO } fr
 import { cn } from '@/lib/utils';
 import type { DateRange } from "react-day-picker";
 import { useRouter } from 'next/navigation';
-// Razorpay script and related logic moved to /checkout page
 
 interface CarDetailsPageProps {
   params: { id: string };
 }
 
-export default function CarDetailsPage({ params }: CarDetailsPageProps) {
+export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPageProps) {
+  const params = use(paramsFromProps as any); // Use React.use to unwrap params
+  const carId = params.id;
+
   const [car, setCar] = useState<Car | null>(null);
   const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({ defaultCurrency: 'INR' });
   const [isLoading, setIsLoading] = useState(true);
@@ -44,8 +46,16 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/cars/${params.id}`);
+        const response = await fetch(`/api/cars/${carId}`); // Use resolved carId
         if (!response.ok) {
+          if (response.status === 401) {
+            toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            router.push('/login');
+            setIsLoading(false);
+            return;
+          }
           const errorData = await response.json().catch(() => ({ message: `Car not found or server error (${response.status})` }));
           throw new Error(errorData.message);
         }
@@ -72,12 +82,12 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
       }
     };
 
-    if (params.id) {
+    if (carId) { // Use resolved carId
       fetchCarDetails();
       fetchSiteSettings();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]); 
+  }, [carId, router, toast]); // Depend on resolved carId and other stable dependencies
 
 
   const handleProceedToCheckout = () => {
@@ -165,7 +175,6 @@ export default function CarDetailsPage({ params }: CarDetailsPageProps) {
 
   return (
     <div className="space-y-8 container mx-auto py-8 px-4">
-      {/* Razorpay Script removed from here */}
       <Card className="overflow-hidden shadow-xl">
         <div className="grid md:grid-cols-2 gap-0">
           <div className="relative aspect-video md:aspect-auto min-h-[300px] md:min-h-[400px]">
