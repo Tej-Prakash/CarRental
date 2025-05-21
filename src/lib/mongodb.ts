@@ -16,7 +16,9 @@ const options = {
 
 if (!uri) {
   console.error('CRITICAL ERROR: MONGODB_URI environment variable is not defined.');
-  throw new Error('Please define the MONGODB_URI environment variable inside .env');
+  // Forcing an unhandled exception here will likely stop the server from starting,
+  // which is better than it running and failing on every DB request.
+  throw new Error('Please define the MONGODB_URI environment variable inside .env. The application cannot start without it.');
 }
 
 let client: MongoClient;
@@ -27,42 +29,41 @@ declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
+function initializeConnection(): Promise<MongoClient> {
+  try {
+    // This can throw MongoParseError if URI is malformed
+    client = new MongoClient(uri!, options); 
+    console.log('MongoDB client instantiated. Attempting to connect...');
+    return client.connect()
+      .then(clientInstance => {
+        console.log("Successfully connected to MongoDB.");
+        return clientInstance;
+      })
+      .catch(err => {
+        const uriToLog = uri || 'URI_UNDEFINED';
+        console.error("CRITICAL: Failed to connect to MongoDB. URI used (prefix):", uriToLog.substring(0, uriToLog.indexOf('@') > 0 ? uriToLog.indexOf('@') : 30) + '...');
+        console.error("MongoDB Connection Error:", err);
+        throw err; // Re-throw to make clientPromise a rejected promise
+      });
+  } catch (instantiationError: any) {
+    const uriToLog = uri || 'URI_UNDEFINED';
+    console.error("CRITICAL: Failed to instantiate MongoClient. Likely an issue with MONGODB_URI format. URI used (prefix):", uriToLog.substring(0, uriToLog.indexOf('@') > 0 ? uriToLog.indexOf('@') : 30) + '...');
+    console.error("MongoClient Instantiation Error:", instantiationError);
+    return Promise.reject(instantiationError); // Make clientPromise a rejected promise
+  }
+}
+
+
 if (process.env.NODE_ENV === 'development') {
   // In development mode, use a global variable so that the value
   // is preserved across module reloads caused by HMR (Hot Module Replacement).
   if (!global._mongoClientPromise) {
-    console.log('Attempting to connect to MongoDB (development)...');
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect()
-      .then(clientInstance => {
-        console.log("Successfully connected to MongoDB (development).");
-        return clientInstance;
-      })
-      .catch(err => {
-        console.error("CRITICAL: Failed to connect to MongoDB (development). URI used:", uri.substring(0, uri.indexOf('@') > 0 ? uri.indexOf('@') : 30) + '...'); // Log URI carefully
-        console.error("MongoDB Connection Error (development):", err);
-        // Re-throwing the error is important so that promises depending on clientPromise will also reject.
-        throw err;
-      });
+    global._mongoClientPromise = initializeConnection();
   }
   clientPromise = global._mongoClientPromise;
 } else {
   // In production mode, it's best to not use a global variable.
-  console.log('Attempting to connect to MongoDB (production)...');
-  client = new MongoClient(uri, options);
-  clientPromise = client.connect()
-    .then(clientInstance => {
-      console.log("Successfully connected to MongoDB (production).");
-      return clientInstance;
-    })
-    .catch(err => {
-      console.error("CRITICAL: Failed to connect to MongoDB (production). URI used:", uri.substring(0, uri.indexOf('@') > 0 ? uri.indexOf('@') : 30) + '...');
-      console.error("MongoDB Connection Error (production):", err);
-      // In production, a failed DB connection is critical.
-      // Depending on your strategy, you might want the app to fail loudly here.
-      // process.exit(1); // Or use a more graceful shutdown mechanism.
-      throw err;
-    });
+  clientPromise = initializeConnection();
 }
 
 // Export a module-scoped MongoClient promise. By doing this in a

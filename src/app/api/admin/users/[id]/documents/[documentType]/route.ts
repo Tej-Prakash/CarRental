@@ -20,9 +20,9 @@ const UpdateDocumentStatusSchema = z.object({
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string; documentType: string } } // ENSURE 'id' is used here
+  { params }: { params: { id: string; documentType: string } } // Changed 'userId' to 'id'
 ) {
-  const authResult = await verifyAuth(req, 'Admin');
+  const authResult = await verifyAuth(req, 'Admin'); 
   if (authResult.error) {
     return NextResponse.json({ message: authResult.error }, { status: authResult.status });
   }
@@ -33,9 +33,7 @@ export async function PUT(
   }
   const adminUserId = authResult.admin.userId;
 
-  // Use `id` from params, aliased to `userIdFromParams` for internal clarity if preferred,
-  // but ensure the destructuring from `params` uses `id`.
-  const { id: userIdFromParams, documentType } = params; 
+  const { id: userIdFromParams, documentType } = params; // Use 'id' from params, can alias internally if needed
 
   if (!ObjectId.isValid(userIdFromParams)) {
     return NextResponse.json({ message: 'Invalid user ID format' }, { status: 400 });
@@ -77,7 +75,12 @@ export async function PUT(
     if (adminComments !== undefined) { 
       updateFields[`documents.${documentIndex}.adminComments`] = adminComments;
     } else if (status === 'Approved') { 
-      updateFields[`documents.${documentIndex}.adminComments`] = '';
+      // Clear comments if approving and no new comments are provided
+      if (user.documents && user.documents[documentIndex].adminComments && adminComments === undefined){
+          updateFields[`documents.${documentIndex}.adminComments`] = ''; 
+      } else if (adminComments === '') {
+           updateFields[`documents.${documentIndex}.adminComments`] = '';
+      }
     }
 
 
@@ -108,8 +111,8 @@ export async function PUT(
         location: restOfUser.location,
         documents: (restOfUser.documents || []).map(d => ({
             ...d,
-            uploadedAt: String(d.uploadedAt),
-            verifiedAt: d.verifiedAt ? String(d.verifiedAt) : undefined,
+            uploadedAt: String(d.uploadedAt), // Ensure string
+            verifiedAt: d.verifiedAt ? String(d.verifiedAt) : undefined, // Ensure string
         })) as UserDocType[],
     };
     
@@ -122,4 +125,3 @@ export async function PUT(
     return NextResponse.json({ message: error.message || 'Failed to update document status due to an unexpected error.' }, { status: 500 });
   }
 }
-    
