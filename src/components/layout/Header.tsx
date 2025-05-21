@@ -8,18 +8,25 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import type { SiteSettings } from '@/types'; // Import SiteSettings type
+import type { SiteSettings } from '@/types'; 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const defaultNavItems = [
   { href: '/', label: 'Home', icon: HomeIcon, authRequired: false, publicOnly: false },
   { href: '/cars', label: 'Browse Cars', icon: CarFront, authRequired: false, publicOnly: false },
 ];
 
-const authNavItems = [
-  { href: '/profile', label: 'Profile', icon: UserCircle, authRequired: true, publicOnly: false },
-  { href: '/profile/bookings', label: 'My Bookings', icon: CalendarCheck2, authRequired: true, publicOnly: false },
-  { href: '/admin', label: 'Admin', icon: Shield, authRequired: true, publicOnly: false, adminOnly: true }, 
-];
+// Authenticated user links are now in the dropdown
+// const authNavItems = [
+// ];
 
 const publicNavItems = [
   { href: '/login', label: 'Login', icon: LogIn, authRequired: false, publicOnly: true, className: "ml-auto" },
@@ -27,7 +34,7 @@ const publicNavItems = [
 ];
 
 interface HeaderProps {
-  siteTitle?: string; // Optional prop for initial title
+  siteTitle?: string; 
 }
 
 export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
@@ -37,9 +44,10 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentSiteTitle, setCurrentSiteTitle] = useState(initialSiteTitle || "Travel Yatra");
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
-    // Fetch site settings to get the dynamic site title
     const fetchSiteSettings = async () => {
       try {
         const response = await fetch('/api/settings');
@@ -51,7 +59,6 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
         }
       } catch (error) {
         console.error("Failed to fetch site settings for header:", error);
-        // Fallback to initial or default if fetch fails
         setCurrentSiteTitle(initialSiteTitle || "Travel Yatra");
       }
     };
@@ -62,20 +69,26 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     const userString = localStorage.getItem('authUser');
-    setIsAuthenticated(!!token);
-    if (token && userString) {
+    const authenticated = !!token;
+    setIsAuthenticated(authenticated);
+
+    if (authenticated && userString) {
       try {
         const user = JSON.parse(userString);
         setIsAdmin(user.role === 'Admin');
+        setUserName(user.name || 'User');
+        setUserEmail(user.email || '');
       } catch (e) {
         console.error("Failed to parse authUser from localStorage", e);
         setIsAdmin(false);
+        setUserName('User');
+        setUserEmail('');
       }
     } else {
       setIsAdmin(false);
+      setUserName('');
+      setUserEmail('');
     }
-  // Check on pathname change to re-evaluate auth status if user logs in/out on another tab or window.
-  // More robust solutions might involve global state management or broadcast channels.
   }, [pathname]); 
 
   if (pathname.startsWith('/admin')) {
@@ -87,13 +100,15 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
     localStorage.removeItem('authUser');
     setIsAuthenticated(false);
     setIsAdmin(false);
+    setUserName('');
+    setUserEmail('');
     toast({ title: "Logged Out", description: "You have been successfully logged out." });
     router.push('/'); 
   };
 
   const currentNavItems = [
     ...defaultNavItems,
-    ...(isAuthenticated ? authNavItems : publicNavItems),
+    ...(isAuthenticated ? [] : publicNavItems),
   ];
 
 
@@ -108,7 +123,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
           {currentNavItems.map((item) => {
             if (item.authRequired && !isAuthenticated) return null;
             if (item.publicOnly && isAuthenticated) return null;
-            if (item.adminOnly && !isAdmin) return null; 
+            if ((item as any).adminOnly && !isAdmin) return null; 
 
             return (
               <Button 
@@ -129,20 +144,58 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
               </Button>
             );
           })}
-          {isAuthenticated && (
-            <Button 
-              variant="ghost" 
-              onClick={handleLogout}
-              className={cn(
-                "text-sm px-2 md:px-3 py-1 md:py-2 text-foreground/70 hover:text-primary hover:bg-accent/10",
-                "ml-auto" 
-              )}
-            >
-              <LogOut className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2 flex-shrink-0" />
-              <span className="hidden sm:inline">Logout</span>
-              <span className="sm:hidden">Logout</span>
-            </Button>
-          )}
+
+          {isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full ml-2">
+                  <Avatar className="h-9 w-9">
+                    {/* Placeholder for user avatar image if available */}
+                    {/* <AvatarImage src="/path-to-user-avatar.png" alt={userName} /> */}
+                    <AvatarFallback>
+                      <UserCircle className="h-6 w-6" />
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{userName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {userEmail}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="cursor-pointer">
+                    <UserCircle className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile/bookings" className="cursor-pointer">
+                    <CalendarCheck2 className="mr-2 h-4 w-4" />
+                    <span>My Bookings</span>
+                  </Link>
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin" className="cursor-pointer">
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Admin Panel</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </nav>
       </div>
     </header>
