@@ -2,16 +2,10 @@
 // /src/app/api/upload/route.ts
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import formidable from 'formidable';
 import fs from 'fs/promises'; // Using promises API for fs
 import path from 'path';
 
-// Disable Next.js body parsing for this route, as formidable will handle it
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+// formidable dependency and bodyParser config are no longer needed
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'assets', 'images');
 const MAX_FILE_SIZE_MB = 5; // 5 MB limit
@@ -35,52 +29,49 @@ export async function POST(req: NextRequest) {
   try {
     await ensureUploadDirExists();
 
-    const form = formidable({
-      uploadDir: UPLOAD_DIR,
-      keepExtensions: true,
-      maxFileSize: MAX_FILE_SIZE_MB * 1024 * 1024, // Convert MB to bytes
-      filter: function ({ name, originalFilename, mimetype }) {
-        // Keep only images
-        const isValidType = mimetype && ALLOWED_MIME_TYPES.includes(mimetype);
-        if (!isValidType) {
-          console.warn(`Upload rejected: Invalid file type - ${mimetype} for ${originalFilename}`);
-          // To reject a file, return false. But formidable v3 needs a bit more care here.
-          // We'll check this again after parsing.
-        }
-        return isValidType; // This filter helps, but we also check after parse
-      },
-      filename: (name, ext, part, form) => {
-        const originalFilename = part.originalFilename || 'untitled';
-        // Sanitize filename: replace non-alphanumeric chars (except dot and hyphen) with underscore
-        const sanitizedOriginalName = originalFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
-        return `${Date.now()}-${sanitizedOriginalName}`;
-      }
-    });
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null; // 'file' is the input field name from client
 
-    const [fields, files] = await form.parse(req as any); // Need `as any` due to NextRequest vs IncomingMessage incompatibility
-
-    const uploadedFile = files.file?.[0]; // Assuming the file input field name is 'file'
-
-    if (!uploadedFile) {
+    if (!file) {
       return NextResponse.json({ success: false, message: 'No file uploaded or field name is not "file".' }, { status: 400 });
     }
 
-    // Double check mimetype after formidable has processed it
-    if (!uploadedFile.mimetype || !ALLOWED_MIME_TYPES.includes(uploadedFile.mimetype)) {
-       // If an invalid file type got through, delete it
-      await fs.unlink(uploadedFile.filepath);
-      return NextResponse.json({ success: false, message: `Invalid file type: ${uploadedFile.mimetype}. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}` }, { status: 400 });
+    // Check if it's actually a file
+    if (!(file instanceof File)) {
+        return NextResponse.json({ success: false, message: 'Uploaded data is not a file.' }, { status: 400 });
     }
+
+    // Validate file type
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return NextResponse.json({ success: false, message: `Invalid file type: ${file.type}. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}` }, { status: 400 });
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      return NextResponse.json({ success: false, message: `File is too large. Max size: ${MAX_FILE_SIZE_MB}MB` }, { status: 413 });
+    }
+
+    // Sanitize and create unique filename
+    const originalFilename = file.name;
+    const sanitizedOriginalName = originalFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const uniqueFilename = `${Date.now()}-${sanitizedOriginalName}`;
     
+    const fullPath = path.join(UPLOAD_DIR, uniqueFilename);
 
-    const publicFilePath = `/assets/images/${uploadedFile.newFilename}`;
+    // Read file content and write to disk
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    await fs.writeFile(fullPath, buffer);
 
-    return NextResponse.json({ success: true, filePath: publicFilePath, originalName: uploadedFile.originalFilename }, { status: 201 });
+    const publicFilePath = `/assets/images/${uniqueFilename}`;
+
+    return NextResponse.json({ success: true, filePath: publicFilePath, originalName: file.name }, { status: 201 });
 
   } catch (error: any) {
     console.error('File upload error:', error);
-    if (error.message.includes('maxFileSize exceeded')) {
-      return NextResponse.json({ success: false, message: `File is too large. Max size: ${MAX_FILE_SIZE_MB}MB` }, { status: 413 });
+    // Check for specific errors if possible, e.g., from fs.writeFile
+    if (error.code === 'EACCES') {
+        return NextResponse.json({ success: false, message: 'Permission denied to write file.' }, { status: 500 });
     }
     return NextResponse.json({ success: false, message: error.message || 'File upload failed.' }, { status: 500 });
   }
