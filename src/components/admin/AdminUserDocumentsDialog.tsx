@@ -78,6 +78,7 @@ export default function AdminUserDocumentsDialog({ user, isOpen, onOpenChange, o
     }
 
     try {
+      // Ensure user.id is used for the API path, which corresponds to [id] segment
       const response = await fetch(`/api/admin/users/${user.id}/documents/${docType}`, {
         method: 'PUT',
         headers: {
@@ -100,8 +101,7 @@ export default function AdminUserDocumentsDialog({ user, isOpen, onOpenChange, o
         }
       } else {
         toast({ title: "Document Status Updated", description: `${docType} has been ${newStatus.toLowerCase()}.` });
-        onDocumentsUpdated(result as User); // result should be the updated user object
-         // Update local state for the dialog immediately
+        onDocumentsUpdated(result as User); 
         setDocumentsState(prev => ({
           ...prev,
           [docType]: { comments: result.documents?.find((d: UserDocument) => d.type === docType)?.adminComments || '', isProcessing: false }
@@ -119,7 +119,7 @@ export default function AdminUserDocumentsDialog({ user, isOpen, onOpenChange, o
   
   const getStatusVariant = (status?: DocumentStatus): BadgeProps["variant"] => {
     switch (status) {
-      case 'Approved': return 'default'; // green-ish or primary
+      case 'Approved': return 'default'; 
       case 'Pending': return 'secondary';
       case 'Rejected': return 'destructive';
       default: return 'outline';
