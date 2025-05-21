@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { UserDocument } from '@/types';
+import type { UserDocument, DocumentType } from '@/types';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
 
@@ -31,17 +31,19 @@ export async function POST(req: NextRequest) {
     const { documentType, fileName, filePath } = validation.data;
 
     const newDocumentEntry: UserDocument = {
-      type: documentType,
+      type: documentType as DocumentType,
       fileName, // Original filename for reference
       filePath, // Server path where file is stored
       uploadedAt: new Date().toISOString(),
+      status: 'Pending', // Default status
     };
 
     const client = await clientPromise;
     const db = client.db();
     
     // Remove existing document of the same type, then add new one.
-    // This ensures only one document of each type (PhotoID, DrivingLicense)
+    // This ensures only one document of each type (PhotoID, DrivingLicense) is active for review at a time.
+    // If you want to keep history, this logic would need to change.
     await db.collection('users').updateOne(
       { _id: new ObjectId(authResult.user.userId) },
       { 
@@ -62,11 +64,11 @@ export async function POST(req: NextRequest) {
     
      const updatedUser = await db.collection('users').findOne(
       { _id: new ObjectId(authResult.user.userId) },
-      { projection: { documents: 1 } } 
+      { projection: { documents: 1, passwordHash: 0 } } 
     );
 
     return NextResponse.json({ 
-      message: `${documentType} details recorded successfully. File stored at ${filePath}.`, 
+      message: `${documentType} details recorded successfully. Status: Pending. File stored at ${filePath}.`, 
       documents: updatedUser?.documents || [] 
     }, { status: 200 });
 

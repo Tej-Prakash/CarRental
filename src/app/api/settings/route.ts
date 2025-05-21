@@ -7,6 +7,7 @@ import type { ObjectId } from 'mongodb';
 
 interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
   _id: ObjectId;
+  settingsId?: string; // Made optional as it might not be on all docs if old ones exist
 }
 
 const SETTINGS_DOC_ID = 'main_settings'; // Use a fixed ID for the single settings document
@@ -31,8 +32,13 @@ export async function GET() {
     const { _id, settingsId, ...settingsData } = settings; // exclude settingsId from public response
     return NextResponse.json({ id: _id.toHexString(), ...settingsData }, { status: 200 });
   } catch (error) {
-    console.error('Failed to fetch site settings:', error);
-    // Return default on error to ensure app loads, but log the error
-    return NextResponse.json({ siteTitle: 'Travel Yatra', defaultCurrency: 'INR' }, { status: 200 });
+    console.error('CRITICAL: Failed to fetch site settings from DB:', error);
+    // Return default on error to ensure app loads for public users, but log the error
+    const defaultSettingsOnError: SiteSettings = {
+        siteTitle: 'Travel Yatra', // Fallback site title
+        defaultCurrency: 'INR',   // Fallback currency
+    };
+    return NextResponse.json(defaultSettingsOnError, { status: 200 }); // Still 200 so app doesn't break, but error is logged
   }
 }
+

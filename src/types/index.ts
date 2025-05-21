@@ -29,11 +29,18 @@ export interface Address {
   country: string;
 }
 
+export type DocumentStatus = 'Pending' | 'Approved' | 'Rejected';
+export type DocumentType = 'PhotoID' | 'DrivingLicense';
+
 export interface UserDocument {
-  type: 'PhotoID' | 'DrivingLicense';
+  type: DocumentType;
   fileName: string; // Original name of the uploaded file
   filePath: string; // Path where the file is stored on the server, e.g., /assets/documents/timestamp-filename.jpg
   uploadedAt: string; // ISO date string
+  status: DocumentStatus;
+  adminComments?: string;
+  verifiedAt?: string; // ISO date string
+  verifiedBy?: string; // Admin User ID
 }
 
 export interface User {

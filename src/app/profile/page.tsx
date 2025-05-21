@@ -8,9 +8,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import type { User, Address, UserDocument as UserDocumentType } from '@/types';
-import { Loader2, UserCircle, Mail, Home, MapPin, UploadCloud, FileText, ShieldAlert } from 'lucide-react';
+import type { User, Address, UserDocument as UserDocumentType, DocumentStatus } from '@/types';
+import { Loader2, UserCircle, Mail, Home, MapPin, UploadCloud, FileText, ShieldAlert, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import Image from 'next/image'; // For document previews
+import { Badge, BadgeProps } from '@/components/ui/badge'; // For status badges
+import { cn } from '@/lib/utils';
 
 export default function ProfilePage() {
   const { toast } = useToast();
@@ -28,13 +30,13 @@ export default function ProfilePage() {
   const [isUploadingPhotoId, setIsUploadingPhotoId] = useState(false);
   const [isUploadingLicense, setIsUploadingLicense] = useState(false);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
+  const fetchProfile = async () => {
       setIsLoading(true);
       const token = localStorage.getItem('authToken');
       if (!token) {
         toast({ title: "Unauthorized", description: "Please log in to view your profile.", variant: "destructive" });
         router.push('/login');
+        setIsLoading(false);
         return;
       }
 
@@ -52,6 +54,7 @@ export default function ProfilePage() {
             const errorData = await response.json().catch(()=>({message: 'Failed to fetch profile'}));
             throw new Error(errorData.message || 'Failed to fetch profile');
           }
+          setUser(null); 
           setIsLoading(false);
           return;
         }
@@ -67,6 +70,8 @@ export default function ProfilePage() {
         setIsLoading(false);
       }
     };
+
+  useEffect(() => {
     fetchProfile();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -100,13 +105,11 @@ export default function ProfilePage() {
         setIsUpdating(false);
         return;
     }
-    if (filledAddressFields === 0 && user?.address) { 
-        // If all fields are empty now but there was an address, explicitly set to null or empty object to clear it
-        updatePayload.address = { street: '', city: '', state: '', zip: '', country: '' };
+    if (filledAddressFields === 0 && user?.address && (user.address.street || user.address.city)) { 
+        updatePayload.address = { street: '', city: '', state: '', zip: '', country: '' }; // Explicitly clear
     } else if (filledAddressFields === 0) {
-        delete updatePayload.address; // No address to update and none existed before
+        delete updatePayload.address; 
     }
-
 
     if (Object.keys(updatePayload).length === 0) {
       toast({ title: "No Changes", description: "No information was changed." });
@@ -127,9 +130,7 @@ export default function ProfilePage() {
       if (!response.ok) {
         if (response.status === 401) {
           toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('authUser');
-          router.push('/login');
+          localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
         } else {
             const result = await response.json().catch(()=>({message: 'Failed to update profile'}));
             throw new Error(result.message || 'Failed to update profile');
@@ -142,6 +143,7 @@ export default function ProfilePage() {
       setName(result.user.name || '');
       setAddress(result.user.address || { street: '', city: '', state: '', zip: '', country: '' });
       setLocation(result.user.location || '');
+      localStorage.setItem('authUser', JSON.stringify(result.user)); // Update local authUser
 
       toast({ title: "Profile Updated", description: "Your information has been saved." });
     } catch (error: any) {
@@ -176,8 +178,6 @@ export default function ProfilePage() {
       const uploadResponse = await fetch('/api/upload?destination=documents', {
         method: 'POST',
         body: formData,
-        // Authorization header might be needed if your /api/upload is protected
-        // headers: { 'Authorization': `Bearer ${token}` }, 
       });
       const uploadResult = await uploadResponse.json();
       if (!uploadResponse.ok || !uploadResult.success) {
@@ -204,18 +204,18 @@ export default function ProfilePage() {
         }),
       });
       
+      const result = await recordResponse.json();
       if (!recordResponse.ok) {
         if (recordResponse.status === 401) {
           toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
           localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
         } else {
-            const result = await recordResponse.json().catch(()=>({message: `Failed to record ${documentType} details`}));
             throw new Error(result.message || `Failed to record ${documentType} details`);
         }
       } else {
-        const result = await recordResponse.json();
-        setUser(prevUser => ({ ...prevUser!, documents: result.documents }));
-        toast({ title: `${documentType} Uploaded`, description: `${file.name} has been successfully uploaded and recorded.` });
+        // Instead of setting user directly, refetch profile to get the most up-to-date data including new doc status
+        fetchProfile(); // Re-fetch profile which will update user state including new document
+        toast({ title: `${documentType} Uploaded`, description: `${file.name} submitted for verification.` });
         if (documentType === 'PhotoID') setPhotoIdFile(null); else setLicenseFile(null);
       }
     } catch (error: any) {
@@ -225,6 +225,25 @@ export default function ProfilePage() {
       else setIsUploadingLicense(false);
     }
   };
+  
+  const getStatusBadgeVariant = (status: DocumentStatus): BadgeProps["variant"] => {
+    switch (status) {
+      case 'Approved': return 'default'; // Consider this like 'success'
+      case 'Pending': return 'secondary';
+      case 'Rejected': return 'destructive';
+      default: return 'outline';
+    }
+  };
+  
+  const getStatusIcon = (status: DocumentStatus) => {
+    switch(status) {
+      case 'Approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'Rejected': return <XCircle className="h-4 w-4 text-destructive" />;
+      case 'Pending': return <AlertCircle className="h-4 w-4 text-yellow-500" />; // Or Clock icon
+      default: return null;
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -340,17 +359,35 @@ export default function ProfilePage() {
           
           {user.documents && user.documents.length > 0 && (
             <div>
-              <h3 className="font-semibold text-lg mb-2 text-primary">Uploaded Documents:</h3>
-              <ul className="space-y-2">
+              <h3 className="font-semibold text-lg mb-2 text-primary">Uploaded Documents Status:</h3>
+              <ul className="space-y-3">
                 {user.documents.map((doc, index) => (
-                  <li key={index} className="flex items-center justify-between p-3 bg-secondary/50 rounded-md">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 mr-2 text-accent" />
-                      <span><strong>{doc.type}:</strong> 
-                        <a href={doc.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">{doc.fileName}</a>
-                      </span>
+                  <li key={index} className={cn("p-3 border rounded-md shadow-sm",
+                    doc.status === 'Approved' ? 'border-green-500 bg-green-50' :
+                    doc.status === 'Rejected' ? 'border-destructive bg-destructive/10' :
+                    'border-border bg-secondary/50'
+                  )}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center">
+                        <FileText className="h-5 w-5 mr-2 text-accent" />
+                        <span className="font-medium"><strong>{doc.type}:</strong> 
+                          <a href={doc.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">{doc.fileName}</a>
+                        </span>
+                      </div>
+                      <Badge variant={getStatusBadgeVariant(doc.status)} className="flex items-center gap-1">
+                        {getStatusIcon(doc.status)}
+                        {doc.status}
+                      </Badge>
                     </div>
-                    <span className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                    <p className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleString()}</p>
+                    {doc.verifiedAt && <p className="text-xs text-muted-foreground">Reviewed: {new Date(doc.verifiedAt).toLocaleString()}</p>}
+                    {doc.adminComments && (
+                      <p className={cn("text-xs mt-1 p-2 rounded-md", 
+                        doc.status === 'Rejected' ? 'bg-destructive/20 text-destructive-foreground' : 'bg-muted text-muted-foreground'
+                      )}>
+                        <strong>Admin Comments:</strong> {doc.adminComments}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -361,4 +398,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
