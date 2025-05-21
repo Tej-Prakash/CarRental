@@ -22,18 +22,26 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string; documentType: string } }
 ) {
-  const authResult = await verifyAuth(req, 'Admin'); 
-  if (authResult.error || !authResult.admin) { // Check for authResult.admin specifically
-    return NextResponse.json({ message: authResult.error || 'Authentication required or not an admin.' }, { status: authResult.status || 401 });
+  const authResult = await verifyAuth(req, 'Admin');
+
+  if (authResult.error) { // Handle explicit errors from verifyAuth first
+    return NextResponse.json(
+      { message: authResult.error },
+      { status: authResult.status || 401 } // Default to 401 if status somehow missing
+    );
   }
 
-  if (!authResult.admin.userId) { // Ensure admin has a userId
-    console.error('Admin details not found in token after verification for document update.');
-    return NextResponse.json({ message: 'Admin user ID not found in token. Cannot perform action.' }, { status: 500 });
+  // If verifyAuth didn't return an error, but admin details are still missing (shouldn't happen with 'Admin' role check)
+  if (!authResult.admin || !authResult.admin.userId) {
+    console.error('CRITICAL: Admin details not found in token after successful verification for document update.');
+    return NextResponse.json(
+      { message: 'Admin user ID not found in token. Cannot perform action.' },
+      { status: 500 }
+    );
   }
   const adminUserId = authResult.admin.userId;
 
-  const { id: userIdFromParams, documentType } = params; 
+  const { id: userIdFromParams, documentType } = params;
 
   if (!ObjectId.isValid(userIdFromParams)) {
     return NextResponse.json({ message: 'Invalid user ID format' }, { status: 400 });
@@ -50,7 +58,7 @@ export async function PUT(
     if (!validation.success) {
       return NextResponse.json({ message: 'Invalid document status data', errors: validation.error.flatten().fieldErrors }, { status: 400 });
     }
-    
+
     const { status, adminComments } = validation.data;
 
     const client = await clientPromise;
@@ -70,13 +78,13 @@ export async function PUT(
     const updateFields: Record<string, any> = {
       [`documents.${documentIndex}.status`]: status,
       [`documents.${documentIndex}.verifiedAt`]: new Date().toISOString(),
-      [`documents.${documentIndex}.verifiedBy`]: adminUserId, 
+      [`documents.${documentIndex}.verifiedBy`]: adminUserId,
     };
-    if (adminComments !== undefined) { 
+    if (adminComments !== undefined) {
       updateFields[`documents.${documentIndex}.adminComments`] = adminComments;
-    } else if (status === 'Approved') { 
+    } else if (status === 'Approved') {
       if (user.documents && user.documents[documentIndex].adminComments && adminComments === undefined){
-          updateFields[`documents.${documentIndex}.adminComments`] = ''; 
+          updateFields[`documents.${documentIndex}.adminComments`] = '';
       } else if (adminComments === '') {
            updateFields[`documents.${documentIndex}.adminComments`] = '';
       }
@@ -84,20 +92,20 @@ export async function PUT(
 
 
     const result = await usersCollection.updateOne(
-      { _id: new ObjectId(userIdFromParams), 'documents.type': docType }, 
+      { _id: new ObjectId(userIdFromParams), 'documents.type': docType },
       { $set: updateFields }
     );
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ message: `Failed to find ${docType} for update or user not found.` }, { status: 404 });
     }
-     
+
     const updatedUserDoc = await usersCollection.findOne({ _id: new ObjectId(userIdFromParams) }, { projection: { passwordHash: 0 } });
      if (!updatedUserDoc) {
         console.error(`Failed to retrieve updated user ${userIdFromParams} after document status update.`);
         return NextResponse.json({ message: 'Failed to retrieve updated user data.' }, { status: 500 });
     }
-    
+
     const { _id, ...restOfUser } = updatedUserDoc;
     const updatedUserResponse: User = {
         id: _id.toHexString(),
@@ -110,11 +118,11 @@ export async function PUT(
         location: restOfUser.location,
         documents: (restOfUser.documents || []).map(d => ({
             ...d,
-            uploadedAt: String(d.uploadedAt), 
-            verifiedAt: d.verifiedAt ? String(d.verifiedAt) : undefined, 
+            uploadedAt: String(d.uploadedAt),
+            verifiedAt: d.verifiedAt ? String(d.verifiedAt) : undefined,
         })) as UserDocType[],
     };
-    
+
     console.log(`SIMULATED EMAIL to ${user.email}: Your ${docType} has been ${status}. Comments: ${adminComments || 'N/A'}`);
 
     return NextResponse.json(updatedUserResponse, { status: 200 });

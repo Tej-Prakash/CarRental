@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserDocument, DocumentType, DocumentStatus } from '@/types';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, DownloadCloud } from 'lucide-react';
-import { Badge, BadgeProps } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 
 interface AdminUserDocumentsDialogProps {
@@ -71,14 +71,18 @@ export default function AdminUserDocumentsDialog({ user, isOpen, onOpenChange, o
 
     const token = localStorage.getItem('authToken');
     if (!token) {
-      toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+      toast({ title: "Authentication Error", description: "Action requires login. Please log in again.", variant: "destructive" });
+      localStorage.removeItem('authToken'); // Ensure clear
+      localStorage.removeItem('authUser');  // Ensure clear
       router.push('/login');
-      setDocumentsState(prev => ({ ...prev, [docType]: { ...prev[docType]!, isProcessing: false } }));
+      setDocumentsState(prev => ({
+        ...prev,
+        [docType]: { ...prev[docType]!, isProcessing: false }
+      }));
       return;
     }
 
     try {
-      // Ensure user.id is used for the API path, which corresponds to [id] segment
       const response = await fetch(`/api/admin/users/${user.id}/documents/${docType}`, {
         method: 'PUT',
         headers: {
@@ -91,15 +95,18 @@ export default function AdminUserDocumentsDialog({ user, isOpen, onOpenChange, o
         }),
       });
 
-      const result = await response.json();
       if (!response.ok) {
         if (response.status === 401) {
           toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
-          localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
+          localStorage.removeItem('authToken'); 
+          localStorage.removeItem('authUser'); 
+          router.push('/login');
         } else {
+          const result = await response.json().catch(() => ({ message: `Failed to update ${docType} status.` }));
           throw new Error(result.message || `Failed to update ${docType} status.`);
         }
       } else {
+        const result = await response.json();
         toast({ title: "Document Status Updated", description: `${docType} has been ${newStatus.toLowerCase()}.` });
         onDocumentsUpdated(result as User); 
         setDocumentsState(prev => ({
