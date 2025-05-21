@@ -16,6 +16,7 @@ const DocumentUploadSchema = z.object({
 
 interface UserDbDoc extends Omit<User, 'id'> {
   _id: ObjectId;
+  passwordHash?: string; // Ensure passwordHash can exist
 }
 
 export async function POST(req: NextRequest) {
@@ -54,7 +55,6 @@ export async function POST(req: NextRequest) {
     const db = client.db();
     const usersCollection = db.collection<UserDbDoc>('users');
     
-    // Step 1: Pull existing document of the same type
     console.log(`Attempting to pull document of type ${documentType} for user ${userId.toHexString()}`);
     const pullResult = await usersCollection.updateOne(
       { _id: userId },
@@ -64,10 +64,6 @@ export async function POST(req: NextRequest) {
     );
     console.log(`Pull result for user ${userId.toHexString()}, type ${documentType}: matched: ${pullResult.matchedCount}, modified: ${pullResult.modifiedCount}`);
     
-    // If pullResult.matchedCount is 0, it means either the user doesn't exist or they didn't have a document of this type.
-    // We should ensure the user exists before trying to push.
-
-    // Step 2: Push the new document entry
     console.log(`Attempting to push new document for user ${userId.toHexString()}:`, JSON.stringify(newDocumentEntry));
     const pushResult = await usersCollection.updateOne(
       { _id: userId },
@@ -79,19 +75,42 @@ export async function POST(req: NextRequest) {
     console.log(`Push result for user ${userId.toHexString()}: matched: ${pushResult.matchedCount}, modified: ${pushResult.modifiedCount}`);
 
     if (pushResult.matchedCount === 0) {
-      // This implies the user was not found during the push, which is critical.
-      console.error(`User ${userId.toHexString()} not found during document push operation. This should not happen if pull matched or user was verified.`);
+      console.error(`User ${userId.toHexString()} not found during document push operation.`);
       return NextResponse.json({ message: 'User not found during update. Please try logging in again.' }, { status: 404 });
     }
     
-    const updatedUser = await usersCollection.findOne(
+    const updatedUserDoc = await usersCollection.findOne(
       { _id: userId },
-      { projection: { documents: 1, passwordHash: 0 } } 
+      { projection: { passwordHash: 0 } } // Only exclude passwordHash
     );
+
+    if (!updatedUserDoc) {
+        console.error(`Failed to retrieve updated user ${userId.toHexString()} after document upload.`);
+        return NextResponse.json({ message: 'Failed to retrieve updated user data.' }, { status: 500 });
+    }
+
+    // Map to the User type expected by the frontend
+    const { _id, ...restOfUser } = updatedUserDoc;
+    const updatedUserResponse: User = {
+        id: _id.toHexString(),
+        name: restOfUser.name,
+        email: restOfUser.email,
+        role: restOfUser.role,
+        createdAt: String(restOfUser.createdAt),
+        updatedAt: restOfUser.updatedAt ? String(restOfUser.updatedAt) : undefined,
+        address: restOfUser.address,
+        location: restOfUser.location,
+        documents: (restOfUser.documents || []).map(d => ({
+            ...d,
+            uploadedAt: String(d.uploadedAt), // Ensure date is string
+            verifiedAt: d.verifiedAt ? String(d.verifiedAt) : undefined, // Ensure date is string or undefined
+        })) as UserDocument[],
+    };
+
 
     return NextResponse.json({ 
       message: `${documentType} details recorded successfully. Status: Pending. File stored at ${filePath}.`, 
-      documents: updatedUser?.documents || [] 
+      user: updatedUserResponse // Return the updated user object
     }, { status: 200 });
 
   } catch (error: any) {
