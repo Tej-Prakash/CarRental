@@ -3,10 +3,10 @@
 
 import React, { useState, useEffect, use, ChangeEvent } from 'react';
 import Image from 'next/image';
-import type { Car, SiteSettings } from '@/types';
+import type { Car, SiteSettings, User } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart, Image as ImageIcon } from 'lucide-react';
+import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart, Image as ImageIcon, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,8 @@ import type { DateRange } from "react-day-picker";
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 interface CarDetailsPageProps {
   params: { id: string };
@@ -50,8 +52,14 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
   const [selectedEndDateTime, setSelectedEndDateTime] = useState<Date | null>(null);
   const [currentMainImage, setCurrentMainImage] = useState<string | null>(null);
 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isUserVerified, setIsUserVerified] = useState<boolean | null>(null);
+  const [isCheckingUserVerification, setIsCheckingUserVerification] = useState(false);
 
   useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    setIsAuthenticated(!!token);
+
     const fetchCarDetails = async () => {
       if (!carId) return;
       setIsLoading(true);
@@ -103,6 +111,52 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carId, router, toast]);
 
+
+  useEffect(() => {
+    const checkUserVerification = async () => {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setIsUserVerified(null); // Not logged in, no check needed here
+        return;
+      }
+      setIsAuthenticated(true);
+      setIsCheckingUserVerification(true);
+      try {
+        const response = await fetch('/api/profile', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Session expired during this check, clear auth and let proceed to checkout handle login redirect
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            setIsAuthenticated(false);
+          }
+          throw new Error('Failed to fetch user profile for verification check.');
+        }
+        const user: User = await response.json();
+        const photoId = user.documents?.find(doc => doc.type === 'PhotoID');
+        const drivingLicense = user.documents?.find(doc => doc.type === 'DrivingLicense');
+        
+        if (photoId?.status === 'Approved' && drivingLicense?.status === 'Approved') {
+          setIsUserVerified(true);
+        } else {
+          setIsUserVerified(false);
+        }
+      } catch (error) {
+        console.error("Error checking user verification:", error);
+        setIsUserVerified(false); // Default to not verified on error to be safe
+        toast({ title: "Verification Check Failed", description: "Could not verify your document status. Please try again.", variant: "destructive" });
+      } finally {
+        setIsCheckingUserVerification(false);
+      }
+    };
+
+    checkUserVerification();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount, or if auth state changes (implicitly handled by isAuthenticated)
+
+
   useEffect(() => {
     if (dateRange?.from && dateRange?.to && startTime && endTime) {
       const [startH, startM] = startTime.split(':').map(Number);
@@ -113,19 +167,14 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       
       if (isValid(tempStartDateTime) && isValid(tempEndDateTime)) {
         if (isBefore(tempEndDateTime, tempStartDateTime) || tempEndDateTime.getTime() === tempStartDateTime.getTime()) {
-           if (dateRange.to.getTime() === dateRange.from.getTime()) { // Same day selection
-            // Ensure end time is at least 1 hour after start time
+           if (dateRange.to.getTime() === dateRange.from.getTime()) { 
             if (tempEndDateTime <= tempStartDateTime) {
                 tempEndDateTime = addHours(tempStartDateTime, 1);
                 setEndTime(format(tempEndDateTime, 'HH:mm')); 
-                 // If this pushes end time to next day, calendar needs update (more complex UI)
                 if (dateRange.to.getDate() !== tempEndDateTime.getDate()){
                      setDateRange(prev => ({...prev, to: tempEndDateTime}));
                 }
             }
-          } else { // Different days, but time makes end before start (e.g. end time earlier than start time)
-             // This case can be complex, for now, we assume user will select valid times across days.
-             // Or, we could reset end time if it becomes invalid due to start time change.
           }
         }
         if (isBefore(tempStartDateTime, new Date())) {
@@ -161,15 +210,31 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
         return;
     }
     
-    setIsProceedingToCheckout(true);
     const token = localStorage.getItem('authToken');
     if (!token) {
-      toast({ title: "Authentication Error", description: "Please log in to make a booking.", variant: "destructive" });
+      toast({ title: "Authentication Required", description: "Please log in to make a booking.", variant: "destructive" });
       localStorage.removeItem('checkoutBookingDetails');
-      router.push('/login?redirect=/checkout');
-      setIsProceedingToCheckout(false);
+      router.push(`/login?redirect=/cars/${carId}`);
       return;
     }
+
+    // Document verification check
+    if (isUserVerified === false) {
+      toast({
+        title: "Document Verification Required",
+        description: "Please complete your Photo ID and Driving License verification in your profile to proceed.",
+        variant: "destructive",
+        duration: 7000,
+      });
+      return;
+    }
+    if (isUserVerified === null && isCheckingUserVerification) { // Still checking
+        toast({ title: "Verification Check in Progress", description: "Please wait while we verify your document status.", variant: "default" });
+        return;
+    }
+
+
+    setIsProceedingToCheckout(true); // Set loading state for the button itself
 
     const rentalHours = differenceInHours(selectedEndDateTime, selectedStartDateTime);
     if (rentalHours <= 0) {
@@ -195,7 +260,6 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
 
     localStorage.setItem('checkoutBookingDetails', JSON.stringify(checkoutDetails));
     router.push('/checkout');
-    // setIsProceedingToCheckout(false); // No need to set this here, page navigates away
   };
 
   if (isLoading) {
@@ -325,62 +389,62 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
               <div className="w-full">
                 <h3 className="font-semibold text-md mb-2 text-primary">Select Rental Period:</h3>
                 <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="date-range-picker-trigger" className="text-sm font-medium text-muted-foreground">Dates</Label>
-                    <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                        <PopoverTrigger asChild>
-                        <Button
-                            id="date-range-picker-trigger"
-                            variant={"outline"}
-                            className={cn(
-                            "w-full justify-start text-left font-normal mt-1",
-                            !dateRange?.from && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange?.from ? (
-                            dateRange.to ? (
-                                <>
-                                {format(dateRange.from, "LLL dd, y")} -{" "}
-                                {format(dateRange.to, "LLL dd, y")}
-                                </>
-                            ) : (
-                                format(dateRange.from, "LLL dd, y")
-                            )
-                            ) : (
-                            <span>Pick dates</span>
-                            )}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={dateRange?.from}
-                            selected={dateRange}
-                            onSelect={(selectedRange) => {
-                                setDateRange(selectedRange);
-                                if (selectedRange?.from && selectedRange.to) {
-                                    setIsDatePickerOpen(false); 
-                                }
-                            }}
-                            numberOfMonths={1} 
-                            disabled={{ before: today }}
-                        />
-                        </PopoverContent>
-                    </Popover>
-                  </div>
+                    <div>
+                        <Label htmlFor="date-range-picker-trigger" className="text-sm font-medium text-muted-foreground">Dates</Label>
+                        <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                            <PopoverTrigger asChild>
+                            <Button
+                                id="date-range-picker-trigger"
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal mt-1",
+                                !dateRange?.from && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (
+                                dateRange.to ? (
+                                    <>
+                                    {format(dateRange.from, "LLL dd, y")} -{" "}
+                                    {format(dateRange.to, "LLL dd, y")}
+                                    </>
+                                ) : (
+                                    format(dateRange.from, "LLL dd, y")
+                                )
+                                ) : (
+                                <span>Pick dates</span>
+                                )}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateRange?.from}
+                                selected={dateRange}
+                                onSelect={(selectedRange) => {
+                                    setDateRange(selectedRange);
+                                    if (selectedRange?.from && selectedRange.to) {
+                                        setIsDatePickerOpen(false); 
+                                    }
+                                }}
+                                numberOfMonths={1} 
+                                disabled={{ before: today }}
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
                     
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label htmlFor="startTime" className="text-sm font-medium text-muted-foreground">Start Time</Label>
-                        <Input type="time" id="startTime" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full mt-1" disabled={!dateRange?.from}/>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="startTime" className="text-sm font-medium text-muted-foreground">Start Time</Label>
+                            <Input type="time" id="startTime" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full mt-1" disabled={!dateRange?.from}/>
+                        </div>
+                        <div>
+                            <Label htmlFor="endTime" className="text-sm font-medium text-muted-foreground">End Time</Label>
+                            <Input type="time" id="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full mt-1" disabled={!dateRange?.to}/>
+                        </div>
                     </div>
-                    <div>
-                        <Label htmlFor="endTime" className="text-sm font-medium text-muted-foreground">End Time</Label>
-                        <Input type="time" id="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full mt-1" disabled={!dateRange?.to}/>
-                    </div>
-                  </div>
                 </div>
 
                 {selectedStartDateTime && selectedEndDateTime && (
@@ -399,6 +463,18 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
                    <p className="text-xl font-semibold text-primary mt-1">Total: {currencySymbol}{totalPrice.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">for {rentalHours} hour{rentalHours !== 1 && 's'}</span></p>
                 )}
               </div>
+              
+              {isAuthenticated && isUserVerified === false && !isCheckingUserVerification && (
+                <Alert variant="destructive" className="w-full">
+                  <ShieldCheck className="h-4 w-4" />
+                  <AlertTitle>Document Verification Required</AlertTitle>
+                  <AlertDescription>
+                    Your Photo ID and Driving License must be approved before you can book a car. 
+                    Please visit your <Link href="/profile" className="font-semibold underline hover:text-destructive/80">profile</Link> to complete verification.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-2 w-full mt-4">
                 <Button size="lg" variant="outline" onClick={() => setIsChatbotOpen(true)} className="w-full sm:w-auto">
                   <MessageCircle className="mr-2 h-5 w-5" /> Negotiate Price
@@ -407,11 +483,18 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
                   size="lg" 
                   onClick={handleProceedToCheckout} 
                   className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
-                  disabled={isProceedingToCheckout || !selectedStartDateTime || !selectedEndDateTime || rentalHours <= 0}
+                  disabled={
+                    isProceedingToCheckout || 
+                    !selectedStartDateTime || 
+                    !selectedEndDateTime || 
+                    rentalHours <= 0 ||
+                    (isAuthenticated && isUserVerified === false) || // Disable if logged in & not verified
+                    isCheckingUserVerification // Disable while checking verification
+                  }
                 >
-                  {isProceedingToCheckout && <Loader2 className="animate-spin mr-2" />}
+                  {(isProceedingToCheckout || isCheckingUserVerification) && <Loader2 className="animate-spin mr-2" />}
                   <ShoppingCart className="mr-2 h-5 w-5" /> 
-                  {isProceedingToCheckout ? 'Processing...' : 'Proceed to Checkout'}
+                  {isCheckingUserVerification ? 'Verifying...' : (isProceedingToCheckout ? 'Processing...' : 'Proceed to Checkout')}
                 </Button>
               </div>
             </CardFooter>
@@ -462,5 +545,4 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
-
     
