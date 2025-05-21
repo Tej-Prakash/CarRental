@@ -177,7 +177,8 @@ export default function ProfilePage() {
       const uploadResponse = await fetch('/api/upload?destination=documents', {
         method: 'POST',
         body: formData,
-        headers: { 'Authorization': `Bearer ${token}` }, // Auth might be needed if upload API is protected
+        // Authorization header might be needed if your /api/upload is protected
+        // headers: { 'Authorization': `Bearer ${token}` }, 
       });
       const uploadResult = await uploadResponse.json();
       if (!uploadResponse.ok || !uploadResult.success) {
@@ -306,8 +307,8 @@ export default function ProfilePage() {
             <UploadCloud className="h-7 w-7 mr-3 text-accent" /> Verification Documents
           </CardTitle>
           <CardDescription>
-            Upload your Photo ID and Driving License for verification. Files will be stored on the server.
-            Ensure your server has a `public/assets/documents/` directory with write permissions.
+            Upload your Photo ID and Driving License for verification. 
+            For production, ensure your server handles file storage appropriately (e.g., cloud storage).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -363,3 +364,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
