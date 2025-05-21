@@ -213,8 +213,7 @@ export default function ProfilePage() {
             throw new Error(result.message || `Failed to record ${documentType} details`);
         }
       } else {
-        // Instead of setting user directly, refetch profile to get the most up-to-date data including new doc status
-        fetchProfile(); // Re-fetch profile which will update user state including new document
+        fetchProfile(); 
         toast({ title: `${documentType} Uploaded`, description: `${file.name} submitted for verification.` });
         if (documentType === 'PhotoID') setPhotoIdFile(null); else setLicenseFile(null);
       }
@@ -228,7 +227,7 @@ export default function ProfilePage() {
   
   const getStatusBadgeVariant = (status: DocumentStatus): BadgeProps["variant"] => {
     switch (status) {
-      case 'Approved': return 'default'; // Consider this like 'success'
+      case 'Approved': return 'default'; 
       case 'Pending': return 'secondary';
       case 'Rejected': return 'destructive';
       default: return 'outline';
@@ -239,7 +238,7 @@ export default function ProfilePage() {
     switch(status) {
       case 'Approved': return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'Rejected': return <XCircle className="h-4 w-4 text-destructive" />;
-      case 'Pending': return <AlertCircle className="h-4 w-4 text-yellow-500" />; // Or Clock icon
+      case 'Pending': return <AlertCircle className="h-4 w-4 text-yellow-500" />; 
       default: return null;
     }
   };
@@ -382,8 +381,8 @@ export default function ProfilePage() {
                     <p className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleString()}</p>
                     {doc.verifiedAt && <p className="text-xs text-muted-foreground">Reviewed: {new Date(doc.verifiedAt).toLocaleString()}</p>}
                     {doc.adminComments && (
-                      <p className={cn("text-xs mt-1 p-2 rounded-md", 
-                        doc.status === 'Rejected' ? 'bg-destructive/20 text-destructive-foreground' : 'bg-muted text-muted-foreground'
+                      <p className={cn("text-sm mt-2 p-2 rounded-md", 
+                        doc.status === 'Rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
                       )}>
                         <strong>Admin Comments:</strong> {doc.adminComments}
                       </p>
@@ -398,3 +397,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
