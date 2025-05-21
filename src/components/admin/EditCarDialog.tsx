@@ -39,6 +39,7 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const imageCloudBaseUrl = process.env.NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL;
 
   useEffect(() => {
     if (isOpen && car) {
@@ -65,8 +66,8 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
     if (['pricePerHour', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
       parsedValue = value === '' ? undefined : Number(value);
       if (isNaN(Number(parsedValue))) {
-        if(value === '') parsedValue = undefined; // Allow clearing optional numeric fields
-        else return; // Prevent non-numeric input for number fields
+        if(value === '') parsedValue = undefined; 
+        else return; 
       }
     }
     setCarData(prev => ({ ...prev, [name]: parsedValue }));
@@ -90,16 +91,26 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
 
   const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
+     if (!imageCloudBaseUrl) {
+      toast({
+        title: "Configuration Error",
+        description: "Image cloud base URL is not configured. Cannot add images.",
+        variant: "destructive",
+        duration: 7000,
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     if (files && files.length > 0) {
       const currentImageUrls = carData.imageUrls || [];
-      const newImagePaths = Array.from(files).map(file => {
-        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        return `/assets/images/${Date.now()}-${sanitizedFileName}`;
+      const newImageFullUrls = Array.from(files).map(file => {
+        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        return `${imageCloudBaseUrl}${Date.now()}-${sanitizedFileName}`;
       });
       
       setCarData(prev => ({ 
         ...prev, 
-        imageUrls: [...currentImageUrls, ...newImagePaths].slice(0, 5) 
+        imageUrls: [...currentImageUrls, ...newImageFullUrls].slice(0, 5) 
       }));
       if (fileInputRef.current) {
         fileInputRef.current.value = ""; 
@@ -120,6 +131,12 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    if (!imageCloudBaseUrl) {
+      toast({ title: "Configuration Error", description: "Image cloud base URL is not configured. Cannot update car.", variant: "destructive" });
+      setIsLoading(false);
+      return;
+    }
 
     if ((carData.imageUrls || []).length === 0) {
         toast({ title: "Validation Error", description: "Please provide at least one image.", variant: "destructive" });
@@ -155,7 +172,7 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
     }
 
     const finalPayload = { ...validationResult.data };
-    delete (finalPayload as any).id; // Ensure id is not in payload for update
+    delete (finalPayload as any).id; 
 
     try {
       const token = localStorage.getItem('authToken');
@@ -205,15 +222,14 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
 
         <Alert variant="destructive" className="mb-4">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Important: Image Handling Simulation</AlertTitle>
+          <AlertTitle>Important: Image Handling & Cloud Storage</AlertTitle>
           <AlertDescription>
-            This form simulates image selection. When you select new files, relative paths (e.g., `/assets/images/your-file.jpg`) are generated.
-            For these images to display:
-            <ol className="list-decimal list-inside pl-4 mt-1">
-              <li>Manually create the folder `public/assets/images/` in your project root if it doesn't exist.</li>
-              <li>Place image files with matching names into this folder.</li>
-            </ol>
-            The system stores these relative paths. Actual file upload to the server is not implemented here. For production, use a cloud storage service.
+            When you select new image files below, the system will construct full URLs based on the 
+            <code>NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL</code> environment variable and the original filenames.
+            <strong className='block my-1'>Example:</strong> If your base URL is <code>https://mycloud.com/images/</code> and you select <code>car.jpg</code>, the new URL will be <code>https://mycloud.com/images/[timestamp]-car.jpg</code>.
+            <strong className='block my-1'>Action Required: You must manually upload the selected image files to this exact path in your cloud storage for them to be displayed.</strong>
+            This system does not perform the actual file upload to the cloud. If the 
+            <code>NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL</code> is not set in your <code>.env</code> file, image selection will be disabled.
           </AlertDescription>
         </Alert>
 
@@ -250,14 +266,15 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
                 <div className="flex text-sm text-muted-foreground">
                   <Label
                     htmlFor="edit-image-files"
-                    className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring"
+                     className={`relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring ${!imageCloudBaseUrl ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span>Select new files</span>
-                    <input id="edit-image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} disabled={(carData.imageUrls || []).length >= 5} />
+                    <input id="edit-image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} disabled={(carData.imageUrls || []).length >= 5 || !imageCloudBaseUrl} />
                   </Label>
                   <p className="pl-1">or drag and drop (visual only)</p>
                 </div>
                 <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WebP supported for selection.</p>
+                {!imageCloudBaseUrl && <p className="text-xs text-destructive">Image cloud URL not configured.</p>}
               </div>
             </div>
             
@@ -267,15 +284,15 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
                 {(carData.imageUrls || []).map((url, index) => (
                   <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
                     <Image 
-                        src={url.startsWith('/') ? url : `https://placehold.co/40x30.png?text=Preview`} 
+                        src={url} 
                         alt={`Preview of ${url.substring(url.lastIndexOf('/') + 1)}`}
                         width={40} 
                         height={30} 
                         className="object-cover rounded-sm mr-2 aspect-[4/3]"
                         data-ai-hint="car image" 
                         onError={(e) => { 
-                          (e.target as HTMLImageElement).src = `https://placehold.co/40x30.png?text=NoImg`; 
-                          (e.target as HTMLImageElement).alt = "Preview unavailable";
+                          (e.target as HTMLImageElement).src = `https://placehold.co/40x30.png?text=NoPreview`; 
+                          (e.target as HTMLImageElement).alt = "Preview unavailable (check cloud)";
                         }}
                     />
                     <span className="truncate max-w-[60%] text-ellipsis" title={url.substring(url.lastIndexOf('/') + 1)}>
@@ -346,7 +363,7 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
 
           <DialogFooter className="pt-4">
             <DialogClose asChild><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isLoading || (carData.imageUrls || []).length === 0}>
+            <Button type="submit" disabled={isLoading || (carData.imageUrls || []).length === 0 || !imageCloudBaseUrl}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Update Car
             </Button>
