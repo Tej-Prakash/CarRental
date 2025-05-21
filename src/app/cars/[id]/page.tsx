@@ -13,12 +13,12 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, differenceInHours, isBefore, startOfToday, parseISO, setHours, setMinutes, isValid, addHours, subHours } from "date-fns";
+import { format, differenceInHours, isBefore, startOfToday, parseISO, setHours, setMinutes, isValid, addHours } from "date-fns";
 import { cn } from '@/lib/utils';
 import type { DateRange } from "react-day-picker";
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label'; // Ensure Label is imported
+import { Label } from '@/components/ui/label';
 
 interface CarDetailsPageProps {
   params: { id: string };
@@ -42,8 +42,9 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     from: undefined, 
     to: undefined,  
   });
-  const [startTime, setStartTime] = useState<string>('09:00'); // Default start time
-  const [endTime, setEndTime] = useState<string>('17:00');   // Default end time
+  const [startTime, setStartTime] = useState<string>('09:00');
+  const [endTime, setEndTime] = useState<string>('17:00');
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const [selectedStartDateTime, setSelectedStartDateTime] = useState<Date | null>(null);
   const [selectedEndDateTime, setSelectedEndDateTime] = useState<Date | null>(null);
@@ -104,32 +105,24 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       let tempStartDateTime = setMinutes(setHours(dateRange.from, startH), startM);
       let tempEndDateTime = setMinutes(setHours(dateRange.to, endH), endM);
       
-      // Ensure endDateTime is after startDateTime
       if (isValid(tempStartDateTime) && isValid(tempEndDateTime)) {
         if (isBefore(tempEndDateTime, tempStartDateTime) || tempEndDateTime.getTime() === tempStartDateTime.getTime()) {
-          // If same day and end time is before start time, or if dates make it invalid, adjust end date/time
-          // A simple heuristic: if end time is before start time on the same day, set end time to one hour after start on the same day.
-          // Or, if the 'to' date from calendar is same as 'from' date, and end time is earlier, adjust.
            if (dateRange.to.getTime() === dateRange.from.getTime()) {
             tempEndDateTime = addHours(tempStartDateTime, 1);
             setEndTime(format(tempEndDateTime, 'HH:mm'));
-            // If dates were same, and end was before start, calendar 'to' might need to reflect this
-             if (isBefore(tempEndDateTime, dateRange.to)) {
+             if (!isBefore(dateRange.to, tempEndDateTime) && dateRange.to.getDate() !== tempEndDateTime.getDate()) { // Check if it pushed to next day
                  setDateRange(prev => ({...prev, to: tempEndDateTime}));
              }
           }
         }
-        // Prevent booking in the past
         if (isBefore(tempStartDateTime, new Date())) {
             setSelectedStartDateTime(null);
             setSelectedEndDateTime(null);
             toast({title: "Invalid Time", description: "Start date and time cannot be in the past.", variant: "destructive"});
             return;
         }
-
         setSelectedStartDateTime(tempStartDateTime);
         setSelectedEndDateTime(tempEndDateTime);
-
       } else {
         setSelectedStartDateTime(null);
         setSelectedEndDateTime(null);
@@ -159,7 +152,8 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     const token = localStorage.getItem('authToken');
     if (!token) {
       toast({ title: "Authentication Error", description: "Please log in to make a booking.", variant: "destructive" });
-      router.push('/login');
+      localStorage.removeItem('checkoutBookingDetails');
+      router.push('/login?redirect=/checkout');
       setIsProceedingToCheckout(false);
       return;
     }
@@ -179,8 +173,8 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       carImageUrl: primaryImageUrl,
       startDate: selectedStartDateTime.toISOString(),
       endDate: selectedEndDateTime.toISOString(),
-      rentalHours, // Changed from rentalDays
-      pricePerHour: car.pricePerHour, // Changed from pricePerDay
+      rentalHours,
+      pricePerHour: car.pricePerHour,
       totalPrice,
       currency: siteSettings.defaultCurrency || 'INR',
       currencySymbol: siteSettings.defaultCurrency === 'INR' ? '₹' : siteSettings.defaultCurrency === 'EUR' ? '€' : siteSettings.defaultCurrency === 'GBP' ? '£' : '$',
@@ -282,15 +276,17 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
 
             <CardFooter className="p-0 mt-6 pt-6 border-t flex flex-col items-start gap-4">
               <div className="w-full">
-                <h3 className="font-semibold text-md mb-2 text-primary">Select Rental Dates & Times:</h3>
-                <div className="flex flex-col sm:flex-row gap-2 items-start">
-                    <Popover>
+                <h3 className="font-semibold text-md mb-2 text-primary">Select Rental Period:</h3>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="date-range-picker-trigger" className="text-sm font-medium text-muted-foreground">Dates</Label>
+                    <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
                         <PopoverTrigger asChild>
                         <Button
-                            id="date"
+                            id="date-range-picker-trigger"
                             variant={"outline"}
                             className={cn(
-                            "w-full sm:w-auto justify-start text-left font-normal flex-grow",
+                            "w-full justify-start text-left font-normal mt-1",
                             !dateRange?.from && "text-muted-foreground"
                             )}
                         >
@@ -315,25 +311,33 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
                             mode="range"
                             defaultMonth={dateRange?.from}
                             selected={dateRange}
-                            onSelect={setDateRange}
-                            numberOfMonths={2}
+                            onSelect={(selectedRange) => {
+                                setDateRange(selectedRange);
+                                if (selectedRange?.from && selectedRange.to) {
+                                    setIsDatePickerOpen(false); // Auto-close popover
+                                }
+                            }}
+                            numberOfMonths={1} // Simplified to 1 month
                             disabled={{ before: today }}
                         />
                         </PopoverContent>
                     </Popover>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                        <div className="flex-1">
-                            <Label htmlFor="startTime" className="sr-only">Start Time</Label>
-                            <Input type="time" id="startTime" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full" disabled={!dateRange?.from}/>
-                        </div>
-                        <div className="flex-1">
-                            <Label htmlFor="endTime" className="sr-only">End Time</Label>
-                            <Input type="time" id="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full" disabled={!dateRange?.to}/>
-                        </div>
+                  </div>
+                    
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="startTime" className="text-sm font-medium text-muted-foreground">Start Time</Label>
+                        <Input type="time" id="startTime" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full mt-1" disabled={!dateRange?.from}/>
                     </div>
+                    <div>
+                        <Label htmlFor="endTime" className="text-sm font-medium text-muted-foreground">End Time</Label>
+                        <Input type="time" id="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full mt-1" disabled={!dateRange?.to}/>
+                    </div>
+                  </div>
                 </div>
+
                 {selectedStartDateTime && selectedEndDateTime && (
-                     <p className="text-xs text-muted-foreground mt-1">
+                     <p className="text-xs text-muted-foreground mt-2">
                         Selected: {format(selectedStartDateTime, "MMM dd, yyyy, hh:mm a")} to {format(selectedEndDateTime, "MMM dd, yyyy, hh:mm a")}
                     </p>
                 )}
