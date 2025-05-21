@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { Loader2, XCircle, Trash2, UploadCloud, AlertTriangle, ImagePlus } from 'lucide-react';
+import { Loader2, XCircle, Trash2, AlertTriangle, ImagePlus } from 'lucide-react';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
@@ -243,11 +243,11 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
 
          <Alert variant="destructive" className="my-4">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Important: Image Upload & Storage</AlertTitle>
+          <AlertTitle>Image Upload & Storage</AlertTitle>
           <AlertDescription>
             Images selected below will be uploaded to the server and stored in the <code>public/assets/images/</code> directory.
-            <strong className='block my-1'>For Production:</strong> This local server storage is NOT recommended for serverless deployments (e.g., Vercel, Netlify) as the filesystem can be ephemeral. Use a dedicated cloud storage service (AWS S3, Google Cloud Storage, Cloudinary) for production.
-             <strong className='block my-1'>Manual Setup:</strong> Ensure your project has a <code>public/assets/images/</code> directory. The application will attempt to create it if it doesn't exist, but write permissions are required.
+            <strong className='block my-1'>For Production:</strong> This local server storage is NOT recommended for serverless deployments (e.g., Vercel, Netlify). Use a dedicated cloud storage service for production.
+             <strong className='block my-1'>Setup:</strong> Ensure your project has a <code>public/assets/images/</code> directory. The application will attempt to create it if it doesn't exist, but write permissions are required.
           </AlertDescription>
         </Alert>
 
@@ -307,9 +307,8 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
                           width={40} 
                           height={30} 
                           className="object-cover rounded-sm mr-2 aspect-[4/3]"
-                          data-ai-hint="car image" 
                           onError={(e) => { 
-                            (e.target as HTMLImageElement).src = 'https://placehold.co/40x30.png?text=LoadErr'; 
+                            (e.target as HTMLImageElement).src = `https://placehold.co/40x30.png?text=Err`; 
                             (e.target as HTMLImageElement).alt = "Preview error";
                           }}
                       />
@@ -391,4 +390,3 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
     </Dialog>
   );
 }
-
