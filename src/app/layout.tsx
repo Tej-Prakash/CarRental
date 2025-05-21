@@ -22,13 +22,21 @@ export const staticMetadata = {
   description: 'Your premier car rental service.',
 };
 
+// Define paths that should always be accessible, even in maintenance mode
+const ALWAYS_ACCESSIBLE_PATHS = [
+  '/login',
+  '/signup',
+  '/forgot-password',
+  // Add /reset-password/[token] pattern check below
+];
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const [currentSiteTitle, setCurrentSiteTitle] = useState(staticMetadata.title);
-  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean | null>(null); // null for initial loading state
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -43,19 +51,18 @@ export default function RootLayout({
           }
           setIsMaintenanceMode(settings.maintenanceMode ?? false);
         } else {
-          // Fallback if API fails
           setIsMaintenanceMode(false);
           document.title = staticMetadata.title;
         }
       } catch (error) {
         console.error("Failed to fetch site settings:", error);
-        setIsMaintenanceMode(false); // Default to not in maintenance if fetch fails
+        setIsMaintenanceMode(false); 
         document.title = staticMetadata.title;
       }
     };
 
     fetchSiteSettings();
-  }, [pathname]); // Re-fetch on pathname change if needed, or just once on mount
+  }, [pathname]); 
   
   useEffect(() => {
     document.title = currentSiteTitle;
@@ -64,9 +71,9 @@ export default function RootLayout({
   const faviconLink = <link rel="icon" href="/favicon.ico" sizes="any" />;
 
   const isAdminRoute = pathname.startsWith('/admin');
+  const isAuthRoute = ALWAYS_ACCESSIBLE_PATHS.includes(pathname) || pathname.startsWith('/reset-password/');
 
   if (isMaintenanceMode === null) {
-    // Optional: Add a global loading spinner here if settings fetch is slow
     return (
       <html lang="en" suppressHydrationWarning>
         <head>{faviconLink}</head>
@@ -79,7 +86,7 @@ export default function RootLayout({
     );
   }
   
-  if (isMaintenanceMode && !isAdminRoute) {
+  if (isMaintenanceMode && !isAdminRoute && !isAuthRoute) {
     return (
       <html lang="en" suppressHydrationWarning>
         <head>
@@ -116,7 +123,7 @@ export default function RootLayout({
         {!isAdminRoute && <Header siteTitle={currentSiteTitle} />}
         <main className={cn(
             "flex-grow flex flex-col",
-            !isAdminRoute && "container mx-auto px-4 py-6" // Only apply container styles to non-admin routes
+            !isAdminRoute && "container mx-auto px-4 py-6" 
         )}>
           {children}
         </main>
