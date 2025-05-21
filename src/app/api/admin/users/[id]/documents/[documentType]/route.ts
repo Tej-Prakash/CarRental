@@ -20,7 +20,7 @@ const UpdateDocumentStatusSchema = z.object({
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string; documentType: string } } // Changed userId to id
+  { params }: { params: { id: string; documentType: string } } // ENSURE 'id' is used here
 ) {
   const authResult = await verifyAuth(req, 'Admin');
   if (authResult.error) {
@@ -33,9 +33,11 @@ export async function PUT(
   }
   const adminUserId = authResult.admin.userId;
 
-  const { id: userId, documentType } = params; // Changed userId to id, aliased to userId for clarity in logic below
+  // Use `id` from params, aliased to `userIdFromParams` for internal clarity if preferred,
+  // but ensure the destructuring from `params` uses `id`.
+  const { id: userIdFromParams, documentType } = params; 
 
-  if (!ObjectId.isValid(userId)) {
+  if (!ObjectId.isValid(userIdFromParams)) {
     return NextResponse.json({ message: 'Invalid user ID format' }, { status: 400 });
   }
   if (!['PhotoID', 'DrivingLicense'].includes(documentType)) {
@@ -57,7 +59,7 @@ export async function PUT(
     const db = client.db();
     const usersCollection = db.collection<UserDbDocument>('users');
 
-    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    const user = await usersCollection.findOne({ _id: new ObjectId(userIdFromParams) });
     if (!user) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
@@ -80,7 +82,7 @@ export async function PUT(
 
 
     const result = await usersCollection.updateOne(
-      { _id: new ObjectId(userId), 'documents.type': docType }, 
+      { _id: new ObjectId(userIdFromParams), 'documents.type': docType }, 
       { $set: updateFields }
     );
 
@@ -88,9 +90,9 @@ export async function PUT(
       return NextResponse.json({ message: `Failed to find ${docType} for update or user not found.` }, { status: 404 });
     }
      
-    const updatedUserDoc = await usersCollection.findOne({ _id: new ObjectId(userId) }, { projection: { passwordHash: 0 } });
+    const updatedUserDoc = await usersCollection.findOne({ _id: new ObjectId(userIdFromParams) }, { projection: { passwordHash: 0 } });
      if (!updatedUserDoc) {
-        console.error(`Failed to retrieve updated user ${userId} after document status update.`);
+        console.error(`Failed to retrieve updated user ${userIdFromParams} after document status update.`);
         return NextResponse.json({ message: 'Failed to retrieve updated user data.' }, { status: 500 });
     }
     
@@ -116,7 +118,8 @@ export async function PUT(
     return NextResponse.json(updatedUserResponse, { status: 200 });
 
   } catch (error: any) {
-    console.error(`Failed to update document status for user ${userId}, document ${docType}:`, error);
+    console.error(`Failed to update document status for user ${userIdFromParams}, document ${docType}:`, error);
     return NextResponse.json({ message: error.message || 'Failed to update document status due to an unexpected error.' }, { status: 500 });
   }
 }
+    
