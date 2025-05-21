@@ -52,6 +52,16 @@ const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: numbe
   reviews: 0,
 };
 
+const isValidHttpUrl = (stringInput: string | undefined): boolean => {
+  if (!stringInput) return false;
+  try {
+    const url = new URL(stringInput);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
+};
+
 
 export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -92,17 +102,28 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     if (!imageCloudBaseUrl) {
       toast({
         title: "Configuration Error",
-        description: "Image cloud base URL is not configured. Please contact support.",
+        description: "Image cloud base URL (NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL) is not configured in .env. Please set it to your cloud storage base path (e.g., https://your-bucket.s3.amazonaws.com/images/). Image selection is disabled.",
         variant: "destructive",
-        duration: 7000,
+        duration: 10000,
       });
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
+    if (!isValidHttpUrl(imageCloudBaseUrl)) {
+      toast({
+        title: "Configuration Error",
+        description: "NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL in .env is not a valid absolute URL (must start with http:// or https://). Example: https://your-bucket.s3.amazonaws.com/images/",
+        variant: "destructive",
+        duration: 10000,
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     if (files && files.length > 0) {
       const currentImageUrls = carData.imageUrls || [];
       const newImageFullUrls = Array.from(files).map(file => {
-        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_'); // Allow dots, underscores, hyphens
+        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_'); 
         return `${imageCloudBaseUrl}${Date.now()}-${sanitizedFileName}`;
       });
       
@@ -146,8 +167,8 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     e.preventDefault();
     setIsLoading(true);
 
-    if (!imageCloudBaseUrl) {
-      toast({ title: "Configuration Error", description: "Image cloud base URL is not configured. Cannot add car.", variant: "destructive" });
+    if (!imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl)) {
+      toast({ title: "Configuration Error", description: "Image cloud base URL is not configured correctly. Cannot add car.", variant: "destructive" });
       setIsLoading(false);
       return;
     }
@@ -250,16 +271,14 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           </DialogDescription>
         </DialogHeader>
 
-        <Alert variant="destructive" className="mb-4">
+        <Alert variant="destructive" className="my-4">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Important: Image Handling & Cloud Storage</AlertTitle>
           <AlertDescription>
-            When you select image files below, the system will construct full URLs based on the 
-            <code>NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL</code> environment variable and the original filenames.
-            <strong className='block my-1'>Example:</strong> If your base URL is <code>https://mycloud.com/images/</code> and you select <code>car.jpg</code>, the stored URL will be <code>https://mycloud.com/images/[timestamp]-car.jpg</code>.
-            <strong className='block my-1'>Action Required: You must manually upload the selected image files to this exact path in your cloud storage for them to be displayed.</strong>
-            This system does not perform the actual file upload to the cloud. If the 
-            <code>NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL</code> is not set in your <code>.env</code> file, image selection will be disabled.
+            Set the <code>NEXT_PUBLIC_IMAGE_CLOUD_BASE_URL</code> in your <code>.env</code> file to your cloud storage base path (e.g., <code>https://your-bucket.s3.amazonaws.com/images/</code>). Ensure it's a full, valid URL ending with a <code>/</code>.
+            When you select image files below, the system constructs full URLs using this base URL, a timestamp, and sanitized filenames.
+            <strong className='block my-1'>Action Required: You must manually upload the selected image files to the exact constructed path in your cloud storage for them to be displayed.</strong>
+            This system stores the URL; it does not perform the actual file upload. Image selection is disabled if the base URL is not configured or is invalid.
           </AlertDescription>
         </Alert>
 
@@ -296,46 +315,51 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
                 <div className="flex text-sm text-muted-foreground">
                   <Label
                     htmlFor="image-files"
-                    className={`relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring ${!imageCloudBaseUrl ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-ring ${!imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span>Select files</span>
-                    <input id="image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} disabled={carData.imageUrls.length >= 5 || !imageCloudBaseUrl} />
+                    <input id="image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/*" ref={fileInputRef} disabled={carData.imageUrls.length >= 5 || !imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl)} />
                   </Label>
                   <p className="pl-1">or drag and drop (visual only)</p>
                 </div>
                 <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WebP supported for selection.</p>
-                {!imageCloudBaseUrl && <p className="text-xs text-destructive">Image cloud URL not configured.</p>}
+                {(!imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl)) && <p className="text-xs text-destructive">Image cloud URL not configured or invalid.</p>}
               </div>
             </div>
             
-            {carData.imageUrls.length > 0 && (
+            {(carData.imageUrls || []).length > 0 && (
               <div className="mt-2 space-y-2">
-                <Label>Selected Images ({carData.imageUrls.length}/5):</Label>
-                {carData.imageUrls.map((url, index) => (
-                  <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
-                    <Image 
-                        src={url} 
-                        alt={`Preview of ${url.substring(url.lastIndexOf('/') + 1)}`}
-                        width={40} 
-                        height={30} 
-                        className="object-cover rounded-sm mr-2 aspect-[4/3]"
-                        data-ai-hint="car image" 
-                        onError={(e) => { 
-                          (e.target as HTMLImageElement).src = `https://placehold.co/40x30.png?text=NoPreview`; 
-                          (e.target as HTMLImageElement).alt = "Preview unavailable (check cloud)";
-                        }}
-                    />
-                    <span className="truncate max-w-[60%] text-ellipsis" title={url.substring(url.lastIndexOf('/') + 1)}>
-                        {url.substring(url.lastIndexOf('/') + 1)}
-                    </span>
-                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleImageUrlRemove(url)}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
+                <Label>Selected Images ({(carData.imageUrls || []).length}/5):</Label>
+                {(carData.imageUrls || []).map((url, index) => {
+                  const isUrlValidForImage = isValidHttpUrl(url);
+                  const previewSrc = isUrlValidForImage ? url : `https://placehold.co/40x30.png?text=InvalidURL`;
+                  const previewAlt = isUrlValidForImage ? `Preview of ${url.substring(url.lastIndexOf('/') + 1)}` : "Invalid URL format for preview";
+                  return (
+                    <div key={url + index} className="flex items-center justify-between text-xs p-2 bg-muted rounded-md">
+                      <Image 
+                          src={previewSrc} 
+                          alt={previewAlt}
+                          width={40} 
+                          height={30} 
+                          className="object-cover rounded-sm mr-2 aspect-[4/3]"
+                          data-ai-hint="car image" 
+                          onError={(e) => { 
+                            (e.target as HTMLImageElement).src = `https://placehold.co/40x30.png?text=PreviewErr`; 
+                            (e.target as HTMLImageElement).alt = "Preview error";
+                          }}
+                      />
+                      <span className="truncate max-w-[60%] text-ellipsis" title={url.substring(url.lastIndexOf('/') + 1)}>
+                          {url.substring(url.lastIndexOf('/') + 1)}
+                      </span>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleImageUrlRemove(url)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             )}
-             {carData.imageUrls.length === 0 && (
+             {(carData.imageUrls || []).length === 0 && (
                 <p className="text-xs text-destructive mt-1">Please select at least one image file.</p>
             )}
           </div>
@@ -393,7 +417,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
 
           <DialogFooter className="pt-4">
             <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isLoading || carData.imageUrls.length === 0 || !imageCloudBaseUrl}>
+            <Button type="submit" disabled={isLoading || carData.imageUrls.length === 0 || !imageCloudBaseUrl || !isValidHttpUrl(imageCloudBaseUrl)}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Add Car
             </Button>
