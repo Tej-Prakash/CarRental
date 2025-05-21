@@ -7,10 +7,10 @@ import type { ObjectId } from 'mongodb';
 
 interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
   _id: ObjectId;
-  settingsId?: string; // Made optional as it might not be on all docs if old ones exist
+  settingsId?: string; 
 }
 
-const SETTINGS_DOC_ID = 'main_settings'; // Use a fixed ID for the single settings document
+const SETTINGS_DOC_ID = 'main_settings'; 
 
 export async function GET() {
   try {
@@ -21,24 +21,27 @@ export async function GET() {
     let settings = await settingsCollection.findOne({ settingsId: SETTINGS_DOC_ID });
 
     if (!settings) {
-      // Default settings if none exist
       const defaultSettings: SiteSettings = {
         siteTitle: 'Travel Yatra',
         defaultCurrency: 'INR', 
+        maintenanceMode: false,
       };
       return NextResponse.json(defaultSettings, { status: 200 });
     }
 
-    const { _id, settingsId, ...settingsData } = settings; // exclude settingsId from public response
-    return NextResponse.json({ id: _id.toHexString(), ...settingsData }, { status: 200 });
+    const { _id, settingsId, ...settingsData } = settings; 
+    return NextResponse.json({ 
+      id: _id.toHexString(), 
+      ...settingsData,
+      maintenanceMode: settingsData.maintenanceMode ?? false, // Ensure default
+    }, { status: 200 });
   } catch (error) {
     console.error('CRITICAL: Failed to fetch site settings from DB:', error);
-    // Return default on error to ensure app loads for public users, but log the error
     const defaultSettingsOnError: SiteSettings = {
-        siteTitle: 'Travel Yatra', // Fallback site title
-        defaultCurrency: 'INR',   // Fallback currency
+        siteTitle: 'Travel Yatra', 
+        defaultCurrency: 'INR',  
+        maintenanceMode: false,
     };
-    return NextResponse.json(defaultSettingsOnError, { status: 200 }); // Still 200 so app doesn't break, but error is logged
+    return NextResponse.json(defaultSettingsOnError, { status: 200 }); 
   }
 }
-

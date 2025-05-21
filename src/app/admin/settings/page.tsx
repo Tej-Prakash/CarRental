@@ -16,10 +16,16 @@ import { useRouter } from 'next/navigation';
 
 const currencyOptions: SiteSettings['defaultCurrency'][] = ['USD', 'EUR', 'GBP', 'INR'];
 
+const initialSettings: Partial<SiteSettings> = {
+  siteTitle: 'Travel Yatra',
+  defaultCurrency: 'INR',
+  maintenanceMode: false,
+};
+
 export default function AdminSettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const [settings, setSettings] = useState<Partial<SiteSettings>>({ siteTitle: '', defaultCurrency: 'INR' });
+  const [settings, setSettings] = useState<Partial<SiteSettings>>(initialSettings);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -43,16 +49,21 @@ export default function AdminSettingsPage() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('authUser');
             router.push('/login');
-            setIsLoading(false);
-            return;
+          } else {
+            throw new Error('Failed to fetch settings');
           }
-          throw new Error('Failed to fetch settings');
+          setIsLoading(false);
+          return;
         }
         const data: SiteSettings = await response.json();
-        setSettings(data);
+        setSettings({
+          siteTitle: data.siteTitle || initialSettings.siteTitle,
+          defaultCurrency: data.defaultCurrency || initialSettings.defaultCurrency,
+          maintenanceMode: data.maintenanceMode ?? initialSettings.maintenanceMode,
+        });
       } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
-        setSettings({ siteTitle: 'Travel Yatra', defaultCurrency: 'INR' }); 
+        setSettings(initialSettings); 
       } finally {
         setIsLoading(false);
       }
@@ -70,6 +81,10 @@ export default function AdminSettingsPage() {
     setSettings(prev => ({ ...prev, defaultCurrency: value }));
   };
 
+  const handleMaintenanceModeChange = (checked: boolean) => {
+    setSettings(prev => ({ ...prev, maintenanceMode: checked }));
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSaving(true);
@@ -84,6 +99,7 @@ export default function AdminSettingsPage() {
       const payload: Partial<SiteSettings> = {
         siteTitle: settings.siteTitle,
         defaultCurrency: settings.defaultCurrency,
+        maintenanceMode: settings.maintenanceMode,
       };
 
       const response = await fetch('/api/admin/settings', {
@@ -101,12 +117,13 @@ export default function AdminSettingsPage() {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsSaving(false);
-          return;
+        } else {
+            const result = await response.json().catch(() => ({message: 'Failed to save settings'}));
+            const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
+            throw new Error(errorMsg || 'Failed to save settings');
         }
-        const result = await response.json().catch(() => ({message: 'Failed to save settings'}));
-        const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
-        throw new Error(errorMsg || 'Failed to save settings');
+        setIsSaving(false);
+        return;
       }
       const result = await response.json();
       setSettings(result); 
@@ -170,12 +187,17 @@ export default function AdminSettingsPage() {
             </div>
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <Label htmlFor="maintenanceMode" className="text-base">Maintenance Mode (Demo)</Label>
+                <Label htmlFor="maintenanceMode" className="text-base">Maintenance Mode</Label>
                 <p className="text-sm text-muted-foreground">
-                  Temporarily disable access to the public site.
+                  Temporarily disable access to the public site. Admins can still access /admin.
                 </p>
               </div>
-              <Switch id="maintenanceMode" aria-label="Toggle maintenance mode" />
+              <Switch 
+                id="maintenanceMode" 
+                aria-label="Toggle maintenance mode"
+                checked={settings.maintenanceMode || false}
+                onCheckedChange={handleMaintenanceModeChange}
+              />
             </div>
              <div className="pt-4">
                 <h3 className="text-lg font-medium text-primary">Logo & Favicon Management</h3>

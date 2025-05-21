@@ -11,15 +11,15 @@ import type { ObjectId } from 'mongodb';
 const SiteSettingsSchema = z.object({
   siteTitle: z.string().min(1, "Site title is required"),
   defaultCurrency: z.enum(['USD', 'EUR', 'GBP', 'INR']).default('INR'),
-  // faviconUrl: z.string().url("Favicon URL must be a valid URL").or(z.literal("")).optional(),
+  maintenanceMode: z.boolean().optional().default(false),
 });
 
 interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
   _id: ObjectId;
-  settingsId: string; // To ensure we always update the same document
+  settingsId: string; 
 }
 
-const SETTINGS_DOC_ID = 'main_settings'; // Use a fixed ID for the single settings document
+const SETTINGS_DOC_ID = 'main_settings'; 
 
 
 export async function GET(req: NextRequest) {
@@ -36,10 +36,10 @@ export async function GET(req: NextRequest) {
     let settingsDoc = await settingsCollection.findOne({ settingsId: SETTINGS_DOC_ID });
 
     if (!settingsDoc) {
-      // If no settings exist, return defaults or an empty object for admin to fill
       const defaultSettings: SiteSettings = {
-        siteTitle: 'Travel Yatra', // Default site title
-        defaultCurrency: 'INR',   // Default currency
+        siteTitle: 'Travel Yatra', 
+        defaultCurrency: 'INR',  
+        maintenanceMode: false,
       };
       return NextResponse.json(defaultSettings, { status: 200 });
     }
@@ -71,23 +71,17 @@ export async function PUT(req: NextRequest) {
     const settingsDataToUpdate: Partial<Omit<SiteSettings, 'id'>> = validation.data;
     settingsDataToUpdate.updatedAt = new Date().toISOString();
 
-    // If faviconUrl is an empty string, remove it or set to undefined to avoid storing empty string if not desired.
-    // if ('faviconUrl' in settingsDataToUpdate && settingsDataToUpdate.faviconUrl === "") {
-    //   delete settingsDataToUpdate.faviconUrl; // Or set to undefined if your schema/logic prefers
-    // }
-
 
     const client = await clientPromise;
     const db = client.db();
     const settingsCollection = db.collection<SiteSettingsDocument>('settings');
 
     await settingsCollection.updateOne(
-      { settingsId: SETTINGS_DOC_ID }, // Filter by our fixed identifier
-      { $set: { ...settingsDataToUpdate, settingsId: SETTINGS_DOC_ID } }, // ensure settingsId is part of the doc
-      { upsert: true } // Create the document if it doesn't exist
+      { settingsId: SETTINGS_DOC_ID }, 
+      { $set: { ...settingsDataToUpdate, settingsId: SETTINGS_DOC_ID } }, 
+      { upsert: true } 
     );
     
-    // Fetch the updated/created document to return
     const updatedSettingsDoc = await settingsCollection.findOne({ settingsId: SETTINGS_DOC_ID });
     
     if (!updatedSettingsDoc) {
@@ -104,4 +98,3 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ message: 'Failed to update settings' }, { status: 500 });
   }
 }
-

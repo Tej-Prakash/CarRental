@@ -74,9 +74,8 @@ export interface Booking {
   razorpayPaymentId?: string; 
 }
 
-// Added for API route consistency if needed, though Booking type above is mostly used
 export interface BookingDocument extends Omit<Booking, 'id'> {
-  _id: import('mongodb').ObjectId; // Or string if you convert it before this type is used
+  _id: import('mongodb').ObjectId; 
 }
 
 
@@ -84,5 +83,6 @@ export interface SiteSettings {
   id?: string; 
   siteTitle: string;
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
+  maintenanceMode?: boolean; // Added maintenanceMode
   updatedAt?: string; 
 }
