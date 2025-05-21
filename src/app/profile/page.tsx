@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import type { User, Address, UserDocument } from '@/types';
+import type { User, Address, UserDocument as UserDocumentType } from '@/types';
 import { Loader2, UserCircle, Mail, Home, MapPin, UploadCloud, FileText, ShieldAlert } from 'lucide-react';
+import Image from 'next/image'; // For document previews
 
 export default function ProfilePage() {
   const { toast } = useToast();
@@ -47,11 +48,12 @@ export default function ProfilePage() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('authUser');
             router.push('/login');
-            setIsLoading(false);
-            return;
+          } else {
+            const errorData = await response.json().catch(()=>({message: 'Failed to fetch profile'}));
+            throw new Error(errorData.message || 'Failed to fetch profile');
           }
-          const errorData = await response.json().catch(()=>({message: 'Failed to fetch profile'}));
-          throw new Error(errorData.message || 'Failed to fetch profile');
+          setIsLoading(false);
+          return;
         }
         const data: User = await response.json();
         setUser(data);
@@ -87,19 +89,24 @@ export default function ProfilePage() {
 
     const updatePayload: Partial<Pick<User, 'name' | 'address' | 'location'>> = {};
     if (name !== user?.name) updatePayload.name = name;
-    if (JSON.stringify(address) !== JSON.stringify(user?.address || {})) updatePayload.address = address;
+    if (JSON.stringify(address) !== JSON.stringify(user?.address || { street: '', city: '', state: '', zip: '', country: '' })) updatePayload.address = address;
     if (location !== user?.location) updatePayload.location = location;
     
     const addressFields = Object.values(address);
-    const filledAddressFields = addressFields.filter(field => field.trim() !== '').length;
+    const filledAddressFields = addressFields.filter(field => field && field.trim() !== '').length;
+
     if (filledAddressFields > 0 && filledAddressFields < Object.keys(address).length) {
         toast({ title: "Incomplete Address", description: "Please fill all address fields or leave them all empty.", variant: "destructive"});
         setIsUpdating(false);
         return;
     }
-    if (filledAddressFields === 0) { 
-        delete updatePayload.address;
+    if (filledAddressFields === 0 && user?.address) { 
+        // If all fields are empty now but there was an address, explicitly set to null or empty object to clear it
+        updatePayload.address = { street: '', city: '', state: '', zip: '', country: '' };
+    } else if (filledAddressFields === 0) {
+        delete updatePayload.address; // No address to update and none existed before
     }
+
 
     if (Object.keys(updatePayload).length === 0) {
       toast({ title: "No Changes", description: "No information was changed." });
@@ -123,11 +130,12 @@ export default function ProfilePage() {
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsUpdating(false);
-          return;
+        } else {
+            const result = await response.json().catch(()=>({message: 'Failed to update profile'}));
+            throw new Error(result.message || 'Failed to update profile');
         }
-        const result = await response.json().catch(()=>({message: 'Failed to update profile'}));
-        throw new Error(result.message || 'Failed to update profile');
+        setIsUpdating(false);
+        return;
       }
       const result = await response.json();
       setUser(result.user); 
@@ -159,35 +167,60 @@ export default function ProfilePage() {
         if (documentType === 'PhotoID') setIsUploadingPhotoId(false); else setIsUploadingLicense(false);
         return;
     }
+    
+    // Step 1: Upload the file to /api/upload
+    const formData = new FormData();
+    formData.append('file', file);
 
+    let uploadedFilePath = '';
     try {
-      const response = await fetch('/api/profile/documents', {
+      const uploadResponse = await fetch('/api/upload?destination=documents', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Authorization': `Bearer ${token}` }, // Auth might be needed if upload API is protected
+      });
+      const uploadResult = await uploadResponse.json();
+      if (!uploadResponse.ok || !uploadResult.success) {
+        throw new Error(uploadResult.message || `Failed to upload ${documentType} file.`);
+      }
+      uploadedFilePath = uploadResult.filePath;
+    } catch (uploadError: any) {
+      toast({ title: "File Upload Failed", description: uploadError.message, variant: "destructive" });
+      if (documentType === 'PhotoID') setIsUploadingPhotoId(false); else setIsUploadingLicense(false);
+      return;
+    }
+
+    // Step 2: Record the document details (including the new filePath) via /api/profile/documents
+    try {
+      const recordResponse = await fetch('/api/profile/documents', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify({ documentType, fileName: file.name }),
+        body: JSON.stringify({ 
+            documentType, 
+            fileName: file.name, // Original filename
+            filePath: uploadedFilePath // Path from upload API
+        }),
       });
       
-      if (!response.ok) {
-        if (response.status === 401) {
+      if (!recordResponse.ok) {
+        if (recordResponse.status === 401) {
           toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('authUser');
-          router.push('/login');
+          localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
         } else {
-            const result = await response.json().catch(()=>({message: `Failed to upload ${documentType}`}));
-            throw new Error(result.message || `Failed to upload ${documentType}`);
+            const result = await recordResponse.json().catch(()=>({message: `Failed to record ${documentType} details`}));
+            throw new Error(result.message || `Failed to record ${documentType} details`);
         }
       } else {
-        const result = await response.json();
+        const result = await recordResponse.json();
         setUser(prevUser => ({ ...prevUser!, documents: result.documents }));
-        toast({ title: `${documentType} Uploaded`, description: `${file.name} has been recorded (simulation).` });
+        toast({ title: `${documentType} Uploaded`, description: `${file.name} has been successfully uploaded and recorded.` });
         if (documentType === 'PhotoID') setPhotoIdFile(null); else setLicenseFile(null);
       }
     } catch (error: any) {
-      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Document Record Failed", description: error.message, variant: "destructive" });
     } finally {
       if (documentType === 'PhotoID') setIsUploadingPhotoId(false);
       else setIsUploadingLicense(false);
@@ -272,26 +305,39 @@ export default function ProfilePage() {
           <CardTitle className="text-2xl font-bold text-primary flex items-center">
             <UploadCloud className="h-7 w-7 mr-3 text-accent" /> Verification Documents
           </CardTitle>
-          <CardDescription>Upload your Photo ID and Driving License for verification. (File upload is simulated)</CardDescription>
+          <CardDescription>
+            Upload your Photo ID and Driving License for verification. Files will be stored on the server.
+            Ensure your server has a `public/assets/documents/` directory with write permissions.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="photoId">Photo ID (e.g., Passport, National ID)</Label>
             <div className="flex gap-2 items-center">
-              <Input id="photoId" type="file" onChange={(e) => setPhotoIdFile(e.target.files ? e.target.files[0] : null)} className="flex-grow" />
+              <Input id="photoId" type="file" onChange={(e) => setPhotoIdFile(e.target.files ? e.target.files[0] : null)} className="flex-grow" accept="image/*,application/pdf"/>
               <Button onClick={() => handleDocumentUpload('PhotoID', photoIdFile)} disabled={!photoIdFile || isUploadingPhotoId}>
                 {isUploadingPhotoId && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Upload
               </Button>
             </div>
+             { user.documents?.find(doc => doc.type === 'PhotoID')?.filePath && (
+                <div className="mt-2 text-xs">
+                    Current Photo ID: <a href={user.documents.find(doc => doc.type === 'PhotoID')?.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{user.documents.find(doc => doc.type === 'PhotoID')?.fileName}</a>
+                </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="drivingLicense">Driving License</Label>
             <div className="flex gap-2 items-center">
-              <Input id="drivingLicense" type="file" onChange={(e) => setLicenseFile(e.target.files ? e.target.files[0] : null)} className="flex-grow"/>
+              <Input id="drivingLicense" type="file" onChange={(e) => setLicenseFile(e.target.files ? e.target.files[0] : null)} className="flex-grow" accept="image/*,application/pdf"/>
               <Button onClick={() => handleDocumentUpload('DrivingLicense', licenseFile)} disabled={!licenseFile || isUploadingLicense}>
                 {isUploadingLicense && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Upload
               </Button>
             </div>
+            { user.documents?.find(doc => doc.type === 'DrivingLicense')?.filePath && (
+                <div className="mt-2 text-xs">
+                    Current Driving License: <a href={user.documents.find(doc => doc.type === 'DrivingLicense')?.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{user.documents.find(doc => doc.type === 'DrivingLicense')?.fileName}</a>
+                </div>
+            )}
           </div>
           
           {user.documents && user.documents.length > 0 && (
@@ -302,7 +348,9 @@ export default function ProfilePage() {
                   <li key={index} className="flex items-center justify-between p-3 bg-secondary/50 rounded-md">
                     <div className="flex items-center">
                       <FileText className="h-5 w-5 mr-2 text-accent" />
-                      <span><strong>{doc.type}:</strong> {doc.fileName}</span>
+                      <span><strong>{doc.type}:</strong> 
+                        <a href={doc.filePath} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">{doc.fileName}</a>
+                      </span>
                     </div>
                     <span className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}</span>
                   </li>
@@ -315,4 +363,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
