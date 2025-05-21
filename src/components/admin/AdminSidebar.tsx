@@ -1,10 +1,9 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Car, Users, GanttChartSquare, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Car, Users, GanttChartSquare, Settings, LogOut, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const adminNavItems = [
@@ -12,6 +11,7 @@ const adminNavItems = [
   { href: '/admin/cars', label: 'Cars', icon: Car },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/bookings', label: 'Bookings', icon: GanttChartSquare },
+  { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

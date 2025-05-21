@@ -34,13 +34,13 @@ export type DocumentType = 'PhotoID' | 'DrivingLicense';
 
 export interface UserDocument {
   type: DocumentType;
-  fileName: string; // Original name of the uploaded file
-  filePath: string; // Path where the file is stored on the server, e.g., /assets/documents/timestamp-filename.jpg
-  uploadedAt: string; // ISO date string
+  fileName: string; 
+  filePath: string; 
+  uploadedAt: string; 
   status: DocumentStatus;
   adminComments?: string;
-  verifiedAt?: string; // ISO date string
-  verifiedBy?: string; // Admin User ID
+  verifiedAt?: string; 
+  verifiedBy?: string; 
 }
 
 export interface User {
@@ -48,7 +48,8 @@ export interface User {
   name: string;
   email: string;
   role: 'User' | 'Admin';
-  createdAt: string; // ISO date string
+  createdAt: string; 
+  updatedAt?: string; 
   address?: Address;
   location?: string;
   documents?: UserDocument[];
@@ -73,10 +74,15 @@ export interface Booking {
   razorpayPaymentId?: string; 
 }
 
+// Added for API route consistency if needed, though Booking type above is mostly used
+export interface BookingDocument extends Omit<Booking, 'id'> {
+  _id: import('mongodb').ObjectId; // Or string if you convert it before this type is used
+}
+
+
 export interface SiteSettings {
   id?: string; 
   siteTitle: string;
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
   updatedAt?: string; 
 }
-
