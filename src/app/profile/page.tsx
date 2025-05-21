@@ -168,7 +168,6 @@ export default function ProfilePage() {
         return;
     }
     
-    // Step 1: Upload the file to /api/upload
     const formData = new FormData();
     formData.append('file', file);
 
@@ -191,7 +190,6 @@ export default function ProfilePage() {
       return;
     }
 
-    // Step 2: Record the document details (including the new filePath) via /api/profile/documents
     try {
       const recordResponse = await fetch('/api/profile/documents', {
         method: 'POST',
@@ -201,8 +199,8 @@ export default function ProfilePage() {
         },
         body: JSON.stringify({ 
             documentType, 
-            fileName: file.name, // Original filename
-            filePath: uploadedFilePath // Path from upload API
+            fileName: file.name, 
+            filePath: uploadedFilePath 
         }),
       });
       
@@ -307,8 +305,7 @@ export default function ProfilePage() {
             <UploadCloud className="h-7 w-7 mr-3 text-accent" /> Verification Documents
           </CardTitle>
           <CardDescription>
-            Upload your Photo ID and Driving License for verification. 
-            For production, ensure your server handles file storage appropriately (e.g., cloud storage).
+            Upload your Photo ID and Driving License for verification.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
