@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { Car, SiteSettings, User } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart, Image as ImageIcon, ShieldCheck } from 'lucide-react';
+import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart, Image as ImageIcon, ShieldCheck, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -55,40 +55,82 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isUserVerified, setIsUserVerified] = useState<boolean | null>(null);
   const [isCheckingUserVerification, setIsCheckingUserVerification] = useState(false);
+  const [currentUserFavoriteIds, setCurrentUserFavoriteIds] = useState<string[]>([]);
+
+
+  const fetchCarDetails = useCallback(async () => {
+    if (!carId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/cars/${carId}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
+          localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
+        } else {
+          const errorData = await response.json().catch(() => ({ message: `Car not found or server error (${response.status})` }));
+          throw new Error(errorData.message);
+        }
+        setCar(null); setIsLoading(false); return;
+      }
+      const data: Car = await response.json();
+      setCar(data);
+      if (data.imageUrls && data.imageUrls.length > 0) {
+          setCurrentMainImage(data.imageUrls[0]);
+      } else {
+          setCurrentMainImage('/assets/images/default-car.png');
+      }
+    } catch (err: any) {
+      setError(err.message); setCar(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [carId, router, toast]);
+
+  const fetchUserProfileData = useCallback(async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      setIsAuthenticated(false);
+      setIsUserVerified(null);
+      setCurrentUserFavoriteIds([]);
+      return;
+    }
+    setIsAuthenticated(true);
+    setIsCheckingUserVerification(true);
+    try {
+      const response = await fetch('/api/profile', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); setIsAuthenticated(false);
+          setCurrentUserFavoriteIds([]);
+        }
+        throw new Error('Failed to fetch user profile.');
+      }
+      const user: User = await response.json();
+      const photoId = user.documents?.find(doc => doc.type === 'PhotoID');
+      const drivingLicense = user.documents?.find(doc => doc.type === 'DrivingLicense');
+      
+      setIsUserVerified(photoId?.status === 'Approved' && drivingLicense?.status === 'Approved');
+      setCurrentUserFavoriteIds(user.favoriteCarIds || []);
+    } catch (error) {
+      console.error("Error fetching user profile data:", error);
+      setIsUserVerified(false); 
+      setCurrentUserFavoriteIds([]);
+      // toast({ title: "Profile Check Failed", description: "Could not retrieve your profile details.", variant: "destructive" });
+    } finally {
+      setIsCheckingUserVerification(false);
+    }
+  }, []);
+
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    setIsAuthenticated(!!token);
-
-    const fetchCarDetails = async () => {
-      if (!carId) return;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`/api/cars/${carId}`);
-        if (!response.ok) {
-          if (response.status === 401) {
-            toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
-            localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
-          } else {
-            const errorData = await response.json().catch(() => ({ message: `Car not found or server error (${response.status})` }));
-            throw new Error(errorData.message);
-          }
-          setCar(null); setIsLoading(false); return;
-        }
-        const data: Car = await response.json();
-        setCar(data);
-        if (data.imageUrls && data.imageUrls.length > 0) {
-            setCurrentMainImage(data.imageUrls[0]);
-        } else {
-            setCurrentMainImage('/assets/images/default-car.png');
-        }
-      } catch (err: any) {
-        setError(err.message); setCar(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (carId) {
+        fetchCarDetails();
+    }
+    fetchUserProfileData(); // Fetch profile for favorite status and verification
 
     const fetchSiteSettings = async () => {
       try {
@@ -100,61 +142,8 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
         setSiteSettings({ defaultCurrency: 'INR' });
       }
     };
-    
-    if (carId) {
-        fetchCarDetails();
-        fetchSiteSettings();
-    } else {
-        setError("Car ID is missing.");
-        setIsLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carId, router, toast]);
-
-
-  useEffect(() => {
-    const checkUserVerification = async () => {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        setIsUserVerified(null); // Not logged in, no check needed here
-        return;
-      }
-      setIsAuthenticated(true);
-      setIsCheckingUserVerification(true);
-      try {
-        const response = await fetch('/api/profile', {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          if (response.status === 401) {
-            // Session expired during this check, clear auth and let proceed to checkout handle login redirect
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('authUser');
-            setIsAuthenticated(false);
-          }
-          throw new Error('Failed to fetch user profile for verification check.');
-        }
-        const user: User = await response.json();
-        const photoId = user.documents?.find(doc => doc.type === 'PhotoID');
-        const drivingLicense = user.documents?.find(doc => doc.type === 'DrivingLicense');
-        
-        if (photoId?.status === 'Approved' && drivingLicense?.status === 'Approved') {
-          setIsUserVerified(true);
-        } else {
-          setIsUserVerified(false);
-        }
-      } catch (error) {
-        console.error("Error checking user verification:", error);
-        setIsUserVerified(false); // Default to not verified on error to be safe
-        toast({ title: "Verification Check Failed", description: "Could not verify your document status. Please try again.", variant: "destructive" });
-      } finally {
-        setIsCheckingUserVerification(false);
-      }
-    };
-
-    checkUserVerification();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount, or if auth state changes (implicitly handled by isAuthenticated)
+    fetchSiteSettings();
+  }, [carId, fetchCarDetails, fetchUserProfileData]);
 
 
   useEffect(() => {
@@ -218,7 +207,6 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       return;
     }
 
-    // Document verification check
     if (isUserVerified === false) {
       toast({
         title: "Document Verification Required",
@@ -228,13 +216,13 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       });
       return;
     }
-    if (isUserVerified === null && isCheckingUserVerification) { // Still checking
+    if (isUserVerified === null && isCheckingUserVerification) {
         toast({ title: "Verification Check in Progress", description: "Please wait while we verify your document status.", variant: "default" });
         return;
     }
 
 
-    setIsProceedingToCheckout(true); // Set loading state for the button itself
+    setIsProceedingToCheckout(true);
 
     const rentalHours = differenceInHours(selectedEndDateTime, selectedStartDateTime);
     if (rentalHours <= 0) {
@@ -243,12 +231,12 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       return;
     }
     const totalPrice = rentalHours * car.pricePerHour;
-    const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
+    const primaryImageForCheckout = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
 
     const checkoutDetails = {
       carId: car.id,
       carName: car.name,
-      carImageUrl: primaryImageUrl,
+      carImageUrl: primaryImageForCheckout,
       startDate: selectedStartDateTime.toISOString(),
       endDate: selectedEndDateTime.toISOString(),
       rentalHours,
@@ -260,6 +248,40 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
 
     localStorage.setItem('checkoutBookingDetails', JSON.stringify(checkoutDetails));
     router.push('/checkout');
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!car) return;
+    if (!isAuthenticated) {
+      router.push('/login?redirect=/cars/' + car.id);
+      return;
+    }
+    const token = localStorage.getItem('authToken');
+    if (!token) return; // Should be caught by isAuthenticated, but defensive
+
+    const isCurrentlyFavorite = currentUserFavoriteIds.includes(car.id);
+    const method = isCurrentlyFavorite ? 'DELETE' : 'POST';
+    const url = isCurrentlyFavorite ? `/api/profile/favorites/${car.id}` : '/api/profile/favorites';
+    const body = isCurrentlyFavorite ? null : JSON.stringify({ carId: car.id });
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body,
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to update favorite status.' }));
+        throw new Error(errorData.message);
+      }
+      const { favoriteCarIds: updatedFavoriteIds } = await response.json();
+      setCurrentUserFavoriteIds(updatedFavoriteIds || []);
+      toast({
+        title: isCurrentlyFavorite ? "Removed from Favorites" : "Added to Favorites",
+      });
+    } catch (favError: any) {
+      toast({ title: "Error Updating Favorites", description: favError.message, variant: "destructive" });
+    }
   };
 
   if (isLoading) {
@@ -303,6 +325,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
   const displayCurrency = siteSettings.defaultCurrency || 'INR';
   const currencySymbol = displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : displayCurrency === 'GBP' ? '£' : '$'; 
   
+  const isCarFavorite = isAuthenticated && currentUserFavoriteIds.includes(car.id);
 
   return (
     <div className="space-y-8 container mx-auto py-8 px-4">
@@ -356,7 +379,20 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
           </div>
           <div className="p-6 md:p-8 flex flex-col">
             <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-3xl md:text-4xl font-bold text-primary">{car.name}</CardTitle>
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-3xl md:text-4xl font-bold text-primary">{car.name}</CardTitle>
+                {isAuthenticated && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleToggleFavorite}
+                    aria-label={isCarFavorite ? "Remove from favorites" : "Add to favorites"}
+                    className="h-10 w-10 rounded-full"
+                  >
+                    <Heart className={cn("h-6 w-6", isCarFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground hover:text-red-500")} />
+                  </Button>
+                )}
+              </div>
               <CardDescription className="text-lg text-muted-foreground">{car.type}</CardDescription>
               {car.description && (
                 <p className="text-sm text-foreground/70 mt-1">{car.description}</p>
@@ -488,8 +524,8 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
                     !selectedStartDateTime || 
                     !selectedEndDateTime || 
                     rentalHours <= 0 ||
-                    (isAuthenticated && isUserVerified === false) || // Disable if logged in & not verified
-                    isCheckingUserVerification // Disable while checking verification
+                    (isAuthenticated && isUserVerified === false) ||
+                    isCheckingUserVerification
                   }
                 >
                   {(isProceedingToCheckout || isCheckingUserVerification) && <Loader2 className="animate-spin mr-2" />}
@@ -545,4 +581,3 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
-    

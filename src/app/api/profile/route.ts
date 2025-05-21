@@ -40,17 +40,20 @@ export async function GET(req: NextRequest) {
   try {
     const client = await clientPromise;
     const db = client.db();
-    const user = await db.collection('users').findOne(
+    const userDoc = await db.collection('users').findOne(
       { _id: new ObjectId(authResult.user.userId) },
       { projection: { passwordHash: 0 } } // Exclude password hash
     );
 
-    if (!user) {
+    if (!userDoc) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
     
-    const { _id, ...userData } = user;
-    return NextResponse.json({ ...userData, id: _id.toHexString() } as User, { status: 200 });
+    const { _id, ...userData } = userDoc;
+    // Ensure favoriteCarIds is always an array, even if it's undefined/null in DB
+    const favoriteCarIds = Array.isArray(userData.favoriteCarIds) ? userData.favoriteCarIds : [];
+
+    return NextResponse.json({ ...userData, id: _id.toHexString(), favoriteCarIds } as User, { status: 200 });
 
   } catch (error) {
     console.error('Failed to fetch user profile:', error);
@@ -96,24 +99,14 @@ export async function PUT(req: NextRequest) {
     if (result.matchedCount === 0) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
-    if (result.modifiedCount === 0 && result.matchedCount === 1) {
-        // This can happen if the data submitted is the same as existing data
-        // Or if only `updatedAt` was set with no other changes
-        // For simplicity, we can return the current user data or a success message
-        const updatedUser = await db.collection('users').findOne(
-            { _id: new ObjectId(authResult.user.userId) },
-            { projection: { passwordHash: 0 } }
-        );
-        const { _id, ...userData } = updatedUser!; // Non-null assertion as we matched one
-        return NextResponse.json({ message: 'Profile updated (or no changes detected).', user: { ...userData, id: _id.toHexString() } as User }, { status: 200 });
-    }
-
-    const updatedUser = await db.collection('users').findOne(
+    
+    const updatedUserDoc = await db.collection('users').findOne(
       { _id: new ObjectId(authResult.user.userId) },
       { projection: { passwordHash: 0 } }
     );
-     const { _id, ...userData } = updatedUser!;
-    return NextResponse.json({ message: 'Profile updated successfully', user: { ...userData, id: _id.toHexString() } as User }, { status: 200 });
+     const { _id, ...userData } = updatedUserDoc!;
+     const favoriteCarIds = Array.isArray(userData.favoriteCarIds) ? userData.favoriteCarIds : [];
+    return NextResponse.json({ message: 'Profile updated successfully', user: { ...userData, id: _id.toHexString(), favoriteCarIds } as User }, { status: 200 });
 
   } catch (error) {
     console.error('Failed to update user profile:', error);

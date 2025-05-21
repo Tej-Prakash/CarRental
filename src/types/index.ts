@@ -55,6 +55,7 @@ export interface User {
   documents?: UserDocument[];
   resetPasswordToken?: string;
   resetPasswordExpires?: Date; 
+  favoriteCarIds?: string[]; // Added for favorite cars
 }
 
 export interface Booking {
@@ -83,6 +84,7 @@ export interface SiteSettings {
   id?: string; 
   siteTitle: string;
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
-  maintenanceMode?: boolean; // Added maintenanceMode
+  maintenanceMode?: boolean;
   updatedAt?: string; 
 }
+

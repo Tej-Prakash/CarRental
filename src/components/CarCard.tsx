@@ -1,19 +1,23 @@
 
-"use client"; // Required for useRouter
+"use client";
 
 import type { Car } from '@/types';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Gauge, GitCommitVertical, Fuel, Star, Clock } from 'lucide-react';
+import { Users, Gauge, GitCommitVertical, Fuel, Star, Clock, Heart } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CarCardProps {
   car: Car;
+  isFavorite?: boolean;
+  onToggleFavorite?: (carId: string, isCurrentlyFavorite: boolean) => Promise<void>;
+  isAuthenticated?: boolean;
 }
 
-export default function CarCard({ car }: CarCardProps) {
-  const router = useRouter(); // Initialize useRouter
+export default function CarCard({ car, isFavorite, onToggleFavorite, isAuthenticated }: CarCardProps) {
+  const router = useRouter();
 
   const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 
     ? car.imageUrls[0] 
@@ -27,9 +31,19 @@ export default function CarCard({ car }: CarCardProps) {
     router.push(`/cars/${car.id}`);
   };
 
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click when favorite button is clicked
+    if (onToggleFavorite && isAuthenticated) {
+      onToggleFavorite(car.id, !!isFavorite);
+    } else if (!isAuthenticated && onToggleFavorite) {
+      // Optionally redirect to login or show a toast
+      router.push('/login?redirect=' + window.location.pathname);
+    }
+  };
+
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
-      <CardHeader className="p-0">
+      <CardHeader className="p-0 relative">
         <div className="aspect-video relative w-full">
           <Image 
             src={primaryImageUrl} 
@@ -38,13 +52,24 @@ export default function CarCard({ car }: CarCardProps) {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover"
             data-ai-hint={car.aiHint || 'car'}
-            priority={false} // Generally false for list items, true for LCP
+            priority={false}
             onError={(e) => { 
               (e.target as HTMLImageElement).src = '/assets/images/default-car.png';
               (e.target as HTMLImageElement).alt = 'Image failed to load';
             }}
           />
         </div>
+        {isAuthenticated && onToggleFavorite && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 bg-background/70 hover:bg-background rounded-full h-8 w-8"
+            onClick={handleFavoriteClick}
+            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart className={cn("h-5 w-5", isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground hover:text-red-500")} />
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="p-4 flex-grow">
         <CardTitle className="text-xl font-semibold text-primary mb-1">{car.name}</CardTitle>

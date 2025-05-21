@@ -6,21 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Car as CarType } from '@/types';
+import type { Car as CarType, User } from '@/types'; // Added User type
 import { Car, Filter, Search, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation'; // Added useRouter
 
 export default function CarsPage() {
   const [allCarTypes, setAllCarTypes] = useState<string[]>(['all']);
   const [displayedCars, setDisplayedCars] = useState<CarType[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [carTypeFilter, setCarTypeFilter] = useState('all');
-  const [priceFilter, setPriceFilter] = useState('all');
+  const [priceFilter, setPriceFilter] = useState('all'); // This is pricePerHour range
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const router = useRouter(); // Initialize router
   
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+  const [currentUserFavoriteIds, setCurrentUserFavoriteIds] = useState<string[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Debounce search term
   useEffect(() => {
@@ -33,50 +37,65 @@ export default function CarsPage() {
     };
   }, [searchTerm]);
 
-  // Fetch unique car types for the filter dropdown
-  useEffect(() => {
-    const fetchCarTypes = async () => {
-      try {
-        // This could be a dedicated endpoint or derived from an initial full car list
-        // For simplicity, we'll fetch all cars once to get types
-        const response = await fetch('/api/cars');
-        if (!response.ok) {
-          throw new Error('Failed to fetch initial car data for types');
-        }
-        const data: CarType[] = await response.json();
-        const uniqueTypes = ['all', ...Array.from(new Set(data.map(car => car.type)))];
-        setAllCarTypes(uniqueTypes);
-      } catch (error: any) {
-        toast({ title: "Error fetching car types", description: error.message, variant: "destructive" });
-      }
-    };
-    fetchCarTypes();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Fetch unique car types and user's favorite car IDs
+  const fetchInitialData = useCallback(async () => {
+    // Fetch Car Types
+    try {
+      const carTypesResponse = await fetch('/api/cars'); // Assuming this returns all cars to derive types
+      if (!carTypesResponse.ok) throw new Error('Failed to fetch initial car data for types');
+      const carsData: CarType[] = await carTypesResponse.json();
+      const uniqueTypes = ['all', ...Array.from(new Set(carsData.map(car => car.type)))];
+      setAllCarTypes(uniqueTypes);
+    } catch (error: any) {
+      toast({ title: "Error fetching car types", description: error.message, variant: "destructive" });
+    }
 
+    // Fetch User Profile (for favorites)
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      setIsAuthenticated(true);
+      try {
+        const profileResponse = await fetch('/api/profile', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (profileResponse.ok) {
+          const user: User = await profileResponse.json();
+          setCurrentUserFavoriteIds(user.favoriteCarIds || []);
+        } else if (profileResponse.status === 401) {
+          // Handle expired token case if necessary, e.g., logout user
+          localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); setIsAuthenticated(false);
+        }
+      } catch (error: any) {
+        console.error("Failed to fetch user profile for favorites:", error.message);
+        // Don't necessarily toast here, as it's a background fetch for a secondary feature
+      }
+    } else {
+      setIsAuthenticated(false);
+      setCurrentUserFavoriteIds([]);
+    }
+  }, [toast]);
+
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   // Fetch cars based on filters
   const fetchFilteredCars = useCallback(async () => {
     setIsLoading(true);
     const queryParams = new URLSearchParams();
 
-    if (debouncedSearchTerm) {
-      queryParams.append('search', debouncedSearchTerm);
-    }
-    if (carTypeFilter !== 'all') {
-      queryParams.append('type', carTypeFilter);
-    }
+    if (debouncedSearchTerm) queryParams.append('search', debouncedSearchTerm);
+    if (carTypeFilter !== 'all') queryParams.append('type', carTypeFilter);
+    
+    // Price filter now refers to pricePerHour
     if (priceFilter !== 'all') {
       const [minStr, maxStr] = priceFilter.split('-');
       const min = Number(minStr);
-      if (!isNaN(min)) {
-        queryParams.append('minPrice', String(min));
-      }
-      if (maxStr) { // maxStr could be empty for "100-"
+      if (!isNaN(min)) queryParams.append('minPrice', String(min)); // minPrice is now minPricePerHour
+      if (maxStr) {
         const max = Number(maxStr);
-        if (!isNaN(max)) {
-          queryParams.append('maxPrice', String(max));
-        }
+        if (!isNaN(max)) queryParams.append('maxPrice', String(max)); // maxPrice is now maxPricePerHour
       }
     }
 
@@ -94,19 +113,54 @@ export default function CarsPage() {
     } finally {
       setIsLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearchTerm, carTypeFilter, priceFilter, toast]);
 
   useEffect(() => {
     fetchFilteredCars();
   }, [fetchFilteredCars]);
 
+  const handleToggleFavorite = async (carId: string, isCurrentlyFavorite: boolean) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      toast({ title: "Authentication Required", description: "Please log in to manage favorites.", variant: "destructive" });
+      router.push('/login?redirect=/cars'); // Redirect to login
+      return;
+    }
 
-  const priceRanges = [
+    const method = isCurrentlyFavorite ? 'DELETE' : 'POST';
+    const url = isCurrentlyFavorite ? `/api/profile/favorites/${carId}` : '/api/profile/favorites';
+    const body = isCurrentlyFavorite ? null : JSON.stringify({ carId });
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to update favorite status.' }));
+        throw new Error(errorData.message);
+      }
+      const { favoriteCarIds: updatedFavoriteIds } = await response.json();
+      setCurrentUserFavoriteIds(updatedFavoriteIds || []);
+      toast({
+        title: isCurrentlyFavorite ? "Removed from Favorites" : "Added to Favorites",
+      });
+    } catch (error: any) {
+      toast({ title: "Error Updating Favorites", description: error.message, variant: "destructive" });
+    }
+  };
+
+
+  const priceRanges = [ // Assuming these are hourly price ranges now
     { label: 'All Prices', value: 'all' },
-    { label: '$0 - $50', value: '0-50' },
-    { label: '$50 - $100', value: '50-100' },
-    { label: '$100+', value: '100-' }, 
+    { label: '₹0 - ₹20', value: '0-20' }, // Adjusted for hourly
+    { label: '₹20 - ₹50', value: '20-50' },
+    { label: '₹50+', value: '50-' }, 
   ];
 
   return (
@@ -147,7 +201,7 @@ export default function CarsPage() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="priceRange" className="text-sm font-medium">Price Range (per day)</Label>
+            <Label htmlFor="priceRange" className="text-sm font-medium">Price Range (per hour)</Label>
             <Select value={priceFilter} onValueChange={setPriceFilter}>
               <SelectTrigger id="priceRange" className="mt-1">
                 <SelectValue placeholder="Select price range" />
@@ -169,7 +223,13 @@ export default function CarsPage() {
       ) : displayedCars.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {displayedCars.map(car => (
-              <CarCard key={car.id} car={car} />
+              <CarCard 
+                key={car.id} 
+                car={car} 
+                isFavorite={currentUserFavoriteIds.includes(car.id)}
+                onToggleFavorite={handleToggleFavorite}
+                isAuthenticated={isAuthenticated}
+              />
             ))}
           </div>
         ) : (
@@ -184,4 +244,3 @@ export default function CarsPage() {
     </div>
   );
 }
-

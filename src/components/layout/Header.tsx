@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { CarFront, LogIn, UserPlus, HomeIcon, Shield, UserCircle, LogOut, CalendarCheck2 } from 'lucide-react';
+import { CarFront, LogIn, UserPlus, HomeIcon, Shield, UserCircle, LogOut, CalendarCheck2, Heart } from 'lucide-react'; // Added Heart
 import { Button } from '@/components/ui/button';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -23,10 +23,6 @@ const defaultNavItems = [
   { href: '/', label: 'Home', icon: HomeIcon, authRequired: false, publicOnly: false },
   { href: '/cars', label: 'Browse Cars', icon: CarFront, authRequired: false, publicOnly: false },
 ];
-
-// Authenticated user links are now in the dropdown
-// const authNavItems = [
-// ];
 
 const publicNavItems = [
   { href: '/login', label: 'Login', icon: LogIn, authRequired: false, publicOnly: true, className: "ml-auto" },
@@ -104,6 +100,8 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
     setUserEmail('');
     toast({ title: "Logged Out", description: "You have been successfully logged out." });
     router.push('/'); 
+    // Force a re-render or reload if state updates aren't picked up immediately by other components
+    window.location.reload(); // Simple way to ensure everything re-evaluates auth state
   };
 
   const currentNavItems = [
@@ -123,7 +121,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
           {currentNavItems.map((item) => {
             if (item.authRequired && !isAuthenticated) return null;
             if (item.publicOnly && isAuthenticated) return null;
-            if ((item as any).adminOnly && !isAdmin) return null; 
+            // if ((item as any).adminOnly && !isAdmin) return null; 
 
             return (
               <Button 
@@ -138,7 +136,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
               >
                 <Link href={item.href} className="flex items-center">
                   <item.icon className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2 flex-shrink-0" />
-                  <span className={cn("hidden sm:inline", {"sr-only sm:not-sr-only": item.href.startsWith('/admin') || item.href.startsWith('/login') || item.href.startsWith('/signup') } ) }>{item.label}</span>
+                  <span className={cn("hidden sm:inline") }>{item.label}</span>
                    {(item.href.startsWith('/login') || item.href.startsWith('/signup')) && <span className="sm:hidden">{item.label}</span>}
                 </Link>
               </Button>
@@ -150,8 +148,6 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full ml-2">
                   <Avatar className="h-9 w-9">
-                    {/* Placeholder for user avatar image if available */}
-                    {/* <AvatarImage src="/path-to-user-avatar.png" alt={userName} /> */}
                     <AvatarFallback>
                       <UserCircle className="h-6 w-6" />
                     </AvatarFallback>
@@ -178,6 +174,12 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
                   <Link href="/profile/bookings" className="cursor-pointer">
                     <CalendarCheck2 className="mr-2 h-4 w-4" />
                     <span>My Bookings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile/favorites" className="cursor-pointer">
+                    <Heart className="mr-2 h-4 w-4" />
+                    <span>My Favorites</span>
                   </Link>
                 </DropdownMenuItem>
                 {isAdmin && (
