@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { User, DocumentStatus, DocumentType } from '@/types';
+import type { User, DocumentStatus, DocumentType, UserDocument as UserDocType } from '@/types';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
@@ -22,11 +22,17 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { userId: string; documentType: string } }
 ) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error || !authResult.admin) { // Check for admin user from verifyAuth
-    return NextResponse.json({ message: authResult.error || 'Admin authentication required' }, { status: authResult.status || 401 });
+  const authResult = await verifyAuth(req, 'Admin'); // Ensure 'Admin' role is checked
+  if (authResult.error) {
+    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
   }
-  const adminUserId = authResult.admin.userId; // Get admin user ID
+
+  // Explicitly check if admin details are present
+  if (!authResult.admin || !authResult.admin.userId) {
+    console.error('Admin details not found in token after verification for document update.');
+    return NextResponse.json({ message: 'Admin user ID not found in token. Cannot perform action.' }, { status: 500 });
+  }
+  const adminUserId = authResult.admin.userId;
 
   const { userId, documentType } = params;
 
@@ -65,38 +71,54 @@ export async function PUT(
     const updateFields: Record<string, any> = {
       [`documents.${documentIndex}.status`]: status,
       [`documents.${documentIndex}.verifiedAt`]: new Date().toISOString(),
-      [`documents.${documentIndex}.verifiedBy`]: adminUserId,
+      [`documents.${documentIndex}.verifiedBy`]: adminUserId, // Use validated adminUserId
     };
-    if (adminComments !== undefined) { // Allow clearing comments with empty string
+    if (adminComments !== undefined) { 
       updateFields[`documents.${documentIndex}.adminComments`] = adminComments;
-    } else if (status === 'Approved') { // Optionally clear comments on approval if not provided
+    } else if (status === 'Approved') { 
       updateFields[`documents.${documentIndex}.adminComments`] = '';
     }
 
 
     const result = await usersCollection.updateOne(
-      { _id: new ObjectId(userId), 'documents.type': docType }, // Ensure we target the correct document in array
+      { _id: new ObjectId(userId), 'documents.type': docType }, 
       { $set: updateFields }
     );
 
     if (result.matchedCount === 0) {
-      // This might happen if the documentType within the array wasn't matched correctly
       return NextResponse.json({ message: `Failed to find ${docType} for update or user not found.` }, { status: 404 });
     }
-     if (result.modifiedCount === 0 && result.matchedCount > 0) {
-       return NextResponse.json({ message: 'Document status is already the same or no changes made.', user }, { status: 200 });
+     
+    const updatedUserDoc = await usersCollection.findOne({ _id: new ObjectId(userId) }, { projection: { passwordHash: 0 } });
+     if (!updatedUserDoc) {
+        console.error(`Failed to retrieve updated user ${userId} after document status update.`);
+        return NextResponse.json({ message: 'Failed to retrieve updated user data.' }, { status: 500 });
     }
-
-    const updatedUser = await usersCollection.findOne({ _id: new ObjectId(userId) }, { projection: { passwordHash: 0 } });
     
-    // Simulate notification to user (e.g., via email)
+    const { _id, ...restOfUser } = updatedUserDoc;
+    const updatedUserResponse: User = {
+        id: _id.toHexString(),
+        name: restOfUser.name,
+        email: restOfUser.email,
+        role: restOfUser.role,
+        createdAt: String(restOfUser.createdAt),
+        updatedAt: restOfUser.updatedAt ? String(restOfUser.updatedAt) : undefined,
+        address: restOfUser.address,
+        location: restOfUser.location,
+        documents: (restOfUser.documents || []).map(d => ({
+            ...d,
+            uploadedAt: String(d.uploadedAt),
+            verifiedAt: d.verifiedAt ? String(d.verifiedAt) : undefined,
+        })) as UserDocType[],
+    };
+    
     console.log(`SIMULATED EMAIL to ${user.email}: Your ${docType} has been ${status}. Comments: ${adminComments || 'N/A'}`);
 
-
-    return NextResponse.json(updatedUser, { status: 200 });
+    return NextResponse.json(updatedUserResponse, { status: 200 });
 
   } catch (error: any) {
     console.error(`Failed to update document status for user ${userId}, document ${docType}:`, error);
-    return NextResponse.json({ message: error.message || 'Failed to update document status' }, { status: 500 });
+    // Ensure a JSON response even in the catch block
+    return NextResponse.json({ message: error.message || 'Failed to update document status due to an unexpected error.' }, { status: 500 });
   }
 }
