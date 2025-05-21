@@ -184,7 +184,7 @@ export default function AdminCarsPage() {
                   </TableCell>
                   <TableCell className="font-medium">{car.name}</TableCell>
                   <TableCell className="hidden md:table-cell">{car.type}</TableCell>
-                  <TableCell>₹{car.pricePerHour.toFixed(2)}</TableCell>
+                  <TableCell>₹{typeof car.pricePerHour === 'number' ? car.pricePerHour.toFixed(2) : 'N/A'}</TableCell>
                   <TableCell className="hidden lg:table-cell">{car.seats}</TableCell>
                   <TableCell><Badge variant="secondary">{/* TODO: Dynamic Status */}Active</Badge></TableCell>
                   <TableCell className="text-right">
