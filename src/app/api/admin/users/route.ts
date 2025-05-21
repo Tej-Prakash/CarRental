@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { User } from '@/types';
+import type { User, UserDocument as UserTypeDocument } from '@/types'; // Renamed UserDocument from types to avoid conflict
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
@@ -18,9 +18,18 @@ const UserInputSchema = z.object({
 
 type UserInput = z.infer<typeof UserInputSchema>;
 
-interface UserDocument extends Omit<User, 'id' | 'passwordHash'> {
+// Represents the structure in the database
+interface UserDbDoc {
   _id: ObjectId;
+  name: string;
+  email: string;
   passwordHash: string;
+  role: 'User' | 'Admin';
+  createdAt: string; // ISO date string
+  updatedAt?: string; // ISO date string
+  address?: UserTypeDocument['address']; // From types/index.ts User
+  location?: string;
+  documents?: UserTypeDocument[]; // From types/index.ts UserDocument
 }
 
 export async function POST(req: NextRequest) {
@@ -56,6 +65,8 @@ export async function POST(req: NextRequest) {
       passwordHash: hashedPassword,
       role,
       createdAt: isoCreatedAt,
+      updatedAt: isoCreatedAt, // Also set updatedAt on creation
+      documents: [], // Initialize with empty documents array
     };
 
     const result = await db.collection('users').insertOne(newUserDocument);
@@ -70,6 +81,7 @@ export async function POST(req: NextRequest) {
       email,
       role,
       createdAt: isoCreatedAt,
+      documents: [],
     };
 
     return NextResponse.json(createdUser, { status: 201 });
@@ -91,19 +103,23 @@ export async function GET(req: NextRequest) {
   try {
     const client = await clientPromise;
     const db = client.db();
-    const usersCollection = db.collection<Omit<UserDocument, 'passwordHash'>>('users');
+    const usersCollection = db.collection<UserDbDoc>('users');
     
     const usersFromDb = await usersCollection.find({}, { projection: { passwordHash: 0 } }).sort({ name: 1 }).toArray();
 
     const users: User[] = usersFromDb.map(userDoc => {
-      const { _id, ...rest } = userDoc;
+      const { _id, passwordHash, ...rest } = userDoc; // Exclude passwordHash from the rest
       return { 
         id: _id.toHexString(),
         name: rest.name,
         email: rest.email,
         role: rest.role,
-        createdAt: String(rest.createdAt) // Ensure createdAt is string
-      } as User;
+        createdAt: String(rest.createdAt),
+        updatedAt: rest.updatedAt ? String(rest.updatedAt) : undefined,
+        address: rest.address,
+        location: rest.location,
+        documents: rest.documents || [], // Ensure documents is an array, even if undefined in DB
+      };
     });
 
     return NextResponse.json(users, { status: 200 });
