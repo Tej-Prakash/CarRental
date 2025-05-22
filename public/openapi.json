@@ -1,0 +1,209 @@
+
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Travel Yatra API",
+    "version": "1.0.0",
+    "description": "API documentation for the Travel Yatra car rental application."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Current server (relative path for Next.js API routes)"
+    }
+  ],
+  "paths": {
+    "/settings": {
+      "get": {
+        "summary": "Get Public Site Settings",
+        "tags": ["Public"],
+        "description": "Fetches public site settings like site title, default currency, and maintenance mode status.",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteSettingsPublic"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error (though it attempts to return defaults)"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "User Login",
+        "tags": ["Authentication"],
+        "description": "Logs in an existing user and returns a JWT.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (e.g., missing email or password)"
+          },
+          "401": {
+            "description": "Unauthorized (e.g., invalid credentials)"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+        "post": {
+          "summary": "User Registration",
+          "tags": ["Authentication"],
+          "description": "Registers a new user (customer).",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "User registered successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/RegisterResponse"
+                  }
+                }
+              }
+            },
+            "400": { "description": "Bad Request (e.g., missing fields, password too short)" },
+            "409": { "description": "Conflict (e.g., user already exists)" },
+            "500": { "description": "Internal Server Error" }
+          }
+        }
+      }
+  },
+  "components": {
+    "schemas": {
+      "SiteSettingsPublic": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Settings document ID (optional)",
+            "example": "main_settings_object_id"
+          },
+          "siteTitle": {
+            "type": "string",
+            "example": "Travel Yatra"
+          },
+          "defaultCurrency": {
+            "type": "string",
+            "enum": ["USD", "EUR", "GBP", "INR"],
+            "example": "INR"
+          },
+          "maintenanceMode": {
+            "type": "boolean",
+            "example": false
+          },
+          "sessionTimeoutMinutes": {
+            "type": "number",
+            "example": 60
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "yourpassword"
+          }
+        }
+      },
+      "UserLoginDetails": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "60c72b2f9b1d8e001c8e4d8f" },
+          "name": { "type": "string", "example": "John Doe" },
+          "email": { "type": "string", "format": "email", "example": "user@example.com" },
+          "role": { "type": "string", "enum": ["Customer", "Manager", "Admin"], "example": "Customer" },
+          "createdAt": { "type": "string", "format": "date-time", "example": "2023-01-15T10:30:00Z" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Login successful"
+          },
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserLoginDetails"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["fullName", "email", "password"],
+        "properties": {
+          "fullName": { "type": "string", "example": "Jane Doe" },
+          "email": { "type": "string", "format": "email", "example": "jane.doe@example.com" },
+          "password": { "type": "string", "format": "password", "minLength": 6, "example": "newpassword123" }
+        }
+      },
+      "UserRegisterDetails": {
+        "type": "object",
+        "properties": {
+            "name": { "type": "string", "example": "Jane Doe" },
+            "email": { "type": "string", "format": "email", "example": "jane.doe@example.com" },
+            "role": { "type": "string", "enum": ["Customer"], "example": "Customer" },
+            "createdAt": { "type": "string", "format": "date-time", "example": "2023-01-16T12:00:00Z" }
+        }
+      },
+      "RegisterResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "User registered successfully" },
+          "user": {
+            "$ref": "#/components/schemas/UserRegisterDetails"
+          }
+        }
+      }
+    }
+  }
+}
