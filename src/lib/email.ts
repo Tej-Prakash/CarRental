@@ -1,5 +1,7 @@
+
 // src/lib/email.ts
 import nodemailer from 'nodemailer';
+import { getSiteSettings } from '@/lib/settingsUtils'; // Import the new utility
 
 interface MailOptions {
   to: string;
@@ -8,43 +10,53 @@ interface MailOptions {
   html: string;
 }
 
-const smtpHost = process.env.SMTP_HOST;
-const smtpPort = process.env.SMTP_PORT;
-const smtpUser = process.env.SMTP_USER;
-const smtpPass = process.env.SMTP_PASS;
-const emailFrom = process.env.EMAIL_FROM;
-
-const transporter = nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort ? parseInt(smtpPort, 10) : 587, // Default to 587 if not specified
-  secure: smtpPort === '465', // true for 465, false for other ports
-  auth: {
-    user: smtpUser,
-    pass: smtpPass,
-  },
-});
-
 export async function sendEmail({ to, subject, text, html }: MailOptions): Promise<void> {
-  if (!smtpHost || !smtpPort || !smtpUser || !smtpPass || !emailFrom) {
+  const siteSettings = await getSiteSettings();
+
+  const effectiveSmtpHost = siteSettings.smtpHost || process.env.SMTP_HOST;
+  const effectiveSmtpPort = siteSettings.smtpPort || (process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined);
+  const effectiveSmtpUser = siteSettings.smtpUser || process.env.SMTP_USER;
+  // Prioritize DB password if set, otherwise fallback to .env.
+  // getSiteSettings() will return smtpPass from DB if it exists.
+  const effectiveSmtpPass = siteSettings.smtpPass || process.env.SMTP_PASS; 
+  const effectiveEmailFrom = siteSettings.emailFrom || process.env.EMAIL_FROM;
+  // smtpSecure from DB takes precedence if defined, otherwise infer from port or .env if possible.
+  const effectiveSmtpSecure = typeof siteSettings.smtpSecure === 'boolean' 
+    ? siteSettings.smtpSecure 
+    : (effectiveSmtpPort === 465);
+
+
+  if (!effectiveSmtpHost || !effectiveSmtpPort || !effectiveSmtpUser || !effectiveSmtpPass || !effectiveEmailFrom) {
     console.warn(
-      'SMTP environment variables not fully configured. Email sending is disabled. Logging email content instead.'
+      'SMTP settings (from DB or .env) are not fully configured. Email sending is disabled. Logging email content instead.'
     );
-    console.log('--- SIMULATED EMAIL ---');
+    console.log('--- SIMULATED EMAIL (Config Incomplete) ---');
     console.log(`To: ${to}`);
-    console.log(`From: ${emailFrom}`);
+    console.log(`From: ${effectiveEmailFrom || 'fallback-from@example.com'}`);
     console.log(`Subject: ${subject}`);
-    console.log(`Text Body (if any): ${text}`);
-    console.log('HTML Body:');
-    console.log(html);
+    console.log(`Text Body (if any): ${text || 'N/A'}`);
+    console.log('HTML Body (first 200 chars):');
+    console.log(html.substring(0,200) + (html.length > 200 ? '...' : ''));
     console.log('--- END SIMULATED EMAIL ---');
-    // In a real scenario where config is partial, you might throw an error or have specific handling
-    // For now, we'll just log and pretend it sent for development flow.
-    // throw new Error("SMTP configuration is incomplete. Cannot send email.");
-    return; // Simulate success for dev flow
+    return; 
   }
 
+  const transporter = nodemailer.createTransport({
+    host: effectiveSmtpHost,
+    port: effectiveSmtpPort,
+    secure: effectiveSmtpSecure,
+    auth: {
+      user: effectiveSmtpUser,
+      pass: effectiveSmtpPass,
+    },
+    // Consider adding timeout options for production
+    // connectionTimeout: 5000, // 5 seconds
+    // greetingTimeout: 5000, // 5 seconds
+    // socketTimeout: 10000, // 10 seconds
+  });
+
   const mailOptions = {
-    from: emailFrom,
+    from: effectiveEmailFrom,
     to,
     subject,
     text,
@@ -53,18 +65,32 @@ export async function sendEmail({ to, subject, text, html }: MailOptions): Promi
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully to:', to);
+    console.log('Email sent successfully to:', to, 'using host:', effectiveSmtpHost);
   } catch (error) {
     console.error('Error sending email:', error);
-    throw new Error('Failed to send email.');
+    // Log which config was used for easier debugging
+    console.error('Attempted to use SMTP config:', {
+        host: effectiveSmtpHost,
+        port: effectiveSmtpPort,
+        user: effectiveSmtpUser,
+        from: effectiveEmailFrom,
+        secure: effectiveSmtpSecure,
+        passUsed: effectiveSmtpPass ? 'Yes (either DB or ENV)' : 'No',
+    });
+    throw new Error('Failed to send email. Check server logs for SMTP configuration details and errors.');
   }
 }
 
 export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
-  const resetUrl = `${process.env.PASSWORD_RESET_URL_BASE || 'http://localhost:9002/reset-password'}/${token}`;
-  const subject = 'Reset your Travel Yatra password';
-  const text = `You are receiving this email because you (or someone else) have requested the reset of the password for your account.\n\nPlease click on the following link, or paste this into your browser to complete the process:\n\n${resetUrl}\n\nIf you did not request this, please ignore this email and your password will remain unchanged.\n`;
-  const html = `<p>You are receiving this email because you (or someone else) have requested the reset of the password for your account.</p>
+  const siteSettings = await getSiteSettings();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
+  // Use PASSWORD_RESET_URL_BASE from .env if set, otherwise default structure.
+  const resetUrlBase = process.env.PASSWORD_RESET_URL_BASE || `${appUrl}/reset-password`;
+  const resetUrl = `${resetUrlBase}/${token}`;
+  
+  const subject = `Reset your ${siteSettings.siteTitle || 'Travel Yatra'} password`;
+  const text = `You are receiving this email because you (or someone else) have requested the reset of the password for your account on ${siteSettings.siteTitle || 'Travel Yatra'}.\n\nPlease click on the following link, or paste this into your browser to complete the process:\n\n${resetUrl}\n\nIf you did not request this, please ignore this email and your password will remain unchanged.\n`;
+  const html = `<p>You are receiving this email because you (or someone else) have requested the reset of the password for your account on <strong>${siteSettings.siteTitle || 'Travel Yatra'}</strong>.</p>
                <p>Please click on the following link, or paste this into your browser to complete the process:</p>
                <p><a href="${resetUrl}">${resetUrl}</a></p>
                <p>If you did not request this, please ignore this email and your password will remain unchanged.</p>`;

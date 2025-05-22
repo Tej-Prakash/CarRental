@@ -87,6 +87,14 @@ export interface SiteSettings {
   siteTitle: string;
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
   maintenanceMode?: boolean;
-  sessionTimeoutMinutes?: number; // Added new field
+  sessionTimeoutMinutes?: number;
   updatedAt?: string;
+
+  // SMTP Settings - store sensitive data with caution
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string; // Consider not storing directly or encrypting if stored
+  smtpSecure?: boolean; // true for SSL/TLS (e.g., port 465), false otherwise
+  emailFrom?: string; // Default "from" address for emails
 }

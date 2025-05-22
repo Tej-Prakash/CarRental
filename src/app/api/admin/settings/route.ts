@@ -13,10 +13,17 @@ const SiteSettingsSchema = z.object({
   defaultCurrency: z.enum(['USD', 'EUR', 'GBP', 'INR']).default('INR'),
   maintenanceMode: z.boolean().optional().default(false),
   sessionTimeoutMinutes: z.number().int().positive("Session timeout must be a positive integer.").min(1, "Session timeout must be at least 1 minute.").optional().default(60),
+  // SMTP fields - all optional on input
+  smtpHost: z.string().optional(),
+  smtpPort: z.number().int().min(1).max(65535).optional(),
+  smtpUser: z.string().optional(),
+  smtpPass: z.string().optional(), // Password will be handled carefully
+  smtpSecure: z.boolean().optional().default(false),
+  emailFrom: z.string().email("Invalid 'From' email address").optional(),
 });
 
 interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
-  _id: ObjectId;
+  _id?: ObjectId; // Made optional as it's not always present in the input
   settingsId: string;
 }
 
@@ -36,21 +43,29 @@ export async function GET(req: NextRequest) {
 
     let settingsDoc = await settingsCollection.findOne({ settingsId: SETTINGS_DOC_ID });
 
-    if (!settingsDoc) {
-      const defaultSettings: SiteSettings = {
+    const defaults: Partial<SiteSettings> = {
         siteTitle: 'Travel Yatra',
         defaultCurrency: 'INR',
         maintenanceMode: false,
         sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
-      };
-      return NextResponse.json(defaultSettings, { status: 200 });
+        smtpHost: '',
+        smtpPort: 587, // Common non-SSL/TLS port
+        smtpUser: '',
+        smtpSecure: false,
+        emailFrom: '',
+    };
+    
+    if (!settingsDoc) {
+      return NextResponse.json(defaults, { status: 200 });
     }
 
-    const { _id, settingsId, ...settingsData } = settingsDoc;
+    // IMPORTANT: Do NOT return smtpPass to the client
+    const { _id, settingsId, smtpPass, ...settingsData } = settingsDoc;
+    
     return NextResponse.json({
-      id: _id.toHexString(),
-      ...settingsData,
-      sessionTimeoutMinutes: settingsData.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
+      id: _id?.toHexString(), // id might not exist if it's a fresh default
+      ...defaults, // Spread defaults first
+      ...settingsData, // Then spread fetched data
     }, { status: 200 });
 
   } catch (error) {
@@ -81,9 +96,34 @@ export async function PUT(req: NextRequest) {
     const db = client.db();
     const settingsCollection = db.collection<SiteSettingsDocument>('settings');
 
+    const updatePayload: { [key: string]: any } = { ...settingsDataToUpdate };
+
+    // Only update smtpPass if a new value is provided in the payload
+    // If rawData.smtpPass is empty or undefined, it means the user didn't want to change it.
+    if (!rawData.smtpPass || rawData.smtpPass.trim() === '') {
+      delete updatePayload.smtpPass; // Don't update the password if it's not provided
+    } else {
+      updatePayload.smtpPass = rawData.smtpPass; // Use the explicitly provided password
+    }
+
+
+    // Clean undefined values from updatePayload to avoid $set with undefined
+    Object.keys(updatePayload).forEach(key => {
+        if (updatePayload[key] === undefined) {
+            // If we want to explicitly unset a field, we should use $unset
+            // For now, we'll just not include undefined fields in the $set
+            delete updatePayload[key];
+        }
+    });
+    
+    if (Object.keys(updatePayload).length === 0) {
+        return NextResponse.json({ message: "No valid fields to update." }, { status: 400 });
+    }
+
+
     await settingsCollection.updateOne(
       { settingsId: SETTINGS_DOC_ID },
-      { $set: { ...settingsDataToUpdate, settingsId: SETTINGS_DOC_ID } },
+      { $set: { ...updatePayload, settingsId: SETTINGS_DOC_ID } },
       { upsert: true }
     );
 
@@ -94,12 +134,12 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ message: 'Failed to retrieve updated settings after save.' }, { status: 500 });
     }
 
-    const { _id, settingsId, ...updatedSettingsData } = updatedSettingsDoc;
+    // IMPORTANT: Do NOT return smtpPass to the client
+    const { _id, settingsId, smtpPass, ...returnedSettingsData } = updatedSettingsDoc;
 
     return NextResponse.json({
         id: _id.toHexString(),
-        ...updatedSettingsData,
-        sessionTimeoutMinutes: updatedSettingsData.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
+        ...returnedSettingsData,
       }, { status: 200 });
 
   } catch (error) {

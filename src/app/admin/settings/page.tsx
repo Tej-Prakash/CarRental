@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,9 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { SiteSettings } from '@/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const currencyOptions: SiteSettings['defaultCurrency'][] = ['USD', 'EUR', 'GBP', 'INR'];
 const DEFAULT_SESSION_TIMEOUT_MINUTES = 60;
@@ -22,6 +23,12 @@ const initialSettings: Partial<SiteSettings> = {
   defaultCurrency: 'INR',
   maintenanceMode: false,
   sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
+  smtpHost: '',
+  smtpPort: 587,
+  smtpUser: '',
+  smtpPass: '', // Will not be displayed
+  smtpSecure: false,
+  emailFrom: '',
 };
 
 export default function AdminSettingsPage() {
@@ -30,6 +37,7 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Partial<SiteSettings>>(initialSettings);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentSmtpPass, setCurrentSmtpPass] = useState(''); // Only for input, not display
 
   useEffect(() => {
     const userString = localStorage.getItem('authUser');
@@ -74,11 +82,11 @@ export default function AdminSettingsPage() {
           return;
         }
         const data: SiteSettings = await response.json();
+        // Do NOT set smtpPass from fetched data for display
         setSettings({
-          siteTitle: data.siteTitle || initialSettings.siteTitle,
-          defaultCurrency: data.defaultCurrency || initialSettings.defaultCurrency,
-          maintenanceMode: data.maintenanceMode ?? initialSettings.maintenanceMode,
-          sessionTimeoutMinutes: data.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
+          ...initialSettings, // ensure all fields are present
+          ...data,
+          smtpPass: undefined, // Never display fetched password
         });
       } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -92,22 +100,25 @@ export default function AdminSettingsPage() {
   }, []);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
-    if (name === "sessionTimeoutMinutes") {
-      const numValue = value === '' ? undefined : parseInt(value, 10);
-      setSettings(prev => ({ ...prev, [name]: numValue }));
-    } else {
-      setSettings(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = event.target;
+    if (name === "smtpPass") {
+      setCurrentSmtpPass(value); // Store separately
+      return;
     }
+    setSettings(prev => ({ 
+      ...prev, 
+      [name]: type === 'number' ? (value === '' ? undefined : Number(value)) : value 
+    }));
+  };
+  
+  const handleSwitchChange = (name: keyof SiteSettings, checked: boolean) => {
+    setSettings(prev => ({ ...prev, [name]: checked }));
   };
 
   const handleCurrencyChange = (value: SiteSettings['defaultCurrency']) => {
     setSettings(prev => ({ ...prev, defaultCurrency: value }));
   };
 
-  const handleMaintenanceModeChange = (checked: boolean) => {
-    setSettings(prev => ({ ...prev, maintenanceMode: checked }));
-  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -121,14 +132,26 @@ export default function AdminSettingsPage() {
           return;
       }
       const payload: Partial<SiteSettings> = {
-        siteTitle: settings.siteTitle,
-        defaultCurrency: settings.defaultCurrency,
-        maintenanceMode: settings.maintenanceMode,
+        ...settings,
         sessionTimeoutMinutes: settings.sessionTimeoutMinutes ? Number(settings.sessionTimeoutMinutes) : DEFAULT_SESSION_TIMEOUT_MINUTES,
+        smtpPort: settings.smtpPort ? Number(settings.smtpPort) : undefined,
       };
+
+      // Only include smtpPass in the payload if it has been entered by the admin
+      if (currentSmtpPass && currentSmtpPass.trim() !== '') {
+        payload.smtpPass = currentSmtpPass;
+      } else {
+        delete payload.smtpPass; // Ensure it's not sent if blank, to preserve existing
+      }
+
 
       if (payload.sessionTimeoutMinutes && payload.sessionTimeoutMinutes < 1) {
         toast({ title: "Invalid Input", description: "Session timeout must be at least 1 minute.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+      }
+      if (payload.smtpPort && (payload.smtpPort < 1 || payload.smtpPort > 65535)) {
+        toast({ title: "Invalid Input", description: "SMTP Port must be between 1 and 65535.", variant: "destructive" });
         setIsSaving(false);
         return;
       }
@@ -158,7 +181,13 @@ export default function AdminSettingsPage() {
         return;
       }
       const result: SiteSettings = await response.json();
-      setSettings(result);
+      // Reset password field and update other settings from response
+      setCurrentSmtpPass(''); 
+      setSettings({
+        ...initialSettings,
+        ...result,
+        smtpPass: undefined, // Ensure password is not stored in display state
+      });
       toast({
         title: "Settings Saved",
         description: "Your settings have been updated.",
@@ -182,7 +211,7 @@ export default function AdminSettingsPage() {
     <div>
       <AdminPageHeader title="System Settings" description="Configure application-wide settings." />
       <form onSubmit={handleSubmit}>
-        <Card className="max-w-2xl shadow-sm">
+        <Card className="max-w-2xl shadow-sm mb-6">
           <CardHeader>
             <CardTitle>General Settings</CardTitle>
             <CardDescription>Manage general application settings here.</CardDescription>
@@ -228,10 +257,7 @@ export default function AdminSettingsPage() {
                 How long a user session remains active (e.g., 60 for 1 hour).
               </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="adminEmail">Default Admin Email (Display Only)</Label>
-              <Input id="adminEmail" type="email" defaultValue="admin@travelyatra.com" disabled />
-            </div>
+            
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
                 <Label htmlFor="maintenanceMode" className="text-base">Maintenance Mode</Label>
@@ -243,7 +269,7 @@ export default function AdminSettingsPage() {
                 id="maintenanceMode"
                 aria-label="Toggle maintenance mode"
                 checked={settings.maintenanceMode || false}
-                onCheckedChange={handleMaintenanceModeChange}
+                onCheckedChange={(checked) => handleSwitchChange('maintenanceMode', checked)}
               />
             </div>
              <div className="pt-4">
@@ -251,17 +277,74 @@ export default function AdminSettingsPage() {
                 <p className="text-sm text-muted-foreground">
                   To update the site logo, replace the image file referenced in the Header component or integrate a dynamic URL.
                   For the favicon, ensure a file named <code>favicon.ico</code> exists in your <code>public</code> directory.
-                  This UI does not support direct logo or favicon file uploads.
                 </p>
             </div>
           </CardContent>
           <CardFooter className="border-t px-6 py-4">
             <Button type="submit" disabled={isSaving}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Settings
+              Save General Settings
             </Button>
           </CardFooter>
         </Card>
+
+        <Card className="max-w-2xl shadow-sm">
+          <CardHeader>
+            <CardTitle>Email (SMTP) Configuration</CardTitle>
+            <CardDescription>Configure settings for sending emails (e.g., password resets).</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <Alert variant="destructive" className="bg-destructive/10">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <AlertDescription className="text-destructive/90">
+                <strong>Security Warning:</strong> Storing SMTP credentials in the database is not recommended for production. 
+                Use environment variables on your server for better security. These settings provide a fallback if environment variables are not set.
+              </AlertDescription>
+            </Alert>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="smtpHost">SMTP Host</Label>
+                <Input id="smtpHost" name="smtpHost" value={settings.smtpHost || ''} onChange={handleInputChange} placeholder="e.g., smtp.example.com" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtpPort">SMTP Port</Label>
+                <Input id="smtpPort" name="smtpPort" type="number" value={settings.smtpPort || ''} onChange={handleInputChange} placeholder="e.g., 587 or 465" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="smtpUser">SMTP User</Label>
+                <Input id="smtpUser" name="smtpUser" value={settings.smtpUser || ''} onChange={handleInputChange} placeholder="Your SMTP username" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtpPass">SMTP Password</Label>
+                <Input id="smtpPass" name="smtpPass" type="password" value={currentSmtpPass} onChange={handleInputChange} placeholder="Enter new or existing password" />
+                <p className="text-xs text-muted-foreground">Leave blank to keep existing password unchanged (if one is set).</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="emailFrom">"From" Email Address</Label>
+                <Input id="emailFrom" name="emailFrom" type="email" value={settings.emailFrom || ''} onChange={handleInputChange} placeholder="e.g., no-reply@travelyatra.com" />
+            </div>
+             <div className="flex items-center space-x-2">
+                <Switch
+                    id="smtpSecure"
+                    checked={settings.smtpSecure || false}
+                    onCheckedChange={(checked) => handleSwitchChange('smtpSecure', checked)}
+                />
+                <Label htmlFor="smtpSecure" className="text-sm">
+                    Use SSL/TLS (typically for port 465)
+                </Label>
+            </div>
+          </CardContent>
+          <CardFooter className="border-t px-6 py-4">
+            <Button type="submit" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save All Settings
+            </Button>
+          </CardFooter>
+        </Card>
+
       </form>
     </div>
   );
