@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { KeyRound, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
+import { KeyRound, Loader2, CheckCircle, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 export default function ResetPasswordPage() {
@@ -22,6 +22,8 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -65,9 +67,8 @@ export default function ResetPasswordPage() {
         throw new Error(data.message || 'Failed to reset password.');
       }
       
-      setMessage(data.message); // "Your password has been successfully reset."
+      setMessage(data.message); 
       toast({ title: "Password Reset Successful", description: data.message });
-      // Optionally redirect to login after a short delay
       setTimeout(() => router.push('/login'), 3000);
 
     } catch (err: any) {
@@ -78,7 +79,7 @@ export default function ResetPasswordPage() {
     }
   };
   
-  if (error && !message) { // Show error prominently if submit hasn't led to a success message
+  if (error && !message) { 
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)] py-12 px-4">
         <Card className="w-full max-w-md shadow-xl text-center">
@@ -123,14 +124,24 @@ export default function ResetPasswordPage() {
                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="•••••••• (min. 6 characters)"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading || !!message}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-primary"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </Button>
                 </div>
               </div>
               <div className="space-y-2">
@@ -139,14 +150,24 @@ export default function ResetPasswordPage() {
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
                     id="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     placeholder="••••••••"
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     disabled={isLoading || !!message}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     />
+                     <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-primary"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </Button>
                 </div>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading || !!message || !token}>
@@ -155,7 +176,7 @@ export default function ResetPasswordPage() {
               </Button>
             </form>
           )}
-          {error && <p className="mt-4 text-sm text-center text-destructive">{error}</p>}
+          {error && !message && <p className="mt-4 text-sm text-center text-destructive">{error}</p>}
         </CardContent>
          {!message && (
             <CardFooter className="flex justify-center text-sm">

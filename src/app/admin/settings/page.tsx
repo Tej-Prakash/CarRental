@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { SiteSettings } from '@/types';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -26,7 +26,7 @@ const initialSettings: Partial<SiteSettings> = {
   smtpHost: '',
   smtpPort: 587,
   smtpUser: '',
-  smtpPass: '', // Will not be displayed
+  smtpPass: '', 
   smtpSecure: false,
   emailFrom: '',
 };
@@ -37,7 +37,8 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Partial<SiteSettings>>(initialSettings);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [currentSmtpPass, setCurrentSmtpPass] = useState(''); // Only for input, not display
+  const [currentSmtpPass, setCurrentSmtpPass] = useState(''); 
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
 
   useEffect(() => {
     const userString = localStorage.getItem('authUser');
@@ -82,11 +83,10 @@ export default function AdminSettingsPage() {
           return;
         }
         const data: SiteSettings = await response.json();
-        // Do NOT set smtpPass from fetched data for display
         setSettings({
-          ...initialSettings, // ensure all fields are present
+          ...initialSettings, 
           ...data,
-          smtpPass: undefined, // Never display fetched password
+          smtpPass: undefined, 
         });
       } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -102,7 +102,7 @@ export default function AdminSettingsPage() {
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = event.target;
     if (name === "smtpPass") {
-      setCurrentSmtpPass(value); // Store separately
+      setCurrentSmtpPass(value); 
       return;
     }
     setSettings(prev => ({ 
@@ -137,11 +137,10 @@ export default function AdminSettingsPage() {
         smtpPort: settings.smtpPort ? Number(settings.smtpPort) : undefined,
       };
 
-      // Only include smtpPass in the payload if it has been entered by the admin
       if (currentSmtpPass && currentSmtpPass.trim() !== '') {
         payload.smtpPass = currentSmtpPass;
       } else {
-        delete payload.smtpPass; // Ensure it's not sent if blank, to preserve existing
+        delete payload.smtpPass; 
       }
 
 
@@ -181,12 +180,11 @@ export default function AdminSettingsPage() {
         return;
       }
       const result: SiteSettings = await response.json();
-      // Reset password field and update other settings from response
       setCurrentSmtpPass(''); 
       setSettings({
         ...initialSettings,
         ...result,
-        smtpPass: undefined, // Ensure password is not stored in display state
+        smtpPass: undefined, 
       });
       toast({
         title: "Settings Saved",
@@ -318,7 +316,28 @@ export default function AdminSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="smtpPass">SMTP Password</Label>
-                <Input id="smtpPass" name="smtpPass" type="password" value={currentSmtpPass} onChange={handleInputChange} placeholder="Enter new or existing password" />
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input 
+                    id="smtpPass" 
+                    name="smtpPass" 
+                    type={showSmtpPassword ? "text" : "password"} 
+                    value={currentSmtpPass} 
+                    onChange={handleInputChange} 
+                    placeholder="Enter new or existing password" 
+                    className="pl-10 pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-primary"
+                    onClick={() => setShowSmtpPassword(!showSmtpPassword)}
+                    aria-label={showSmtpPassword ? "Hide SMTP password" : "Show SMTP password"}
+                  >
+                    {showSmtpPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">Leave blank to keep existing password unchanged (if one is set).</p>
               </div>
             </div>

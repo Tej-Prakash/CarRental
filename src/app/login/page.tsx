@@ -6,26 +6,24 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, Mail, KeyRound, Loader2 } from "lucide-react";
+import { LogIn, Mail, KeyRound, Loader2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation"; // Added useSearchParams
-import { useState, useEffect } from "react"; // Added useEffect
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 
 export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams(); // Get search params
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    // Check for redirect query parameter (e.g., from protected routes)
     const redirectPath = searchParams.get('redirect');
     if (redirectPath) {
-      // Optionally store it to redirect after login, or display a message
-      // For now, we'll just acknowledge it if needed.
       // console.log("User was redirected from:", redirectPath);
     }
   }, [searchParams]);
@@ -60,11 +58,8 @@ export default function LoginPage() {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
         } else {
-          // It's not JSON, so it might be an HTML error page
           const errorText = await response.text();
           console.error("Login API returned non-JSON response:", errorText);
-          // You might want to throw a more generic error or inspect errorText
-          // For example, if errorText contains "<!DOCTYPE html>" it's an HTML page
           if (errorText.toLowerCase().includes("<!doctype html>")) {
             errorMessage = "Server returned an unexpected error page. Please check server logs.";
           } else {
@@ -74,7 +69,7 @@ export default function LoginPage() {
         throw new Error(errorMessage);
       }
 
-      const data = await response.json(); // Now it's safe to assume it's JSON
+      const data = await response.json();
 
       toast({
         title: "Login Successful!",
@@ -84,11 +79,10 @@ export default function LoginPage() {
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('authUser', JSON.stringify(data.user));
 
-      // Check for redirect path from query params or default to role-based redirect
       const redirectPath = searchParams.get('redirect');
       if (redirectPath) {
         router.push(redirectPath);
-      } else if (data.user.role === 'Admin') {
+      } else if (data.user.role === 'Admin' || data.user.role === 'Manager') {
         router.push('/admin');
       } else {
         router.push('/cars'); 
@@ -138,14 +132,24 @@ export default function LoginPage() {
                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input 
                   id="password" 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   placeholder="••••••••" 
                   required 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="pl-10"
+                  className="pl-10 pr-10" 
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-primary"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </Button>
               </div>
               <div className="text-right">
                 <Button variant="link" size="sm" asChild className="p-0 h-auto text-accent" disabled={isLoading}>
