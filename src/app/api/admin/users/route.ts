@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { User, UserDocument as UserTypeDocument } from '@/types'; // Renamed UserDocument from types to avoid conflict
+import type { User, UserDocument as UserTypeDocument } from '@/types'; 
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
@@ -16,21 +16,20 @@ const UserInputSchema = z.object({
   role: z.enum(['User', 'Admin']),
 });
 
-type UserInput = z.infer<typeof UserInputSchema>;
-
-// Represents the structure in the database
 interface UserDbDoc {
   _id: ObjectId;
   name: string;
   email: string;
   passwordHash: string;
   role: 'User' | 'Admin';
-  createdAt: string; // ISO date string
-  updatedAt?: string; // ISO date string
-  address?: UserTypeDocument['address']; // From types/index.ts User
+  createdAt: string; 
+  updatedAt?: string; 
+  address?: UserTypeDocument['address']; 
   location?: string;
-  documents?: UserTypeDocument[]; // From types/index.ts UserDocument
+  documents?: UserTypeDocument[]; 
 }
+
+const ITEMS_PER_PAGE = 10;
 
 export async function POST(req: NextRequest) {
   const authResult = await verifyAuth(req, 'Admin');
@@ -65,8 +64,8 @@ export async function POST(req: NextRequest) {
       passwordHash: hashedPassword,
       role,
       createdAt: isoCreatedAt,
-      updatedAt: isoCreatedAt, // Also set updatedAt on creation
-      documents: [], // Initialize with empty documents array
+      updatedAt: isoCreatedAt, 
+      documents: [], 
     };
 
     const result = await db.collection('users').insertOne(newUserDocument);
@@ -101,14 +100,28 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || ITEMS_PER_PAGE.toString(), 10);
+
     const client = await clientPromise;
     const db = client.db();
     const usersCollection = db.collection<UserDbDoc>('users');
     
-    const usersFromDb = await usersCollection.find({}, { projection: { passwordHash: 0 } }).sort({ name: 1 }).toArray();
+    const query = {}; // For future search/filter on this page
 
-    const users: User[] = usersFromDb.map(userDoc => {
-      const { _id, passwordHash, ...rest } = userDoc; // Exclude passwordHash from the rest
+    const totalItems = await usersCollection.countDocuments(query);
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const usersFromDb = await usersCollection
+      .find(query, { projection: { passwordHash: 0 } })
+      .sort({ name: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray();
+
+    const usersData: User[] = usersFromDb.map(userDoc => {
+      const { _id, passwordHash, ...rest } = userDoc; 
       return { 
         id: _id.toHexString(),
         name: rest.name,
@@ -118,11 +131,17 @@ export async function GET(req: NextRequest) {
         updatedAt: rest.updatedAt ? String(rest.updatedAt) : undefined,
         address: rest.address,
         location: rest.location,
-        documents: rest.documents || [], // Ensure documents is an array, even if undefined in DB
+        documents: rest.documents || [], 
       };
     });
 
-    return NextResponse.json(users, { status: 200 });
+    return NextResponse.json({
+      data: usersData,
+      totalItems,
+      totalPages,
+      currentPage: page,
+    }, { status: 200 });
+
   } catch (error) {
     console.error('Failed to fetch users for admin:', error);
     return NextResponse.json({ message: 'Failed to fetch users' }, { status: 500 });

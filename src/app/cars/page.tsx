@@ -6,30 +6,37 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Car as CarType, User } from '@/types'; // Added User type
+import type { Car as CarType, User } from '@/types'; 
 import { Car, Filter, Search, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation'; // Added useRouter
+import { useRouter } from 'next/navigation'; 
+import PaginationControls from '@/components/PaginationControls';
+
+const ITEMS_PER_PAGE = 9;
 
 export default function CarsPage() {
   const [allCarTypes, setAllCarTypes] = useState<string[]>(['all']);
   const [displayedCars, setDisplayedCars] = useState<CarType[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [carTypeFilter, setCarTypeFilter] = useState('all');
-  const [priceFilter, setPriceFilter] = useState('all'); // This is pricePerHour range
+  const [priceFilter, setPriceFilter] = useState('all'); 
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const router = useRouter(); // Initialize router
+  const router = useRouter(); 
   
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   const [currentUserFavoriteIds, setCurrentUserFavoriteIds] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Debounce search term
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1); // Reset page on new search term
     }, 300); 
 
     return () => {
@@ -37,14 +44,19 @@ export default function CarsPage() {
     };
   }, [searchTerm]);
 
-  // Fetch unique car types and user's favorite car IDs
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [carTypeFilter, priceFilter]);
+
+
   const fetchInitialData = useCallback(async () => {
     // Fetch Car Types
     try {
-      const carTypesResponse = await fetch('/api/cars'); // Assuming this returns all cars to derive types
+      const carTypesResponse = await fetch('/api/cars?limit=1000'); 
       if (!carTypesResponse.ok) throw new Error('Failed to fetch initial car data for types');
-      const carsData: CarType[] = await carTypesResponse.json();
-      const uniqueTypes = ['all', ...Array.from(new Set(carsData.map(car => car.type)))];
+      const carsResult = await carTypesResponse.json();
+      const uniqueTypes = ['all', ...Array.from(new Set(carsResult.data.map((car: CarType) => car.type)))];
       setAllCarTypes(uniqueTypes);
     } catch (error: any) {
       toast({ title: "Error fetching car types", description: error.message, variant: "destructive" });
@@ -62,12 +74,10 @@ export default function CarsPage() {
           const user: User = await profileResponse.json();
           setCurrentUserFavoriteIds(user.favoriteCarIds || []);
         } else if (profileResponse.status === 401) {
-          // Handle expired token case if necessary, e.g., logout user
           localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); setIsAuthenticated(false);
         }
       } catch (error: any) {
         console.error("Failed to fetch user profile for favorites:", error.message);
-        // Don't necessarily toast here, as it's a background fetch for a secondary feature
       }
     } else {
       setIsAuthenticated(false);
@@ -80,22 +90,23 @@ export default function CarsPage() {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // Fetch cars based on filters
-  const fetchFilteredCars = useCallback(async () => {
+  const fetchFilteredCars = useCallback(async (page = 1) => {
     setIsLoading(true);
-    const queryParams = new URLSearchParams();
+    const queryParams = new URLSearchParams({
+      page: String(page),
+      limit: String(ITEMS_PER_PAGE),
+    });
 
     if (debouncedSearchTerm) queryParams.append('search', debouncedSearchTerm);
     if (carTypeFilter !== 'all') queryParams.append('type', carTypeFilter);
     
-    // Price filter now refers to pricePerHour
     if (priceFilter !== 'all') {
       const [minStr, maxStr] = priceFilter.split('-');
       const min = Number(minStr);
-      if (!isNaN(min)) queryParams.append('minPrice', String(min)); // minPrice is now minPricePerHour
+      if (!isNaN(min)) queryParams.append('minPrice', String(min)); 
       if (maxStr) {
         const max = Number(maxStr);
-        if (!isNaN(max)) queryParams.append('maxPrice', String(max)); // maxPrice is now maxPricePerHour
+        if (!isNaN(max)) queryParams.append('maxPrice', String(max)); 
       }
     }
 
@@ -105,25 +116,30 @@ export default function CarsPage() {
         const errorData = await response.json().catch(() => ({ message: 'Failed to fetch cars and parse error' }));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
-      const data: CarType[] = await response.json();
-      setDisplayedCars(data);
+      const data = await response.json();
+      setDisplayedCars(data.data);
+      setTotalPages(data.totalPages);
+      setTotalItems(data.totalItems);
+      setCurrentPage(data.currentPage);
     } catch (error: any) {
       toast({ title: "Error fetching cars", description: error.message, variant: "destructive" });
       setDisplayedCars([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setIsLoading(false);
     }
   }, [debouncedSearchTerm, carTypeFilter, priceFilter, toast]);
 
   useEffect(() => {
-    fetchFilteredCars();
-  }, [fetchFilteredCars]);
+    fetchFilteredCars(currentPage);
+  }, [fetchFilteredCars, currentPage]);
 
   const handleToggleFavorite = async (carId: string, isCurrentlyFavorite: boolean) => {
     const token = localStorage.getItem('authToken');
     if (!token) {
       toast({ title: "Authentication Required", description: "Please log in to manage favorites.", variant: "destructive" });
-      router.push('/login?redirect=/cars'); // Redirect to login
+      router.push('/login?redirect=/cars'); 
       return;
     }
 
@@ -155,10 +171,9 @@ export default function CarsPage() {
     }
   };
 
-
-  const priceRanges = [ // Assuming these are hourly price ranges now
+  const priceRanges = [ 
     { label: 'All Prices', value: 'all' },
-    { label: '₹0 - ₹20', value: '0-20' }, // Adjusted for hourly
+    { label: '₹0 - ₹20', value: '0-20' }, 
     { label: '₹20 - ₹50', value: '20-50' },
     { label: '₹50+', value: '50-' }, 
   ];
@@ -189,7 +204,7 @@ export default function CarsPage() {
           </div>
           <div>
             <Label htmlFor="carType" className="text-sm font-medium">Car Type</Label>
-            <Select value={carTypeFilter} onValueChange={setCarTypeFilter}>
+            <Select value={carTypeFilter} onValueChange={(value) => {setCarTypeFilter(value); setCurrentPage(1);}}>
               <SelectTrigger id="carType" className="mt-1">
                 <SelectValue placeholder="Select car type" />
               </SelectTrigger>
@@ -202,7 +217,7 @@ export default function CarsPage() {
           </div>
           <div>
             <Label htmlFor="priceRange" className="text-sm font-medium">Price Range (per hour)</Label>
-            <Select value={priceFilter} onValueChange={setPriceFilter}>
+            <Select value={priceFilter} onValueChange={(value) => {setPriceFilter(value); setCurrentPage(1);}}>
               <SelectTrigger id="priceRange" className="mt-1">
                 <SelectValue placeholder="Select price range" />
               </SelectTrigger>
@@ -216,23 +231,11 @@ export default function CarsPage() {
         </div>
       </section>
 
-      {isLoading ? (
+      {isLoading && displayedCars.length === 0 ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
         </div>
-      ) : displayedCars.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayedCars.map(car => (
-              <CarCard 
-                key={car.id} 
-                car={car} 
-                isFavorite={currentUserFavoriteIds.includes(car.id)}
-                onToggleFavorite={handleToggleFavorite}
-                isAuthenticated={isAuthenticated}
-              />
-            ))}
-          </div>
-        ) : (
+      ) : !isLoading && displayedCars.length === 0 ? (
         <div className="text-center py-10">
           <Filter className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <p className="text-xl text-muted-foreground">
@@ -240,7 +243,30 @@ export default function CarsPage() {
           </p>
           <p className="text-sm text-muted-foreground mt-2">Try adjusting your search or filter criteria.</p>
         </div>
-      )}
+      ) : (
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {displayedCars.map(car => (
+                <CarCard 
+                    key={car.id} 
+                    car={car} 
+                    isFavorite={currentUserFavoriteIds.includes(car.id)}
+                    onToggleFavorite={handleToggleFavorite}
+                    isAuthenticated={isAuthenticated}
+                />
+                ))}
+            </div>
+            {totalPages > 1 && (
+                <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={(page) => setCurrentPage(page)}
+                    totalItems={totalItems}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                />
+            )}
+          </>
+        )}
     </div>
   );
 }

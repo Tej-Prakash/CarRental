@@ -6,11 +6,13 @@ import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
 import type { Car } from '@/types';
 import { CarInputSchema, type CarInput } from '@/lib/schemas/car'; 
-import { ObjectId } from 'mongodb';
+import { ObjectId, type Filter } from 'mongodb';
 
 interface CarDocument extends Omit<Car, 'id'> {
   _id: ObjectId;
 }
+
+const ITEMS_PER_PAGE = 10;
 
 export async function POST(req: NextRequest) {
   const authResult = await verifyAuth(req, 'Admin');
@@ -33,11 +35,12 @@ export async function POST(req: NextRequest) {
     
     const newCarDocument = {
         ...carData,
-        pricePerHour: Number(carData.pricePerHour), // Ensure it's a number
+        pricePerHour: Number(carData.pricePerHour), 
         availability: carData.availability.map(a => ({
           startDate: new Date(a.startDate).toISOString(),
           endDate: new Date(a.endDate).toISOString(),
       })),
+      imageUrls: carData.imageUrls.map(url => (url.startsWith('/') ? url : `/assets/images/${url.split('/').pop()}`)),
     };
 
     const result = await db.collection('cars').insertOne(newCarDocument);
@@ -51,6 +54,7 @@ export async function POST(req: NextRequest) {
         ...carData,
         pricePerHour: newCarDocument.pricePerHour, 
         availability: newCarDocument.availability, 
+        imageUrls: newCarDocument.imageUrls,
     };
 
     return NextResponse.json(insertedCar, { status: 201 });
@@ -70,42 +74,54 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || ITEMS_PER_PAGE.toString(), 10);
+    const searchTerm = searchParams.get('search');
+    const typeFilter = searchParams.get('type');
+
+    const query: Filter<CarDocument> = {};
+    if (searchTerm) {
+      query.name = { $regex: searchTerm, $options: 'i' };
+    }
+    if (typeFilter && typeFilter !== 'all') {
+      query.type = typeFilter as Car['type'];
+    }
+
     const client = await clientPromise;
     const db = client.db();
     const carsCollection = db.collection<CarDocument>('cars');
     
-    const carsFromDb = await carsCollection.find({}).sort({ name: 1 }).toArray();
+    const totalItems = await carsCollection.countDocuments(query);
+    const totalPages = Math.ceil(totalItems / limit);
+    
+    const carsFromDb = await carsCollection
+      .find(query)
+      .sort({ name: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray();
 
-    const cars: Car[] = carsFromDb.map(carDoc => {
+    const carsData: Car[] = carsFromDb.map(carDoc => {
       const { _id, ...rest } = carDoc;
-      const car: Car = {
+      return {
         id: _id.toHexString(),
-        name: rest.name,
-        type: rest.type,
-        pricePerHour: rest.pricePerHour, // Changed from pricePerDay
-        minNegotiablePrice: rest.minNegotiablePrice,
-        maxNegotiablePrice: rest.maxNegotiablePrice,
-        imageUrls: rest.imageUrls, 
-        description: rest.description,
-        longDescription: rest.longDescription,
-        features: rest.features,
+        ...rest,
+        pricePerHour: rest.pricePerHour,
         availability: rest.availability.map(a => ({ 
             startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
             endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
         })),
-        seats: rest.seats,
-        engine: rest.engine,
-        transmission: rest.transmission,
-        fuelType: rest.fuelType,
-        rating: rest.rating,
-        reviews: rest.reviews,
-        location: rest.location,
-        aiHint: rest.aiHint,
       };
-      return car;
     });
 
-    return NextResponse.json(cars, { status: 200 });
+    return NextResponse.json({
+      data: carsData,
+      totalItems,
+      totalPages,
+      currentPage: page,
+    }, { status: 200 });
+
   } catch (error) {
     console.error('Failed to fetch cars for admin:', error);
     return NextResponse.json({ message: 'Failed to fetch cars' }, { status: 500 });

@@ -10,6 +10,8 @@ interface CarDocument extends Omit<Car, 'id'> {
   _id: ObjectId;
 }
 
+const ITEMS_PER_PAGE = 9; // Common for public car listings to show more items
+
 export async function GET(req: NextRequest) {
   try {
     const client = await clientPromise;
@@ -19,8 +21,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const searchTerm = searchParams.get('search');
     const carType = searchParams.get('type');
-    const minPriceStr = searchParams.get('minPrice'); // This will now be minPricePerHour
-    const maxPriceStr = searchParams.get('maxPrice'); // This will now be maxPricePerHour
+    const minPriceStr = searchParams.get('minPrice'); 
+    const maxPriceStr = searchParams.get('maxPrice'); 
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || ITEMS_PER_PAGE.toString(), 10);
+
 
     const query: Filter<CarDocument> = {};
 
@@ -51,41 +56,39 @@ export async function GET(req: NextRequest) {
     }
 
     if (Object.keys(priceConditions).length > 0) {
-      query.pricePerHour = priceConditions; // Changed from pricePerDay
+      query.pricePerHour = priceConditions; 
     }
     
-    const carsFromDb = await carsCollection.find(query).sort({ name: 1 }).toArray();
+    const totalItems = await carsCollection.countDocuments(query);
+    const totalPages = Math.ceil(totalItems / limit);
 
-    const cars: Car[] = carsFromDb.map(carDoc => {
+    const carsFromDb = await carsCollection
+      .find(query)
+      .sort({ name: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray();
+
+    const carsData: Car[] = carsFromDb.map(carDoc => {
       const { _id, ...rest } = carDoc;
-      const car: Car = {
+      return {
         id: _id.toHexString(),
-        name: rest.name,
-        type: rest.type,
-        pricePerHour: rest.pricePerHour, // Changed from pricePerDay
-        minNegotiablePrice: rest.minNegotiablePrice,
-        maxNegotiablePrice: rest.maxNegotiablePrice,
-        imageUrls: rest.imageUrls,
-        description: rest.description,
-        longDescription: rest.longDescription,
-        features: rest.features,
+        ...rest,
+        pricePerHour: rest.pricePerHour,
         availability: rest.availability.map(a => ({ 
             startDate: typeof a.startDate === 'string' ? a.startDate : new Date(a.startDate).toISOString(), 
             endDate: typeof a.endDate === 'string' ? a.endDate : new Date(a.endDate).toISOString() 
         })),
-        seats: rest.seats,
-        engine: rest.engine,
-        transmission: rest.transmission,
-        fuelType: rest.fuelType,
-        rating: rest.rating,
-        reviews: rest.reviews,
-        location: rest.location,
-        aiHint: rest.aiHint,
       };
-      return car;
     });
 
-    return NextResponse.json(cars, { status: 200 });
+    return NextResponse.json({
+      data: carsData,
+      totalItems,
+      totalPages,
+      currentPage: page,
+    }, { status: 200 });
+
   } catch (error) {
     console.error('Failed to fetch cars:', error);
     return NextResponse.json({ message: 'Failed to fetch cars' }, { status: 500 });

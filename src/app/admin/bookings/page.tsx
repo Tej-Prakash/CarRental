@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -30,7 +30,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { format, parseISO } from 'date-fns';
-import BookingDetailsDialog from '@/components/admin/BookingDetailsDialog'; // Import the new dialog
+import BookingDetailsDialog from '@/components/admin/BookingDetailsDialog'; 
+import PaginationControls from '@/components/PaginationControls';
+
+const ITEMS_PER_PAGE = 10;
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -50,9 +53,13 @@ export default function AdminBookingsPage() {
   const [showBookingDetailsDialog, setShowBookingDetailsDialog] = useState(false);
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<Booking | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async (page = 1) => {
     setIsLoading(true);
+    setCurrentPage(page);
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
@@ -61,7 +68,11 @@ export default function AdminBookingsPage() {
         setIsLoading(false);
         return;
       }
-      const response = await fetch('/api/admin/bookings', {
+      const queryParams = new URLSearchParams({
+        page: String(page),
+        limit: String(ITEMS_PER_PAGE),
+      });
+      const response = await fetch(`/api/admin/bookings?${queryParams.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
@@ -74,23 +85,28 @@ export default function AdminBookingsPage() {
           const errorData = await response.json().catch(() => ({ message: 'Failed to fetch bookings and parse error' }));
           throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
-        setIsLoading(false);
+        setBookings([]);
+        setTotalPages(1);
+        setTotalItems(0);
         return;
       }
-      const data: Booking[] = await response.json();
-      setBookings(data);
+      const data = await response.json();
+      setBookings(data.data);
+      setTotalPages(data.totalPages);
+      setTotalItems(data.totalItems);
     } catch (error: any) {
       toast({ title: "Error fetching bookings", description: error.message, variant: "destructive" });
+      setBookings([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setIsLoading(false);
     }
-  };
-
+  }, [router, toast]);
 
   useEffect(() => {
-    fetchBookings();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchBookings(currentPage);
+  }, [fetchBookings, currentPage]);
 
   const handleViewBooking = (booking: Booking) => {
     setSelectedBookingForDetails(booking);
@@ -164,7 +180,7 @@ export default function AdminBookingsPage() {
       } else if (action === 'delete') {
         toast({ title: "Delete (Demo)", description: `Would delete booking ${bookingId}. API not implemented.`, variant: "destructive" });
       }
-      fetchBookings(); 
+      fetchBookings(currentPage); 
     } catch (error: any) {
       toast({ title: `Error ${action} booking`, description: error.message, variant: "destructive" });
     } finally {
@@ -173,7 +189,6 @@ export default function AdminBookingsPage() {
       setDialogConfig(null);
     }
   };
-
 
   const getStatusVariant = (status: Booking['status']): BadgeProps["variant"] => {
     switch (status) {
@@ -190,13 +205,16 @@ export default function AdminBookingsPage() {
   return (
     <div>
       <AdminPageHeader title="Manage Bookings" description="Oversee and manage all car rental bookings." />
+      
+      {/* TODO: Add Search and Filter controls here if needed in future */}
+
       <Card className="shadow-sm">
         <CardContent className="p-0">
-           {isLoading ? (
+           {isLoading && bookings.length === 0 ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
             </div>
-          ) : bookings.length === 0 ? (
+          ) : !isLoading && bookings.length === 0 ? (
              <p className="text-center text-muted-foreground py-8">No bookings found.</p>
           ) : (
             <Table>
@@ -279,6 +297,16 @@ export default function AdminBookingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {!isLoading && bookings.length > 0 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={fetchBookings}
+          totalItems={totalItems}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
+      )}
 
       <BookingDetailsDialog 
         booking={selectedBookingForDetails}

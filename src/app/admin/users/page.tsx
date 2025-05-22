@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { User } from '@/types';
-import { PlusCircle, Edit3, Trash2, MoreHorizontal, UserCircle2, Loader2, FileCheck2, Eye } from 'lucide-react'; // Added Eye
+import { PlusCircle, Edit3, Trash2, MoreHorizontal, UserCircle2, Loader2, FileCheck2, Eye } from 'lucide-react'; 
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +14,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge, type BadgeProps } from '@/components/ui/badge'; // Corrected import for BadgeProps
+import { Badge, type BadgeProps } from '@/components/ui/badge'; 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import AddUserDialog from '@/components/admin/AddUserDialog';
 import EditUserDialog from '@/components/admin/EditUserDialog';
 import AdminUserDocumentsDialog from '@/components/admin/AdminUserDocumentsDialog';
-import ViewUserDialog from '@/components/admin/ViewUserDialog'; // Import the new dialog
+import ViewUserDialog from '@/components/admin/ViewUserDialog'; 
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import PaginationControls from '@/components/PaginationControls';
+
+const ITEMS_PER_PAGE = 10;
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -39,9 +42,13 @@ export default function AdminUsersPage() {
   const [showViewUserDialog, setShowViewUserDialog] = useState(false);
   const [userToView, setUserToView] = useState<User | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async (page = 1) => {
     setIsLoading(true);
+    setCurrentPage(page);
     try {
       const token = localStorage.getItem('authToken');
        if (!token) {
@@ -50,7 +57,11 @@ export default function AdminUsersPage() {
         setIsLoading(false);
         return;
       }
-      const response = await fetch('/api/admin/users', {
+      const queryParams = new URLSearchParams({
+        page: String(page),
+        limit: String(ITEMS_PER_PAGE),
+      });
+      const response = await fetch(`/api/admin/users?${queryParams.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
@@ -63,22 +74,28 @@ export default function AdminUsersPage() {
           const errorData = await response.json().catch(() => ({ message: 'Failed to fetch users and parse error' }));
           throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
-        setIsLoading(false);
+        setUsers([]);
+        setTotalPages(1);
+        setTotalItems(0);
         return;
       }
       const data = await response.json();
-      setUsers(data);
+      setUsers(data.data);
+      setTotalPages(data.totalPages);
+      setTotalItems(data.totalItems);
     } catch (error: any) {
       toast({ title: "Error fetching users", description: error.message, variant: "destructive" });
+      setUsers([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router, toast]);
 
   useEffect(() => {
-    fetchUsers();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchUsers(currentPage);
+  }, [fetchUsers, currentPage]);
 
   const handleOpenEditDialog = (user: User) => {
     setUserToEdit(user);
@@ -98,8 +115,9 @@ export default function AdminUsersPage() {
   const handleUserDocumentsUpdated = (updatedUser: User) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u));
     setUserForDocuments(updatedUser); 
+    // Optionally refetch current page to get any sorting/status changes reflected broadly
+    // fetchUsers(currentPage); 
   };
-
 
   const handleDeleteUser = (userId: string) => {
     console.log("Delete user:", userId);
@@ -114,29 +132,39 @@ export default function AdminUsersPage() {
     const hasRejected = user.documents.some(doc => doc.status === 'Rejected');
     const allApproved = user.documents.every(doc => doc.status === 'Approved');
 
-    if (hasPending) return { text: 'Pending Review', variant: 'secondary' };
-    if (hasRejected) return { text: 'Rejected Docs', variant: 'destructive' };
-    if (allApproved && user.documents.length > 0) return { text: 'Verified', variant: 'default' }; 
+    if (user.documents.length < 2 && (user.documents.length > 0 && !allApproved)) { // Less than 2 docs and not all are approved
+        if (hasPending) return { text: 'Pending Review', variant: 'secondary' };
+        if (hasRejected) return { text: 'Rejected Docs', variant: 'destructive' };
+        return { text: 'Incomplete', variant: 'outline' }; // Some uploaded, but not all 2, and not all approved
+    }
+    if (user.documents.length === 2) { // Both docs exist
+        if (allApproved) return { text: 'Verified', variant: 'default' };
+        if (hasPending) return { text: 'Pending Review', variant: 'secondary' };
+        if (hasRejected) return { text: 'Rejected Docs', variant: 'destructive' };
+    }
+    // Fallback for other states
     return { text: 'Needs Action', variant: 'outline' }; 
   };
-
 
   return (
     <div>
       <AdminPageHeader title="Manage Users" description="View, edit, or add system users.">
-        <AddUserDialog onUserAdded={fetchUsers}>
+        <AddUserDialog onUserAdded={() => fetchUsers(1)}>
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" /> Add New User
           </Button>
         </AddUserDialog>
       </AdminPageHeader>
+      
+      {/* TODO: Add Search and Filter controls here if needed in future */}
+
       <Card className="shadow-sm">
         <CardContent className="p-0">
-          {isLoading ? (
+          {isLoading && users.length === 0 ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
             </div>
-          ) : users.length === 0 ? (
+          ) : !isLoading && users.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No users found. Add a new user to get started.</p>
           ) : (
             <Table>
@@ -206,11 +234,21 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
+      {!isLoading && users.length > 0 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={fetchUsers}
+          totalItems={totalItems}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
+      )}
+
       {userToEdit && (
         <EditUserDialog
           user={userToEdit}
           onUserUpdated={() => {
-            fetchUsers(); 
+            fetchUsers(currentPage); 
             setShowEditDialog(false); 
             setUserToEdit(null); 
           }}
@@ -219,9 +257,7 @@ export default function AdminUsersPage() {
              setShowEditDialog(open);
              if (!open) setUserToEdit(null);
           }}
-        >
-          {/* Empty fragment as children prop is no longer required by EditUserDialog */}
-        </EditUserDialog>
+        />
       )}
 
       {userForDocuments && (
