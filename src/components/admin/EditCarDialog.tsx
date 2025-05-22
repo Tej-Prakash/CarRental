@@ -19,9 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { Loader2, XCircle, Trash2, AlertTriangle, ImagePlus } from 'lucide-react';
+import { Loader2, XCircle, Trash2, ImagePlus } from 'lucide-react';
 import Image from 'next/image';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { UpdateCarInputSchema } from '@/lib/schemas/car';
 
@@ -103,6 +102,13 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
         return;
       }
       setIsUploading(true);
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+        router.push('/login');
+        setIsUploading(false);
+        return;
+      }
       const uploadedPaths: string[] = [];
 
       for (const file of Array.from(files)) {
@@ -110,8 +116,9 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
         formData.append('file', file);
 
         try {
-          const response = await fetch('/api/upload', {
+          const response = await fetch('/api/upload', { // Default destination is 'images'
             method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
             body: formData,
           });
           const result = await response.json();
@@ -240,16 +247,6 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
             Update the details for this car listing.
           </DialogDescription>
         </DialogHeader>
-
-         <Alert variant="destructive" className="my-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Image Upload & Storage</AlertTitle>
-          <AlertDescription>
-            Images selected below will be uploaded to the server and stored in the <code>public/assets/images/</code> directory.
-            <strong className='block my-1'>For Production:</strong> This local server storage is NOT recommended for serverless deployments (e.g., Vercel, Netlify). Use a dedicated cloud storage service for production.
-             <strong className='block my-1'>Setup:</strong> Ensure your project has a <code>public/assets/images/</code> directory. The application will attempt to create it if it doesn't exist, but write permissions are required.
-          </AlertDescription>
-        </Alert>
 
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
