@@ -15,11 +15,13 @@ import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const currencyOptions: SiteSettings['defaultCurrency'][] = ['USD', 'EUR', 'GBP', 'INR'];
+const DEFAULT_SESSION_TIMEOUT_MINUTES = 60;
 
 const initialSettings: Partial<SiteSettings> = {
   siteTitle: 'Travel Yatra',
   defaultCurrency: 'INR',
   maintenanceMode: false,
+  sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
 };
 
 export default function AdminSettingsPage() {
@@ -30,7 +32,6 @@ export default function AdminSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Additional check in layout, but double-check here as well.
     const userString = localStorage.getItem('authUser');
     if (userString) {
         const user = JSON.parse(userString);
@@ -40,7 +41,7 @@ export default function AdminSettingsPage() {
             return;
         }
     } else {
-        router.replace('/login'); // Should be caught by layout, but defensive
+        router.replace('/login');
         return;
     }
 
@@ -63,7 +64,7 @@ export default function AdminSettingsPage() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('authUser');
             router.push('/login');
-          } else if (response.status === 403) { // Handle forbidden specifically
+          } else if (response.status === 403) {
             toast({ title: "Access Denied", description: "You do not have permission to access settings.", variant: "destructive" });
             router.push('/admin');
           } else {
@@ -77,10 +78,11 @@ export default function AdminSettingsPage() {
           siteTitle: data.siteTitle || initialSettings.siteTitle,
           defaultCurrency: data.defaultCurrency || initialSettings.defaultCurrency,
           maintenanceMode: data.maintenanceMode ?? initialSettings.maintenanceMode,
+          sessionTimeoutMinutes: data.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
         });
       } catch (error: any) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
-        setSettings(initialSettings); 
+        setSettings(initialSettings);
       } finally {
         setIsLoading(false);
       }
@@ -91,7 +93,12 @@ export default function AdminSettingsPage() {
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
-    setSettings(prev => ({ ...prev, [name]: value }));
+    if (name === "sessionTimeoutMinutes") {
+      const numValue = value === '' ? undefined : parseInt(value, 10);
+      setSettings(prev => ({ ...prev, [name]: numValue }));
+    } else {
+      setSettings(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleCurrencyChange = (value: SiteSettings['defaultCurrency']) => {
@@ -117,7 +124,15 @@ export default function AdminSettingsPage() {
         siteTitle: settings.siteTitle,
         defaultCurrency: settings.defaultCurrency,
         maintenanceMode: settings.maintenanceMode,
+        sessionTimeoutMinutes: settings.sessionTimeoutMinutes ? Number(settings.sessionTimeoutMinutes) : DEFAULT_SESSION_TIMEOUT_MINUTES,
       };
+
+      if (payload.sessionTimeoutMinutes && payload.sessionTimeoutMinutes < 1) {
+        toast({ title: "Invalid Input", description: "Session timeout must be at least 1 minute.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+      }
+
 
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
@@ -127,7 +142,7 @@ export default function AdminSettingsPage() {
         },
         body: JSON.stringify(payload),
       });
-      
+
       if (!response.ok) {
         if (response.status === 401) {
           toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
@@ -142,8 +157,8 @@ export default function AdminSettingsPage() {
         setIsSaving(false);
         return;
       }
-      const result = await response.json();
-      setSettings(result); 
+      const result: SiteSettings = await response.json();
+      setSettings(result);
       toast({
         title: "Settings Saved",
         description: "Your settings have been updated.",
@@ -175,17 +190,17 @@ export default function AdminSettingsPage() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="siteTitle">Application Name (Site Title)</Label>
-              <Input 
-                id="siteTitle" 
+              <Input
+                id="siteTitle"
                 name="siteTitle"
-                value={settings.siteTitle || ''} 
-                onChange={handleInputChange} 
+                value={settings.siteTitle || ''}
+                onChange={handleInputChange}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="defaultCurrency">Default Currency</Label>
-              <Select 
-                value={settings.defaultCurrency} 
+              <Select
+                value={settings.defaultCurrency}
                 onValueChange={handleCurrencyChange}
               >
                 <SelectTrigger id="defaultCurrency">
@@ -199,6 +214,21 @@ export default function AdminSettingsPage() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="sessionTimeoutMinutes">Session Timeout (minutes)</Label>
+              <Input
+                id="sessionTimeoutMinutes"
+                name="sessionTimeoutMinutes"
+                type="number"
+                value={settings.sessionTimeoutMinutes || DEFAULT_SESSION_TIMEOUT_MINUTES}
+                onChange={handleInputChange}
+                min="1"
+                placeholder={`Default: ${DEFAULT_SESSION_TIMEOUT_MINUTES}`}
+              />
+               <p className="text-xs text-muted-foreground">
+                How long a user session remains active (e.g., 60 for 1 hour).
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="adminEmail">Default Admin Email (Display Only)</Label>
               <Input id="adminEmail" type="email" defaultValue="admin@travelyatra.com" disabled />
             </div>
@@ -209,8 +239,8 @@ export default function AdminSettingsPage() {
                   Temporarily disable access to the public site. Admins can still access /admin.
                 </p>
               </div>
-              <Switch 
-                id="maintenanceMode" 
+              <Switch
+                id="maintenanceMode"
                 aria-label="Toggle maintenance mode"
                 checked={settings.maintenanceMode || false}
                 onCheckedChange={handleMaintenanceModeChange}
@@ -219,8 +249,8 @@ export default function AdminSettingsPage() {
              <div className="pt-4">
                 <h3 className="text-lg font-medium text-primary">Logo & Favicon Management</h3>
                 <p className="text-sm text-muted-foreground">
-                  To update the site logo, replace the image file referenced in the Header component or integrate a dynamic URL. 
-                  For the favicon, ensure a file named <code>favicon.ico</code> exists in your <code>public</code> directory. 
+                  To update the site logo, replace the image file referenced in the Header component or integrate a dynamic URL.
+                  For the favicon, ensure a file named <code>favicon.ico</code> exists in your <code>public</code> directory.
                   This UI does not support direct logo or favicon file uploads.
                 </p>
             </div>

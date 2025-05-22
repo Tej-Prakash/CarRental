@@ -12,43 +12,46 @@ const SiteSettingsSchema = z.object({
   siteTitle: z.string().min(1, "Site title is required"),
   defaultCurrency: z.enum(['USD', 'EUR', 'GBP', 'INR']).default('INR'),
   maintenanceMode: z.boolean().optional().default(false),
+  sessionTimeoutMinutes: z.number().int().positive("Session timeout must be a positive integer.").min(1, "Session timeout must be at least 1 minute.").optional().default(60),
 });
 
 interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
   _id: ObjectId;
-  settingsId: string; 
+  settingsId: string;
 }
 
-const SETTINGS_DOC_ID = 'main_settings'; 
-
+const SETTINGS_DOC_ID = 'main_settings';
+const DEFAULT_SESSION_TIMEOUT_MINUTES = 60;
 
 export async function GET(req: NextRequest) {
   const authResult = await verifyAuth(req, ['Admin']);
-  if (authResult.error || !authResult.user) {
-    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
-  }
-   if (authResult.user.role !== 'Admin') {
-    return NextResponse.json({ message: 'Forbidden: Only Admins can access settings.' }, { status: 403 });
+  if (!authResult.user || authResult.user.role !== 'Admin') {
+    return NextResponse.json({ message: authResult.error || 'Forbidden: Only Admins can access settings.' }, { status: authResult.status || 403 });
   }
 
   try {
     const client = await clientPromise;
     const db = client.db();
     const settingsCollection = db.collection<SiteSettingsDocument>('settings');
-    
+
     let settingsDoc = await settingsCollection.findOne({ settingsId: SETTINGS_DOC_ID });
 
     if (!settingsDoc) {
       const defaultSettings: SiteSettings = {
-        siteTitle: 'Travel Yatra', 
-        defaultCurrency: 'INR',  
+        siteTitle: 'Travel Yatra',
+        defaultCurrency: 'INR',
         maintenanceMode: false,
+        sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
       };
       return NextResponse.json(defaultSettings, { status: 200 });
     }
-    
+
     const { _id, settingsId, ...settingsData } = settingsDoc;
-    return NextResponse.json({ id: _id.toHexString(), ...settingsData }, { status: 200 });
+    return NextResponse.json({
+      id: _id.toHexString(),
+      ...settingsData,
+      sessionTimeoutMinutes: settingsData.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
+    }, { status: 200 });
 
   } catch (error) {
     console.error('Failed to fetch settings for admin:', error);
@@ -59,13 +62,9 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const authResult = await verifyAuth(req, ['Admin']);
-  if (authResult.error || !authResult.user) {
-    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
+  if (!authResult.user || authResult.user.role !== 'Admin') {
+    return NextResponse.json({ message: authResult.error || 'Forbidden: Only Admins can update settings.' }, { status: authResult.status || 403 });
   }
-   if (authResult.user.role !== 'Admin') {
-    return NextResponse.json({ message: 'Forbidden: Only Admins can update settings.' }, { status: 403 });
-  }
-
 
   try {
     const rawData = await req.json();
@@ -74,31 +73,34 @@ export async function PUT(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ message: 'Invalid settings data', errors: validation.error.flatten().fieldErrors }, { status: 400 });
     }
-    
+
     const settingsDataToUpdate: Partial<Omit<SiteSettings, 'id'>> = validation.data;
     settingsDataToUpdate.updatedAt = new Date().toISOString();
-
 
     const client = await clientPromise;
     const db = client.db();
     const settingsCollection = db.collection<SiteSettingsDocument>('settings');
 
     await settingsCollection.updateOne(
-      { settingsId: SETTINGS_DOC_ID }, 
-      { $set: { ...settingsDataToUpdate, settingsId: SETTINGS_DOC_ID } }, 
-      { upsert: true } 
+      { settingsId: SETTINGS_DOC_ID },
+      { $set: { ...settingsDataToUpdate, settingsId: SETTINGS_DOC_ID } },
+      { upsert: true }
     );
-    
+
     const updatedSettingsDoc = await settingsCollection.findOne({ settingsId: SETTINGS_DOC_ID });
-    
+
     if (!updatedSettingsDoc) {
          console.error('CRITICAL: Settings document not found after upsert operation. settingsId:', SETTINGS_DOC_ID);
         return NextResponse.json({ message: 'Failed to retrieve updated settings after save.' }, { status: 500 });
     }
-    
+
     const { _id, settingsId, ...updatedSettingsData } = updatedSettingsDoc;
 
-    return NextResponse.json({ id: _id.toHexString(), ...updatedSettingsData }, { status: 200 });
+    return NextResponse.json({
+        id: _id.toHexString(),
+        ...updatedSettingsData,
+        sessionTimeoutMinutes: updatedSettingsData.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
+      }, { status: 200 });
 
   } catch (error) {
     console.error('Failed to update settings:', error);
