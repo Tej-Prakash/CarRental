@@ -6,7 +6,7 @@ export const mockCars: Car[] = [
     id: '1',
     name: 'Toyota Camry',
     type: 'Sedan',
-    pricePerDay: 50,
+    pricePerHour: 50, // Changed from pricePerDay
     minNegotiablePrice: 45,
     maxNegotiablePrice: 55,
     imageUrls: ['/assets/images/mock-camry-front.png', '/assets/images/mock-camry-side.png'],
@@ -18,7 +18,7 @@ export const mockCars: Car[] = [
     seats: 5,
     engine: '2.5L 4-Cylinder',
     transmission: 'Automatic',
-    fuelType: 'Gasoline',
+    fuelType: 'Petrol',
     rating: 4.5,
     reviews: 120,
     location: 'Downtown Central',
@@ -27,7 +27,7 @@ export const mockCars: Car[] = [
     id: '2',
     name: 'Honda CR-V',
     type: 'SUV',
-    pricePerDay: 70,
+    pricePerHour: 70, // Changed from pricePerDay
     minNegotiablePrice: 65,
     maxNegotiablePrice: 75,
     imageUrls: ['/assets/images/mock-crv-view.png'],
@@ -39,7 +39,7 @@ export const mockCars: Car[] = [
     seats: 5,
     engine: '1.5L Turbocharged 4-Cylinder',
     transmission: 'Automatic',
-    fuelType: 'Gasoline',
+    fuelType: 'Petrol',
     rating: 4.7,
     reviews: 95,
     location: 'Airport Rentals',
@@ -48,7 +48,7 @@ export const mockCars: Car[] = [
     id: '3',
     name: 'Ford Mustang',
     type: 'Coupe',
-    pricePerDay: 120,
+    pricePerHour: 120, // Changed from pricePerDay
     // No negotiable prices set for this one, to test undefined case
     imageUrls: ['/assets/images/mock-mustang-fast.png'],
     aiHint: 'muscle car red',
@@ -59,7 +59,7 @@ export const mockCars: Car[] = [
     seats: 4,
     engine: '5.0L V8',
     transmission: 'Automatic',
-    fuelType: 'Gasoline',
+    fuelType: 'Petrol',
     rating: 4.8,
     reviews: 75,
     location: 'Luxury Motors',
@@ -68,7 +68,7 @@ export const mockCars: Car[] = [
     id: '4',
     name: 'Volkswagen Golf',
     type: 'Hatchback',
-    pricePerDay: 45,
+    pricePerHour: 45, // Changed from pricePerDay
     minNegotiablePrice: 40,
     maxNegotiablePrice: 48,
     imageUrls: ['/assets/images/mock-golf-city.png'],
@@ -80,7 +80,7 @@ export const mockCars: Car[] = [
     seats: 5,
     engine: '1.4L Turbocharged 4-Cylinder',
     transmission: 'Automatic',
-    fuelType: 'Gasoline',
+    fuelType: 'Petrol',
     rating: 4.3,
     reviews: 110,
     location: 'City Center Branch',
@@ -89,7 +89,7 @@ export const mockCars: Car[] = [
     id: '5',
     name: 'Tesla Model 3',
     type: 'Sedan',
-    pricePerDay: 90,
+    pricePerHour: 90, // Changed from pricePerDay
     minNegotiablePrice: 85,
     maxNegotiablePrice: 90, // Max is same as initial price
     imageUrls: ['/assets/images/mock-tesla-future.png'],
@@ -110,9 +110,9 @@ export const mockCars: Car[] = [
     id: '6',
     name: 'Jeep Wrangler',
     type: 'SUV',
-    pricePerDay: 85,
+    pricePerHour: 85, // Changed from pricePerDay
     minNegotiablePrice: 80,
-    // Max not set, should default to pricePerDay in chatbot logic
+    // Max not set, should default to pricePerHour in chatbot logic
     imageUrls: ['/assets/images/mock-jeep-adventure.png'],
     aiHint: 'offroad vehicle green',
     description: 'Legendary off-road capability.',
@@ -122,7 +122,7 @@ export const mockCars: Car[] = [
     seats: 4,
     engine: '3.6L V6',
     transmission: 'Automatic',
-    fuelType: 'Gasoline',
+    fuelType: 'Petrol',
     rating: 4.6,
     reviews: 150,
     location: 'Adventure Rentals Co.',

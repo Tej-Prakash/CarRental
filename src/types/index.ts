@@ -14,7 +14,7 @@ export interface Car {
   seats: number;
   engine: string;
   transmission: 'Automatic' | 'Manual';
-  fuelType: 'Gasoline' | 'Diesel' | 'Electric' | 'Hybrid';
+  fuelType: 'Petrol' | 'Diesel' | 'Electric' | 'Hybrid';
   rating: number; 
   reviews: number; 
   location: string; 

@@ -20,9 +20,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { Loader2, XCircle, Trash2, ImagePlus } from 'lucide-react';
+import { Loader2, XCircle, Trash2, ImagePlus, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AddCarDialogProps {
   onCarAdded: () => void;
@@ -43,7 +44,7 @@ const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: numbe
   seats: 4,
   engine: '',
   transmission: 'Automatic',
-  fuelType: 'Gasoline',
+  fuelType: 'Petrol',
   location: '',
   aiHint: '',
   rating: 0,
@@ -60,6 +61,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -87,66 +89,66 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
 
   const handleImageFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files && files.length > 0) {
-      if ((carData.imageUrls || []).length + files.length > 5) {
-        toast({
-          title: "Image Limit Exceeded",
-          description: "You can upload a maximum of 5 images.",
-          variant: "destructive",
+    if (!files || files.length === 0) return;
+
+    if ((carData.imageUrls || []).length + files.length > 5) {
+      toast({
+        title: "Image Limit Exceeded",
+        description: "You can upload a maximum of 5 images.",
+        variant: "destructive",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setIsUploading(true);
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
+      router.push('/login');
+      setIsUploading(false);
+      return;
+    }
+    
+    const uploadedPaths: string[] = [];
+    for (const file of Array.from(files)) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
         });
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-
-      setIsUploading(true);
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        toast({ title: "Authentication Error", description: "Action requires login.", variant: "destructive" });
-        router.push('/login');
-        setIsUploading(false);
-        return;
-      }
-      
-      const uploadedPaths: string[] = [];
-      for (const file of Array.from(files)) {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-          const response = await fetch('/api/upload', { // Default destination is 'images'
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData,
-          });
-          const result = await response.json();
-          if (response.ok && result.success && result.filePath) {
-            uploadedPaths.push(result.filePath); 
-          } else {
-            toast({
-              title: `Failed to upload ${file.name}`,
-              description: result.message || "Unknown error during upload.",
-              variant: "destructive",
-            });
-          }
-        } catch (uploadError: any) {
+        const result = await response.json();
+        if (response.ok && result.success && result.filePath) {
+          uploadedPaths.push(result.filePath); 
+        } else {
           toast({
-            title: `Error uploading ${file.name}`,
-            description: uploadError.message || "Network or server error.",
+            title: `Failed to upload ${file.name}`,
+            description: result.message || "Unknown error during upload.",
             variant: "destructive",
           });
         }
+      } catch (uploadError: any) {
+        toast({
+          title: `Error uploading ${file.name}`,
+          description: uploadError.message || "Network or server error.",
+          variant: "destructive",
+        });
       }
-      
-      if (uploadedPaths.length > 0) {
-        setCarData(prev => ({ 
-          ...prev, 
-          imageUrls: [...(prev.imageUrls || []), ...uploadedPaths].slice(0, 5) 
-        }));
-      }
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""; 
-      }
+    }
+    
+    if (uploadedPaths.length > 0) {
+      setCarData(prev => ({ 
+        ...prev, 
+        imageUrls: [...(prev.imageUrls || []), ...uploadedPaths].slice(0, 5) 
+      }));
+    }
+    setIsUploading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; 
     }
   };
 
@@ -306,6 +308,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
           
           <div>
             <Label htmlFor="imageUpload">Upload Car Images (Max 5)</Label>
+            
             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md">
               <div className="space-y-1 text-center">
                 <ImagePlus className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -398,7 +401,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
               <Select name="fuelType" value={carData.fuelType} onValueChange={(value) => handleSelectChange('fuelType', value)}>
                 <SelectTrigger id="fuelType"><SelectValue placeholder="Select fuel type" /></SelectTrigger>
                 <SelectContent>
-                  {['Gasoline', 'Diesel', 'Electric', 'Hybrid'].map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                  {['Petrol', 'Diesel', 'Electric', 'Hybrid'].map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

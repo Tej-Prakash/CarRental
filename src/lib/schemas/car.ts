@@ -20,7 +20,7 @@ const BaseCarSchema = z.object({
   seats: z.number().int().min(1, "Seats must be at least 1"),
   engine: z.string().min(1, "Engine details are required"),
   transmission: z.enum(['Automatic', 'Manual']),
-  fuelType: z.enum(['Gasoline', 'Diesel', 'Electric', 'Hybrid']),
+  fuelType: z.enum(['Petrol', 'Diesel', 'Electric', 'Hybrid']),
   rating: z.number().min(0).max(5).optional().default(0),
   reviews: z.number().int().min(0).optional().default(0),
   location: z.string().min(1, "Location is required"),
@@ -58,8 +58,13 @@ export const CarInputSchema = BaseCarSchema
   });
 
 // Schema for updating an existing car.
+// This inherits the refinements from BaseCarSchema. If a field involved in a refinement
+// is provided in an update, the refinement will be checked.
 export const UpdateCarInputSchema = BaseCarSchema.partial()
   .extend({
+    // Allow imageUrls to be an empty array on update to remove all images,
+    // but if provided, it must be an array of valid URLs.
+    // For new car creation, CarInputSchema still enforces min(1).
     imageUrls: z.array(z.string().refine(val => val.startsWith('/assets/images/') || z.string().url().safeParse(val).success, "Each image URL must be valid or a relative path starting with /assets/images/")).optional(),
   })
   .refine(data => {
@@ -93,15 +98,15 @@ export const UpdateCarInputSchema = BaseCarSchema.partial()
     message: "Minimum negotiable hourly price cannot be greater than maximum negotiable hourly price.",
     path: ["minNegotiablePrice"],
   })
-  .refine(data => data.features === undefined || data.features.length > 0, {
+  .refine(data => data.features === undefined || (Array.isArray(data.features) && data.features.length > 0), {
     message: "If features are provided for update, at least one feature must be included.",
     path: ["features"],
   })
-  .refine(data => data.imageUrls === undefined || data.imageUrls.length > 0, {
-      message: "If imageUrls are provided for update, at least one image URL must be included.",
+  .refine(data => data.imageUrls === undefined || (Array.isArray(data.imageUrls) && data.imageUrls.length >= 0), { // Allow empty array for update
+      message: "If imageUrls are provided for update, it must be an array.",
       path: ["imageUrls"],
   })
-  .refine(data => data.availability === undefined || (data.availability.length > 0 && data.availability.every(a => a.startDate && a.endDate && !isNaN(Date.parse(a.startDate)) && !isNaN(Date.parse(a.endDate)))), {
+  .refine(data => data.availability === undefined || (Array.isArray(data.availability) && data.availability.length > 0 && data.availability.every(a => a.startDate && a.endDate && !isNaN(Date.parse(a.startDate)) && !isNaN(Date.parse(a.endDate)))), {
     message: "If availability is provided for update, it must contain at least one valid date range.",
     path: ["availability"],
   });
