@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, use, ChangeEvent } from 'react';
+import React, { useState, useEffect, use, useCallback, ChangeEvent } from 'react';
 import Image from 'next/image';
 import type { Car, SiteSettings, User } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -581,3 +581,4 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
+
