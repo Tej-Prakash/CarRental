@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { Car } from '@/types';
+import type { Car, UserRole } from '@/types';
 import { ObjectId } from 'mongodb';
 import { UpdateCarInputSchema, type UpdateCarInput } from '@/lib/schemas/car'; 
 
@@ -12,14 +12,14 @@ interface CarDocument extends Omit<Car, 'id'> {
   _id: ObjectId;
 }
 
-// GET a single car by ID (Admin only)
+// GET a single car by ID (Admin or Manager)
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   try {
@@ -45,7 +45,7 @@ export async function GET(
       id: _id.toHexString(),
       name: rest.name,
       type: rest.type,
-      pricePerHour: rest.pricePerHour, // Changed from pricePerDay
+      pricePerHour: rest.pricePerHour, 
       minNegotiablePrice: rest.minNegotiablePrice,
       maxNegotiablePrice: rest.maxNegotiablePrice,
       imageUrls: rest.imageUrls,
@@ -73,14 +73,14 @@ export async function GET(
   }
 }
 
-// PUT (Update) a car by ID (Admin only)
+// PUT (Update) a car by ID (Admin or Manager)
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   try {
@@ -108,6 +108,10 @@ export async function PUT(
     }
     if (carDataToUpdate.pricePerHour !== undefined) {
         carDataToUpdate.pricePerHour = Number(carDataToUpdate.pricePerHour);
+    }
+    // Ensure imageUrls are passed as is (relative paths)
+    if (carDataToUpdate.imageUrls) {
+        carDataToUpdate.imageUrls = carDataToUpdate.imageUrls;
     }
 
 
@@ -169,14 +173,14 @@ export async function PUT(
   }
 }
 
-// DELETE a car by ID (Admin only)
+// DELETE a car by ID (Admin or Manager)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   try {

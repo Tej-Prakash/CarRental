@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { Car } from '@/types';
+import type { Car, UserRole } from '@/types';
 import { CarInputSchema, type CarInput } from '@/lib/schemas/car'; 
 import { ObjectId, type Filter } from 'mongodb';
 
@@ -15,9 +15,9 @@ interface CarDocument extends Omit<Car, 'id'> {
 const ITEMS_PER_PAGE = 10;
 
 export async function POST(req: NextRequest) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   try {
@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
           startDate: new Date(a.startDate).toISOString(),
           endDate: new Date(a.endDate).toISOString(),
       })),
-      imageUrls: carData.imageUrls.map(url => (url.startsWith('/') ? url : `/assets/images/${url.split('/').pop()}`)),
+      // Image URLs are already relative paths from the client e.g. /assets/images/filename.jpg
+      imageUrls: carData.imageUrls, 
     };
 
     const result = await db.collection('cars').insertOne(newCarDocument);
@@ -68,9 +69,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   try {

@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { Booking } from '@/types';
+import type { Booking, UserRole } from '@/types';
 import type { ObjectId } from 'mongodb';
 
 interface BookingDocument extends Omit<Booking, 'id'> {
@@ -14,9 +14,9 @@ interface BookingDocument extends Omit<Booking, 'id'> {
 const ITEMS_PER_PAGE = 10;
 
 export async function GET(req: NextRequest) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   try {

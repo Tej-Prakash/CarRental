@@ -18,21 +18,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from '@/types';
+import type { User, UserRole } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface EditUserDialogProps {
   user: User;
   onUserUpdated: () => void;
-  children: React.ReactNode;
+  // children: React.ReactNode; // Removed as Dialog is controlled programmatically
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function EditUserDialog({ user, onUserUpdated, children, isOpen, onOpenChange }: EditUserDialogProps) {
+const availableRoles: UserRole[] = ['Customer', 'Manager', 'Admin'];
+
+export default function EditUserDialog({ user, onUserUpdated, isOpen, onOpenChange }: EditUserDialogProps) {
   const [name, setName] = useState(user.name);
-  const [role, setRole] = useState<'User' | 'Admin'>(user.role);
+  const [role, setRole] = useState<UserRole>(user.role);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -84,11 +86,15 @@ export default function EditUserDialog({ user, onUserUpdated, children, isOpen, 
         if (response.status === 401) {
           toast({ title: "Session Expired", description: "Your session has expired. Please log in again.", variant: "destructive" });
           localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); router.push('/login');
+        } else if (response.status === 403) {
+            toast({ title: "Access Denied", description: "You do not have permission to edit users.", variant: "destructive" });
         } else {
           const result = await response.json().catch(()=> ({message: 'Failed to update user'}));
           const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
           throw new Error(errorMsg || 'Failed to update user');
         }
+        setIsLoading(false);
+        return;
       } else {
         toast({ title: "User Updated", description: `${name} has been successfully updated.` });
         onOpenChange(false);
@@ -103,9 +109,9 @@ export default function EditUserDialog({ user, onUserUpdated, children, isOpen, 
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+      {/* <DialogTrigger asChild>
+        {children} 
+      </DialogTrigger> */}
       <DialogContent className="sm:max-w-md p-6">
         <DialogHeader>
           <DialogTitle>Edit User: {user.name}</DialogTitle>
@@ -122,11 +128,12 @@ export default function EditUserDialog({ user, onUserUpdated, children, isOpen, 
           </div>
           <div>
             <Label htmlFor="edit-user-role">Role</Label>
-            <Select name="role" value={role} onValueChange={(value: 'User' | 'Admin') => setRole(value)}>
+            <Select name="role" value={role} onValueChange={(value: UserRole) => setRole(value)}>
               <SelectTrigger id="edit-user-role"><SelectValue placeholder="Select role" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="User">User</SelectItem>
-                <SelectItem value="Admin">Admin</SelectItem>
+                {availableRoles.map(roleOption => (
+                  <SelectItem key={roleOption} value={roleOption}>{roleOption}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

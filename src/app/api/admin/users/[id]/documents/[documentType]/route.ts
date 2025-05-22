@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { User, DocumentStatus, DocumentType, UserDocument as UserDocType } from '@/types';
+import type { User, DocumentStatus, DocumentType, UserDocument as UserDocType, UserRole } from '@/types';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
@@ -22,24 +22,16 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string; documentType: string } }
 ) {
-  const authResult = await verifyAuth(req, 'Admin');
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
 
-  if (authResult.error) { // Handle explicit errors from verifyAuth first
+  if (authResult.error || !authResult.user) { 
     return NextResponse.json(
-      { message: authResult.error },
-      { status: authResult.status || 401 } // Default to 401 if status somehow missing
+      { message: authResult.error || 'Authentication required' },
+      { status: authResult.status || 401 } 
     );
   }
-
-  // If verifyAuth didn't return an error, but admin details are still missing (shouldn't happen with 'Admin' role check)
-  if (!authResult.admin || !authResult.admin.userId) {
-    console.error('CRITICAL: Admin details not found in token after successful verification for document update.');
-    return NextResponse.json(
-      { message: 'Admin user ID not found in token. Cannot perform action.' },
-      { status: 500 }
-    );
-  }
-  const adminUserId = authResult.admin.userId;
+  
+  const adminUserId = authResult.user.userId; 
 
   const { id: userIdFromParams, documentType } = params;
 
@@ -78,7 +70,7 @@ export async function PUT(
     const updateFields: Record<string, any> = {
       [`documents.${documentIndex}.status`]: status,
       [`documents.${documentIndex}.verifiedAt`]: new Date().toISOString(),
-      [`documents.${documentIndex}.verifiedBy`]: adminUserId,
+      [`documents.${documentIndex}.verifiedBy`]: adminUserId, // Store admin's ID
     };
     if (adminComments !== undefined) {
       updateFields[`documents.${documentIndex}.adminComments`] = adminComments;
@@ -116,6 +108,7 @@ export async function PUT(
         updatedAt: restOfUser.updatedAt ? String(restOfUser.updatedAt) : undefined,
         address: restOfUser.address,
         location: restOfUser.location,
+        favoriteCarIds: restOfUser.favoriteCarIds || [],
         documents: (restOfUser.documents || []).map(d => ({
             ...d,
             uploadedAt: String(d.uploadedAt),

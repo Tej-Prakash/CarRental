@@ -1,9 +1,10 @@
+
 // src/app/api/admin/reports/route.ts
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { Booking, SiteSettings, BookingDocument } from '@/types'; // Assuming BookingDocument exists or is similar to Booking
+import type { Booking, SiteSettings, BookingDocument, UserRole } from '@/types'; 
 import { ObjectId } from 'mongodb';
 import { parseISO, isValid, formatISO } from 'date-fns';
 
@@ -14,9 +15,9 @@ interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
 const SETTINGS_DOC_ID = 'main_settings';
 
 export async function GET(req: NextRequest) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -38,7 +39,6 @@ export async function GET(req: NextRequest) {
   if (endDateParam) {
     const parsedEndDate = parseISO(endDateParam);
     if (isValid(parsedEndDate)) {
-      // To include the whole end day, we can set it to the end of that day or use the next day as exclusive upper bound
       const endOfDay = new Date(parsedEndDate.getFullYear(), parsedEndDate.getMonth(), parsedEndDate.getDate(), 23, 59, 59, 999);
       query.createdAt = { ...query.createdAt, $lte: formatISO(endOfDay) };
     } else {

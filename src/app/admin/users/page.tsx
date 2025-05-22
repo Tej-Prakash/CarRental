@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { User } from '@/types';
+import type { User, UserRole } from '@/types';
 import { PlusCircle, Edit3, Trash2, MoreHorizontal, UserCircle2, Loader2, FileCheck2, Eye } from 'lucide-react'; 
 import {
   DropdownMenu,
@@ -45,6 +45,20 @@ export default function AdminUsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+
+  useEffect(() => {
+    const userString = localStorage.getItem('authUser');
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        setCurrentUserRole(user.role as UserRole);
+      } catch (e) {
+        console.error("Failed to parse authUser in AdminUsersPage", e);
+      }
+    }
+  }, []);
 
   const fetchUsers = useCallback(async (page = 1) => {
     setIsLoading(true);
@@ -146,14 +160,18 @@ export default function AdminUsersPage() {
     return { text: 'Needs Action', variant: 'outline' }; 
   };
 
+  const isCurrentUserAdmin = currentUserRole === 'Admin';
+
   return (
     <div>
       <AdminPageHeader title="Manage Users" description="View, edit, or add system users.">
-        <AddUserDialog onUserAdded={() => fetchUsers(1)}>
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New User
-          </Button>
-        </AddUserDialog>
+        {isCurrentUserAdmin && (
+          <AddUserDialog onUserAdded={() => fetchUsers(1)}>
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New User
+            </Button>
+          </AddUserDialog>
+        )}
       </AdminPageHeader>
       
       {/* TODO: Add Search and Filter controls here if needed in future */}
@@ -194,7 +212,7 @@ export default function AdminUsersPage() {
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell className="hidden md:table-cell">
-                    <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
+                    <Badge variant={user.role === 'Admin' ? 'default' : (user.role === 'Manager' ? 'outline' : 'secondary')}>{user.role}</Badge>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <Badge variant={docStatus.variant} className="text-xs">{docStatus.text}</Badge>
@@ -212,16 +230,22 @@ export default function AdminUsersPage() {
                         <DropdownMenuItem onClick={() => handleOpenViewUserDialog(user)}>
                           <Eye className="mr-2 h-4 w-4" /> View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenEditDialog(user)}>
-                          <Edit3 className="mr-2 h-4 w-4" /> Edit User
-                        </DropdownMenuItem>
+                        {isCurrentUserAdmin && (
+                          <DropdownMenuItem onClick={() => handleOpenEditDialog(user)}>
+                            <Edit3 className="mr-2 h-4 w-4" /> Edit User
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => handleOpenDocumentsDialog(user)}>
                           <FileCheck2 className="mr-2 h-4 w-4" /> Manage Documents
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete (Demo)
-                        </DropdownMenuItem>
+                        {isCurrentUserAdmin && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete (Demo)
+                                </DropdownMenuItem>
+                            </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -244,7 +268,7 @@ export default function AdminUsersPage() {
         />
       )}
 
-      {userToEdit && (
+      {userToEdit && isCurrentUserAdmin && (
         <EditUserDialog
           user={userToEdit}
           onUserUpdated={() => {

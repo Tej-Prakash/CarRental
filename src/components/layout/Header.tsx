@@ -2,13 +2,13 @@
 "use client";
 
 import Link from 'next/link';
-import { CarFront, LogIn, UserPlus, HomeIcon, Shield, UserCircle, LogOut, CalendarCheck2, Heart } from 'lucide-react'; // Added Heart
+import { CarFront, LogIn, UserPlus, HomeIcon, Shield, UserCircle, LogOut, CalendarCheck2, Heart } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import type { SiteSettings } from '@/types'; 
+import type { SiteSettings, UserRole } from '@/types'; 
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +38,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [currentSiteTitle, setCurrentSiteTitle] = useState(initialSiteTitle || "Travel Yatra");
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -71,17 +71,17 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
     if (authenticated && userString) {
       try {
         const user = JSON.parse(userString);
-        setIsAdmin(user.role === 'Admin');
+        setUserRole(user.role as UserRole);
         setUserName(user.name || 'User');
         setUserEmail(user.email || '');
       } catch (e) {
         console.error("Failed to parse authUser from localStorage", e);
-        setIsAdmin(false);
+        setUserRole(null);
         setUserName('User');
         setUserEmail('');
       }
     } else {
-      setIsAdmin(false);
+      setUserRole(null);
       setUserName('');
       setUserEmail('');
     }
@@ -95,7 +95,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
     localStorage.removeItem('authToken');
     localStorage.removeItem('authUser');
     setIsAuthenticated(false);
-    setIsAdmin(false);
+    setUserRole(null);
     setUserName('');
     setUserEmail('');
     toast({ title: "Logged Out", description: "You have been successfully logged out." });
@@ -121,8 +121,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
           {currentNavItems.map((item) => {
             if (item.authRequired && !isAuthenticated) return null;
             if (item.publicOnly && isAuthenticated) return null;
-            // if ((item as any).adminOnly && !isAdmin) return null; 
-
+            
             return (
               <Button 
                 key={item.href} 
@@ -159,7 +158,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{userName}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {userEmail}
+                      {userEmail} ({userRole})
                     </p>
                   </div>
                 </DropdownMenuLabel>
@@ -182,7 +181,7 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
                     <span>My Favorites</span>
                   </Link>
                 </DropdownMenuItem>
-                {isAdmin && (
+                {(userRole === 'Admin' || userRole === 'Manager') && (
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="cursor-pointer">
                       <Shield className="mr-2 h-4 w-4" />

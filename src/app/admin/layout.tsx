@@ -2,21 +2,25 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
-import type { Metadata } from 'next'; // Keep if you intend to set metadata statically, though dynamic might be better for admin
 import { Button } from '@/components/ui/button';
 import { PanelLeftOpen, CarFront, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import type { User } from '@/types';
+import type { User, UserRole } from '@/types';
 
-// Static metadata might still be useful for the general section title
-// export const metadata: Metadata = {
-//   title: 'Admin - Travel Yatra',
-//   description: 'Admin panel for Travel Yatra.',
-// };
+// Define paths for Admin Sidebar for mobile view
+const allAdminNavItemsForSheet = [
+  { href: '/admin', label: 'Dashboard', roles: ['Admin', 'Manager'] },
+  { href: '/admin/cars', label: 'Cars', roles: ['Admin', 'Manager'] },
+  { href: '/admin/users', label: 'Users', roles: ['Admin', 'Manager'] },
+  { href: '/admin/bookings', label: 'Bookings', roles: ['Admin', 'Manager'] },
+  { href: '/admin/reports', label: 'Reports', roles: ['Admin', 'Manager'] },
+  { href: '/admin/settings', label: 'Settings', roles: ['Admin'] },
+];
+
 
 export default function AdminLayout({
   children,
@@ -24,8 +28,10 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthorized'>('loading');
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -33,18 +39,26 @@ export default function AdminLayout({
     
     if (!token || !userString) {
       toast({ title: "Access Denied", description: "Please log in to access the admin panel.", variant: "destructive" });
-      router.replace('/login'); // Use replace to avoid adding admin route to history
+      router.replace('/login?redirect=' + pathname); 
       setAuthStatus('unauthorized');
       return;
     }
 
     try {
       const user: User = JSON.parse(userString);
-      if (user.role !== 'Admin') {
+      if (user.role !== 'Admin' && user.role !== 'Manager') {
         toast({ title: "Access Denied", description: "You do not have permission to access the admin panel.", variant: "destructive" });
-        router.replace('/'); // Redirect non-admins to homepage
+        router.replace('/'); 
         setAuthStatus('unauthorized');
       } else {
+        setCurrentUserRole(user.role);
+        // Specific page access control
+        if (pathname === '/admin/settings' && user.role !== 'Admin') {
+            toast({ title: "Access Denied", description: "Only Admins can access settings.", variant: "destructive" });
+            router.replace('/admin'); // Redirect managers away from settings
+            setAuthStatus('unauthorized'); // Treat as unauthorized for this specific page
+            return;
+        }
         setAuthStatus('authenticated');
       }
     } catch (error) {
@@ -54,7 +68,7 @@ export default function AdminLayout({
       router.replace('/login');
       setAuthStatus('unauthorized');
     }
-  }, [router, toast]);
+  }, [router, toast, pathname]);
 
   if (authStatus === 'loading') {
     return (
@@ -65,10 +79,12 @@ export default function AdminLayout({
   }
 
   if (authStatus === 'unauthorized') {
-    // Optionally, show a brief "Redirecting..." message or just let the redirect happen.
-    // The router.replace() should handle the navigation.
     return null; 
   }
+  
+  const visibleSheetNavItems = allAdminNavItemsForSheet.filter(item => 
+    currentUserRole && item.roles.includes(currentUserRole)
+  );
 
   return (
     <div className="flex min-h-screen w-full bg-muted/40">
@@ -89,11 +105,9 @@ export default function AdminLayout({
                     </Link>
                 </div>
                 <nav className="flex-grow p-4 space-y-1">
-                    <Button variant="ghost" className="w-full justify-start" asChild><Link href="/admin">Dashboard</Link></Button>
-                    <Button variant="ghost" className="w-full justify-start" asChild><Link href="/admin/cars">Cars</Link></Button>
-                    <Button variant="ghost" className="w-full justify-start" asChild><Link href="/admin/users">Users</Link></Button>
-                    <Button variant="ghost" className="w-full justify-start" asChild><Link href="/admin/bookings">Bookings</Link></Button>
-                    <Button variant="ghost" className="w-full justify-start" asChild><Link href="/admin/settings">Settings</Link></Button>
+                    {visibleSheetNavItems.map(item => (
+                       <Button key={item.href} variant="ghost" className="w-full justify-start" asChild><Link href={item.href}>{item.label}</Link></Button>
+                    ))}
                 </nav>
             </SheetContent>
           </Sheet>

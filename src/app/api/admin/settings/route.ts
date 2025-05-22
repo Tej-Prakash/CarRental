@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { SiteSettings } from '@/types';
+import type { SiteSettings, UserRole } from '@/types';
 import { z } from 'zod';
 import type { ObjectId } from 'mongodb';
 
@@ -23,9 +23,12 @@ const SETTINGS_DOC_ID = 'main_settings';
 
 
 export async function GET(req: NextRequest) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
+  }
+   if (authResult.user.role !== 'Admin') {
+    return NextResponse.json({ message: 'Forbidden: Only Admins can access settings.' }, { status: 403 });
   }
 
   try {
@@ -55,10 +58,14 @@ export async function GET(req: NextRequest) {
 
 
 export async function PUT(req: NextRequest) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
+   if (authResult.user.role !== 'Admin') {
+    return NextResponse.json({ message: 'Forbidden: Only Admins can update settings.' }, { status: 403 });
+  }
+
 
   try {
     const rawData = await req.json();

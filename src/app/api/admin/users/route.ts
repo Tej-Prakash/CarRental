@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { User, UserDocument as UserTypeDocument } from '@/types'; 
+import type { User, UserDocument as UserTypeDocument, UserRole } from '@/types'; 
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { ObjectId } from 'mongodb';
@@ -13,7 +13,7 @@ const UserInputSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters long"),
-  role: z.enum(['User', 'Admin']),
+  role: z.enum(['Customer', 'Manager', 'Admin']),
 });
 
 interface UserDbDoc {
@@ -21,7 +21,7 @@ interface UserDbDoc {
   name: string;
   email: string;
   passwordHash: string;
-  role: 'User' | 'Admin';
+  role: UserRole;
   createdAt: string; 
   updatedAt?: string; 
   address?: UserTypeDocument['address']; 
@@ -32,9 +32,12 @@ interface UserDbDoc {
 const ITEMS_PER_PAGE = 10;
 
 export async function POST(req: NextRequest) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
+  }
+  if (authResult.user.role !== 'Admin') {
+    return NextResponse.json({ message: 'Forbidden: Only Admins can add users.' }, { status: 403 });
   }
 
   try {
@@ -94,9 +97,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   try {

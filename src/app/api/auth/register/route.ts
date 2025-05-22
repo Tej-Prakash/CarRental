@@ -1,3 +1,4 @@
+
 // src/app/api/auth/register/route.ts
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
       name: fullName,
       email,
       passwordHash: hashedPassword, // Store hashed password
-      role: 'User', // Default role
+      role: 'Customer', // Default role for new signups
       createdAt: new Date().toISOString(),
     };
 

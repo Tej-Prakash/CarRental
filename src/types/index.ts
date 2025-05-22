@@ -43,11 +43,13 @@ export interface UserDocument {
   verifiedBy?: string; 
 }
 
+export type UserRole = 'Customer' | 'Manager' | 'Admin';
+
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'User' | 'Admin';
+  role: UserRole;
   createdAt: string; 
   updatedAt?: string; 
   address?: Address;
@@ -55,7 +57,7 @@ export interface User {
   documents?: UserDocument[];
   resetPasswordToken?: string;
   resetPasswordExpires?: Date; 
-  favoriteCarIds?: string[]; // Added for favorite cars
+  favoriteCarIds?: string[]; 
 }
 
 export interface Booking {
@@ -87,4 +89,3 @@ export interface SiteSettings {
   maintenanceMode?: boolean;
   updatedAt?: string; 
 }
-

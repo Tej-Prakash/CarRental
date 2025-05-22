@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from '@/types';
+import type { User, UserRole } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -26,12 +26,14 @@ interface AddUserDialogProps {
   children: React.ReactNode;
 }
 
-const initialUserState: Omit<User, 'id' | 'createdAt'> & { password?: string } = {
+const initialUserState: Omit<User, 'id' | 'createdAt' | 'role'> & { password?: string; role: UserRole } = {
   name: '',
   email: '',
   password: '',
-  role: 'User',
+  role: 'Customer', // Default to Customer
 };
+
+const availableRoles: UserRole[] = ['Customer', 'Manager', 'Admin'];
 
 export default function AddUserDialog({ onUserAdded, children }: AddUserDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -45,7 +47,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
     setUserData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (value: 'User' | 'Admin') => {
+  const handleSelectChange = (value: UserRole) => {
     setUserData(prev => ({ ...prev, role: value }));
   };
 
@@ -92,12 +94,15 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
           router.push('/login');
-          setIsLoading(false);
-          return;
+        } else if (response.status === 403) {
+            toast({ title: "Access Denied", description: "You do not have permission to add users.", variant: "destructive" });
+        } else {
+          const result = await response.json().catch(()=> ({message: 'Failed to add user'}));
+          const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
+          throw new Error(errorMsg || 'Failed to add user');
         }
-        const result = await response.json().catch(()=> ({message: 'Failed to add user'}));
-        const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
-        throw new Error(errorMsg || 'Failed to add user');
+        setIsLoading(false);
+        return;
       }
       const result = await response.json();
       toast({ title: "User Added", description: `${result.name} has been successfully added.` });
@@ -128,8 +133,9 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
             <Select name="role" value={userData.role} onValueChange={handleSelectChange}>
               <SelectTrigger id="add-user-role"><SelectValue placeholder="Select role" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="User">User</SelectItem>
-                <SelectItem value="Admin">Admin</SelectItem>
+                {availableRoles.map(role => (
+                  <SelectItem key={role} value={role}>{role}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

@@ -4,12 +4,12 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { verifyAuth } from '@/lib/authUtils';
-import type { Booking } from '@/types';
+import type { Booking, UserRole } from '@/types';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
 const UpdateStatusSchema = z.object({
-  status: z.enum(['Confirmed', 'Cancelled', 'Completed', 'Cancellation Rejected']), // Admin can set these
+  status: z.enum(['Confirmed', 'Cancelled', 'Completed', 'Cancellation Rejected']), 
 });
 
 interface BookingDocument extends Omit<Booking, 'id'> {
@@ -20,9 +20,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { bookingId: string } }
 ) {
-  const authResult = await verifyAuth(req, 'Admin');
-  if (authResult.error) {
-    return NextResponse.json({ message: authResult.error }, { status: authResult.status });
+  const authResult = await verifyAuth(req, ['Admin', 'Manager']);
+  if (authResult.error || !authResult.user) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
   }
 
   const { bookingId } = params;

@@ -30,6 +30,20 @@ export default function AdminSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
+    // Additional check in layout, but double-check here as well.
+    const userString = localStorage.getItem('authUser');
+    if (userString) {
+        const user = JSON.parse(userString);
+        if (user.role !== 'Admin') {
+            toast({ title: "Access Denied", description: "You do not have permission to view this page.", variant: "destructive" });
+            router.replace('/admin');
+            return;
+        }
+    } else {
+        router.replace('/login'); // Should be caught by layout, but defensive
+        return;
+    }
+
     const fetchSettings = async () => {
       setIsLoading(true);
       try {
@@ -49,6 +63,9 @@ export default function AdminSettingsPage() {
             localStorage.removeItem('authToken');
             localStorage.removeItem('authUser');
             router.push('/login');
+          } else if (response.status === 403) { // Handle forbidden specifically
+            toast({ title: "Access Denied", description: "You do not have permission to access settings.", variant: "destructive" });
+            router.push('/admin');
           } else {
             throw new Error('Failed to fetch settings');
           }
@@ -118,7 +135,7 @@ export default function AdminSettingsPage() {
           localStorage.removeItem('authUser');
           router.push('/login');
         } else {
-            const result = await response.json().catch(() => ({message: 'Failed to save settings'}));
+            const result = await response.json().catch(()=> ({message: 'Failed to save settings'}));
             const errorMsg = result.errors ? JSON.stringify(result.errors) : result.message;
             throw new Error(errorMsg || 'Failed to save settings');
         }
