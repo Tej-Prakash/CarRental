@@ -4,7 +4,7 @@
 import type { Car } from '@/types';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Fuel, Settings2, Users2, CalendarDays } from 'lucide-react'; // Using Settings2 for transmission, Users2 for seats
+import { Fuel, Settings2, Users2, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 
 interface CarCardHomeProps {
@@ -13,12 +13,11 @@ interface CarCardHomeProps {
 
 export default function CarCardHome({ car }: CarCardHomeProps) {
   const displayPrice = typeof car.pricePerHour === 'number' 
-    ? car.pricePerHour.toFixed(0) // Assuming no decimals for this display as per image
+    ? car.pricePerHour.toFixed(0)
     : 'N/A';
   
-  // Placeholder for original price and discount - adapt if you have this data
   const originalPrice = typeof car.pricePerHour === 'number' ? (car.pricePerHour * 1.25).toFixed(0) : null;
-  const discount = originalPrice ? '20% OFF' : null; // Example discount
+  const discount = originalPrice ? '20% OFF' : null; 
 
   const modelYear = car.availability?.[0]?.startDate ? new Date(car.availability[0].startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A';
 
@@ -61,7 +60,7 @@ export default function CarCardHome({ car }: CarCardHomeProps) {
               </span>
             )}
           </div>
-          <Button size="sm" variant="default" asChild className="bg-sky-500 hover:bg-sky-600 text-white rounded-full px-4 py-1.5 text-xs">
+          <Button size="sm" variant="default" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-4 py-1.5 text-xs">
             <Link href={`/cars/${car.id}`}>Book &gt;</Link>
           </Button>
         </div>
@@ -69,5 +68,3 @@ export default function CarCardHome({ car }: CarCardHomeProps) {
     </div>
   );
 }
-
-    

@@ -7,7 +7,7 @@ import { CheckCircle, Navigation, ShieldCheck, Tag, MapPin, CalendarDays, ClockI
 import Image from "next/image";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import CarCardHome from "@/components/CarCardHome"; // New component for homepage car cards
+import CarCardHome from "@/components/CarCardHome";
 import type { Car as CarType } from "@/types";
 import { useEffect, useState } from "react";
 
@@ -30,7 +30,6 @@ const benefits = [
 ];
 
 export default function HomePage() {
-  const [rentalType, setRentalType] = useState<'self-drive' | 'outstation' | 'monthly'>('self-drive');
   const [recentlyAddedCars, setRecentlyAddedCars] = useState<CarType[]>([]);
   const [isLoadingCars, setIsLoadingCars] = useState(true);
 
@@ -38,7 +37,7 @@ export default function HomePage() {
     const fetchRecentCars = async () => {
       setIsLoadingCars(true);
       try {
-        const response = await fetch('/api/cars?limit=5'); // Fetch 5 cars
+        const response = await fetch('/api/cars?limit=5');
         if (response.ok) {
           const data = await response.json();
           setRecentlyAddedCars(data.data);
@@ -57,32 +56,15 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="space-y-0"> {/* Removed top-level space-y-12 */}
-      {/* New Search/Rental Section */}
-      <section className="bg-sky-500 text-white py-10 md:py-16 relative overflow-hidden">
-        {/* Subtle background pattern - omitted for simplicity, can be added with CSS */}
+    <div className="space-y-0">
+      {/* New Search/Rental Section - Theme Aligned */}
+      <section className="bg-primary text-primary-foreground py-10 md:py-16 relative overflow-hidden">
         <div className="container mx-auto px-4 grid md:grid-cols-12 gap-8 items-center">
           <div className="md:col-span-7 z-10">
-            <div className="mb-6 flex space-x-1">
-              {['Self drive', 'Outstation', 'Monthly'].map((type) => (
-                <Button
-                  key={type}
-                  variant={rentalType === type.toLowerCase().replace(' ', '-') ? 'default' : 'ghost'}
-                  onClick={() => setRentalType(type.toLowerCase().replace(' ', '-') as any)}
-                  className={`
-                    rounded-t-md rounded-b-none px-4 py-2 text-sm font-medium
-                    ${rentalType === type.toLowerCase().replace(' ', '-') ? 
-                      'bg-white text-sky-600 shadow-md' : 
-                      'text-white hover:bg-white/20 hover:text-white'}
-                  `}
-                >
-                  {type}
-                </Button>
-              ))}
-            </div>
-            <Card className="bg-white/95 backdrop-blur-sm text-card-foreground shadow-2xl rounded-xl p-6">
+            <Card className="bg-card text-card-foreground shadow-2xl rounded-xl p-6">
               <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-2xl font-bold text-primary">Rental</CardTitle>
+                <CardTitle className="text-2xl font-bold text-primary">Find Your Rental</CardTitle>
+                 <CardDescription>Search by location and date-time.</CardDescription>
               </CardHeader>
               <CardContent className="p-0 space-y-4">
                 <div className="relative">
@@ -101,16 +83,16 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground h-12 px-8">Search</Button>
-                  <p className="text-sm text-primary">Duration: -- day -- hr</p>
+                  <p className="text-sm text-primary">Duration: -- day -- hr</p> {/* This duration part needs JS logic to update */}
                 </div>
               </CardContent>
             </Card>
           </div>
           <div className="md:col-span-5 z-10 text-left md:pl-8">
-            <h2 className="text-3xl font-bold mb-4 leading-tight">Self drive car rentals in India</h2>
+            <h2 className="text-3xl font-bold mb-4 leading-tight">Car rentals in India</h2>
             <ul className="space-y-2 mb-6">
               <li className="flex items-center">
-                <CheckCircle className="h-5 w-5 mr-2 text-green-300" /> Emi option available for monthly Subscription
+                <CheckCircle className="h-5 w-5 mr-2 text-green-300" /> EMI option available for monthly Subscription
               </li>
               <li className="flex items-center">
                 <CheckCircle className="h-5 w-5 mr-2 text-green-300" /> Find the best deal for a monthly subscription.
@@ -122,7 +104,7 @@ export default function HomePage() {
             <h3 className="text-lg font-semibold mb-1">Our Reviews Rated Info</h3>
             <div className="flex items-center">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} className={`h-6 w-6 ${i < 4 ? 'text-yellow-400 fill-yellow-400' : (i < 4.9 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300')}`} /> // Simplified for 4.9
+                <Star key={i} className={`h-6 w-6 ${i < 4 ? 'text-yellow-400 fill-yellow-400' : (i < 4.9 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300')}`} />
               ))}
               <span className="ml-2 text-lg font-semibold">4.9</span>
               <span className="ml-1 text-sm opacity-90">(9032 reviews)</span>
@@ -164,10 +146,10 @@ export default function HomePage() {
                 ))}
               </div>
               {/* Decorative Arrows - functionality can be added with JS if needed */}
-              <Button variant="outline" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 bg-white shadow-md hidden md:flex z-10">
+              <Button variant="outline" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 bg-card shadow-md hidden md:flex z-10">
                 <ChevronLeft className="h-6 w-6" />
               </Button>
-              <Button variant="outline" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 bg-white shadow-md hidden md:flex z-10">
+              <Button variant="outline" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 bg-card shadow-md hidden md:flex z-10">
                 <ChevronRight className="h-6 w-6" />
               </Button>
             </div>
@@ -199,7 +181,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Existing "How it Works Section" - slightly adjusted margin */}
+      {/* Existing "How it Works Section" */}
       <section className="py-12 md:py-16 bg-secondary/50 rounded-lg">
          <div className="container mx-auto px-4">
             <h2 className="text-3xl font-bold text-center mb-10 text-primary">Easy Steps to Your Next Ride</h2>
@@ -228,5 +210,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
