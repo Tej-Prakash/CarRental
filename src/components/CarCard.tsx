@@ -6,8 +6,9 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Gauge, GitCommitVertical, Fuel, Star, Clock, Heart } from 'lucide-react';
+import { Users, Gauge, GitCommitVertical, Fuel, Star, Clock, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface CarCardProps {
   car: Car;
@@ -16,13 +17,31 @@ interface CarCardProps {
   isAuthenticated?: boolean;
 }
 
+const SLIDER_INTERVAL = 4000; // 4 seconds
+
 export default function CarCard({ car, isFavorite, onToggleFavorite, isAuthenticated }: CarCardProps) {
   const router = useRouter();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const primaryImageUrl = car.imageUrls && car.imageUrls.length > 0 
-    ? car.imageUrls[0] 
-    : '/assets/images/default-car.png';
-  
+  const images = car.imageUrls && car.imageUrls.length > 0 
+    ? car.imageUrls 
+    : ['/assets/images/default-car.png'];
+
+  const nextImage = useCallback(() => {
+    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
+  }, [images.length]);
+
+  const prevImage = useCallback(() => {
+    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
+  }, [images.length]);
+
+  useEffect(() => {
+    if (images.length > 1) {
+      const timer = setTimeout(nextImage, SLIDER_INTERVAL);
+      return () => clearTimeout(timer);
+    }
+  }, [currentImageIndex, images.length, nextImage]);
+
   const displayPrice = typeof car.pricePerHour === 'number' 
     ? car.pricePerHour.toFixed(2) 
     : 'N/A';
@@ -32,11 +51,10 @@ export default function CarCard({ car, isFavorite, onToggleFavorite, isAuthentic
   };
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click when favorite button is clicked
+    e.stopPropagation(); 
     if (onToggleFavorite && isAuthenticated) {
       onToggleFavorite(car.id, !!isFavorite);
     } else if (!isAuthenticated && onToggleFavorite) {
-      // Optionally redirect to login or show a toast
       router.push('/login?redirect=' + window.location.pathname);
     }
   };
@@ -44,26 +62,62 @@ export default function CarCard({ car, isFavorite, onToggleFavorite, isAuthentic
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
       <CardHeader className="p-0 relative">
-        <div className="aspect-video relative w-full">
+        <div className="aspect-video relative w-full group">
           <Image 
-            src={primaryImageUrl} 
-            alt={car.name} 
+            src={images[currentImageIndex]} 
+            alt={`${car.name} - image ${currentImageIndex + 1}`}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover"
+            className="object-cover transition-opacity duration-500 ease-in-out"
             data-ai-hint={car.aiHint || 'car'}
             priority={false}
+            key={images[currentImageIndex]} // Force re-render for transition
             onError={(e) => { 
               (e.target as HTMLImageElement).src = '/assets/images/default-car.png';
               (e.target as HTMLImageElement).alt = 'Image failed to load';
             }}
           />
+          {images.length > 1 && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-1/2 left-1 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-1/2 right-1 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-1.5">
+                {images.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(index); }}
+                    className={cn(
+                      "h-2 w-2 rounded-full transition-all duration-300",
+                      currentImageIndex === index ? "bg-white scale-125" : "bg-white/50 hover:bg-white/75"
+                    )}
+                    aria-label={`Go to image ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
         {isAuthenticated && onToggleFavorite && (
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-2 right-2 bg-background/70 hover:bg-background rounded-full h-8 w-8"
+            className="absolute top-2 right-2 bg-background/70 hover:bg-background rounded-full h-8 w-8 z-10"
             onClick={handleFavoriteClick}
             aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
           >
