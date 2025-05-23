@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { CarFront, LogIn, UserPlus, HomeIcon, Shield, UserCircle, LogOut, CalendarCheck2, Heart } from 'lucide-react'; 
+import { CarFront, LogIn, UserPlus, HomeIcon, Shield, UserCircle, LogOut, CalendarCheck2, Heart, Info } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const defaultNavItems = [
   { href: '/', label: 'Home', icon: HomeIcon, authRequired: false, publicOnly: false },
   { href: '/cars', label: 'Browse Cars', icon: CarFront, authRequired: false, publicOnly: false },
+  { href: '/about', label: 'About Us', icon: Info, authRequired: false, publicOnly: false },
 ];
 
 const publicNavItems = [
@@ -44,21 +45,26 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
   const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
-    const fetchSiteSettings = async () => {
-      try {
-        const response = await fetch('/api/settings');
-        if (response.ok) {
-          const settings: SiteSettings = await response.json();
-          if (settings.siteTitle) {
-            setCurrentSiteTitle(settings.siteTitle);
+    // Fetch site settings only if initialSiteTitle is not provided or to keep it dynamic
+    if (!initialSiteTitle) {
+      const fetchSiteSettings = async () => {
+        try {
+          const response = await fetch('/api/settings');
+          if (response.ok) {
+            const settings: SiteSettings = await response.json();
+            if (settings.siteTitle) {
+              setCurrentSiteTitle(settings.siteTitle);
+            }
           }
+        } catch (error) {
+          console.error("Failed to fetch site settings for header:", error);
+          // setCurrentSiteTitle will remain initialSiteTitle or "Travel Yatra"
         }
-      } catch (error) {
-        console.error("Failed to fetch site settings for header:", error);
-        setCurrentSiteTitle(initialSiteTitle || "Travel Yatra");
-      }
-    };
-    fetchSiteSettings();
+      };
+      fetchSiteSettings();
+    } else {
+        setCurrentSiteTitle(initialSiteTitle);
+    }
   }, [initialSiteTitle]);
 
 
@@ -101,7 +107,8 @@ export default function Header({ siteTitle: initialSiteTitle }: HeaderProps) {
     toast({ title: "Logged Out", description: "You have been successfully logged out." });
     router.push('/'); 
     // Force a re-render or reload if state updates aren't picked up immediately by other components
-    window.location.reload(); // Simple way to ensure everything re-evaluates auth state
+    // A soft navigation or re-fetch of user data might be better than a full reload in some cases
+    setTimeout(() => router.refresh(), 100); // Trigger a refresh to re-evaluate auth state
   };
 
   const currentNavItems = [
