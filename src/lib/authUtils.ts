@@ -14,7 +14,8 @@ interface DecodedToken {
 }
 
 interface AuthResult {
-  user?: DecodedToken; // Always populated on successful verification
+  user?: DecodedToken;   // Populated if token is valid
+  admin?: DecodedToken;  // Populated if user.role is 'Admin'
   error?: string;
   status?: number;
 }
@@ -36,11 +37,20 @@ export async function verifyAuth(req: NextRequest, allowedRoles?: UserRole[]): P
   try {
     const decoded = jwt.verify(token, jwtSecret) as DecodedToken;
 
-    if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(decoded.role)) {
-      return { error: 'Forbidden: Insufficient permissions.', status: 403 };
+    // First, check if the user's role is among the allowed roles, if allowedRoles are specified
+    if (allowedRoles && allowedRoles.length > 0) {
+      if (!allowedRoles.includes(decoded.role)) {
+        return { error: 'Forbidden: Insufficient permissions.', status: 403, user: decoded };
+      }
     }
     
-    return { user: decoded };
+    // If role check passed (or no specific roles were required for this particular verification step)
+    // Now, conditionally populate the 'admin' field if the user's role is indeed 'Admin'.
+    const result: AuthResult = { user: decoded };
+    if (decoded.role === 'Admin') {
+      result.admin = decoded; // Specifically populate for 'Admin' role
+    }
+    return result;
 
   } catch (error: any) {
     console.error('JWT verification error:', error.name, error.message);
