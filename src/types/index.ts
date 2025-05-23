@@ -49,6 +49,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  phoneNumber?: string; // Added phoneNumber
   role: UserRole;
   createdAt: string;
   updatedAt?: string;
@@ -94,7 +95,7 @@ export interface SiteSettings {
   smtpHost?: string;
   smtpPort?: number;
   smtpUser?: string;
-  smtpPass?: string; // Consider not storing directly or encrypting if stored
-  smtpSecure?: boolean; // true for SSL/TLS (e.g., port 465), false otherwise
-  emailFrom?: string; // Default "from" address for emails
+  smtpPass?: string; 
+  smtpSecure?: boolean; 
+  emailFrom?: string; 
 }

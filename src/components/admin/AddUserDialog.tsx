@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole } from '@/types';
-import { Loader2, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { Loader2, Eye, EyeOff, KeyRound, Phone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface AddUserDialogProps {
@@ -26,9 +26,10 @@ interface AddUserDialogProps {
   children: React.ReactNode;
 }
 
-const initialUserState: Omit<User, 'id' | 'createdAt' | 'role'> & { password?: string; role: UserRole } = {
+const initialUserState: Omit<User, 'id' | 'createdAt' | 'role'> & { password?: string; role: UserRole; phoneNumber?: string } = {
   name: '',
   email: '',
+  phoneNumber: '',
   password: '',
   role: 'Customer', 
 };
@@ -130,6 +131,13 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div><Label htmlFor="add-user-name">Full Name</Label><Input id="add-user-name" name="name" value={userData.name} onChange={handleChange} required /></div>
           <div><Label htmlFor="add-user-email">Email</Label><Input id="add-user-email" name="email" type="email" value={userData.email} onChange={handleChange} required /></div>
+          <div>
+            <Label htmlFor="add-user-phoneNumber">Phone Number (Optional)</Label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input id="add-user-phoneNumber" name="phoneNumber" type="tel" value={userData.phoneNumber || ''} onChange={handleChange} className="pl-10" />
+            </div>
+          </div>
           <div>
             <Label htmlFor="add-user-password">Password</Label>
             <div className="relative">

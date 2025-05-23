@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { User, Address, UserDocument as UserDocumentType, DocumentStatus } from '@/types';
-import { Loader2, UserCircle, Mail, Home, MapPin, UploadCloud, FileText, ShieldAlert, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, UserCircle, Mail, Home, MapPin, UploadCloud, FileText, ShieldAlert, CheckCircle, XCircle, AlertCircle, Phone } from 'lucide-react';
 import Image from 'next/image';
 import { Badge, BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const [isUpdating, setIsUpdating] = useState(false);
   
   const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(''); // Added phoneNumber state
   const [address, setAddress] = useState<Address>({ street: '', city: '', state: '', zip: '', country: '' });
   const [location, setLocation] = useState('');
 
@@ -68,6 +69,7 @@ export default function ProfilePage() {
         const data: User = await response.json();
         setUser(data);
         setName(data.name || '');
+        setPhoneNumber(data.phoneNumber || '');
         setAddress(data.address || { street: '', city: '', state: '', zip: '', country: '' });
         setLocation(data.location || '');
       } catch (error: any) {
@@ -99,8 +101,10 @@ export default function ProfilePage() {
         return;
     }
 
-    const updatePayload: Partial<Pick<User, 'name' | 'address' | 'location'>> = {};
+    const updatePayload: Partial<Pick<User, 'name' | 'address' | 'location' | 'phoneNumber'>> = {};
     if (name !== user?.name) updatePayload.name = name;
+    if (phoneNumber !== (user?.phoneNumber || '')) updatePayload.phoneNumber = phoneNumber; // Handle empty string correctly
+
     if (JSON.stringify(address) !== JSON.stringify(user?.address || { street: '', city: '', state: '', zip: '', country: '' })) updatePayload.address = address;
     if (location !== user?.location) updatePayload.location = location;
     
@@ -113,7 +117,7 @@ export default function ProfilePage() {
         return;
     }
     if (filledAddressFields === 0 && user?.address && (user.address.street || user.address.city)) { 
-        updatePayload.address = { street: '', city: '', state: '', zip: '', country: '' }; // Explicitly clear
+        updatePayload.address = { street: '', city: '', state: '', zip: '', country: '' }; 
     } else if (filledAddressFields === 0) {
         delete updatePayload.address; 
     }
@@ -148,9 +152,10 @@ export default function ProfilePage() {
       const result = await response.json();
       setUser(result.user); 
       setName(result.user.name || '');
+      setPhoneNumber(result.user.phoneNumber || '');
       setAddress(result.user.address || { street: '', city: '', state: '', zip: '', country: '' });
       setLocation(result.user.location || '');
-      localStorage.setItem('authUser', JSON.stringify(result.user)); // Update local authUser
+      localStorage.setItem('authUser', JSON.stringify(result.user)); 
 
       toast({ title: "Profile Updated", description: "Your information has been saved." });
     } catch (error: any) {
@@ -182,10 +187,10 @@ export default function ProfilePage() {
 
     let uploadedFilePath = '';
     try {
-      const uploadResponse = await fetch(`/api/upload?destination=documents`, { // Ensure destination is set
+      const uploadResponse = await fetch(`/api/upload?destination=documents`, { 
         method: 'POST',
         body: formData,
-         headers: { 'Authorization': `Bearer ${token}` }, // Assuming upload needs auth
+         headers: { 'Authorization': `Bearer ${token}` }, 
       });
       const uploadResult = await uploadResponse.json();
       if (!uploadResponse.ok || !uploadResult.success) {
@@ -299,6 +304,13 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+            <div>
+              <Label htmlFor="phoneNumber">Phone Number</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input id="phoneNumber" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="e.g., +1234567890" className="pl-10"/>
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label className="flex items-center"><Home className="h-5 w-5 mr-2 text-primary"/> Address</Label>
@@ -330,9 +342,7 @@ export default function ProfilePage() {
           <CardTitle className="text-2xl font-bold text-primary flex items-center">
             <UploadCloud className="h-7 w-7 mr-3 text-accent" /> Verification Documents
           </CardTitle>
-          <CardDescription>
-            Upload your Photo ID and Driving License for verification.
-          </CardDescription>
+          <CardDescription>Upload your Photo ID and Driving License for verification.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -403,15 +413,15 @@ export default function ProfilePage() {
                         </div>
                         <p className="text-xs text-muted-foreground">Uploaded: {new Date(doc.uploadedAt).toLocaleString()}</p>
                         {doc.verifiedAt && <p className="text-xs text-muted-foreground">Reviewed: {new Date(doc.verifiedAt).toLocaleString()}</p>}
+                         {doc.adminComments && (
+                            <p className={cn("text-xs mt-1 p-1.5 rounded-md", 
+                                doc.status === 'Rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
+                            )}>
+                                <strong>Admin Comments:</strong> {doc.adminComments}
+                            </p>
+                        )}
                       </div>
                     </div>
-                    {doc.adminComments && (
-                      <p className={cn("text-sm mt-2 p-2 rounded-md", 
-                        doc.status === 'Rejected' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
-                      )}>
-                        <strong>Admin Comments:</strong> {doc.adminComments}
-                      </p>
-                    )}
                   </li>
                 ))}
               </ul>
@@ -422,4 +432,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-    

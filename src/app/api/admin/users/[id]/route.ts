@@ -15,6 +15,7 @@ interface UserDocument extends Omit<User, 'id'> {
 
 const UpdateUserSchema = z.object({
   name: z.string().min(1, "Full name is required").optional(),
+  phoneNumber: z.string().optional(), // Added phoneNumber
   role: z.enum(['Customer', 'Manager', 'Admin']).optional(),
 });
 
@@ -51,8 +52,9 @@ export async function GET(
       id: _id.toHexString(),
       name: rest.name,
       email: rest.email,
+      phoneNumber: rest.phoneNumber,
       role: rest.role,
-      createdAt: String(rest.createdAt), // Ensure string
+      createdAt: String(rest.createdAt), 
       address: rest.address,
       location: rest.location,
       documents: rest.documents || [],
@@ -73,11 +75,8 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   const authResult = await verifyAuth(req, ['Admin']);
-  if (authResult.error || !authResult.user) {
-    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
-  }
-  if (authResult.user.role !== 'Admin') {
-    return NextResponse.json({ message: 'Forbidden: Only Admins can update users.' }, { status: 403 });
+   if (authResult.error || !authResult.admin) { // Check for admin specifically
+    return NextResponse.json({ message: authResult.error || 'Authentication required or insufficient permissions' }, { status: authResult.status || 401 });
   }
 
   try {
@@ -102,6 +101,14 @@ export async function PUT(
     }
     
     const updatePayload: { [key: string]: any } = { ...userDataToUpdate };
+    // Ensure empty phoneNumber is handled correctly (set to empty string or unset)
+    if ('phoneNumber' in userDataToUpdate && userDataToUpdate.phoneNumber === '') {
+        updatePayload.phoneNumber = ""; // or use $unset: { phoneNumber: "" } if you prefer to remove it
+    } else if ('phoneNumber' in userDataToUpdate) {
+        updatePayload.phoneNumber = userDataToUpdate.phoneNumber;
+    }
+
+
     updatePayload.updatedAt = new Date().toISOString();
 
 
@@ -128,6 +135,7 @@ export async function PUT(
       id: _id.toHexString(),
       name: rest.name,
       email: rest.email,
+      phoneNumber: rest.phoneNumber,
       role: rest.role,
       createdAt: String(rest.createdAt),
       address: rest.address,
@@ -138,7 +146,8 @@ export async function PUT(
     };
     return NextResponse.json(userResponse, { status: 200 });
 
-  } catch (error: any) {
+  } catch (error: any)
+{
     console.error('Failed to update user:', error);
     return NextResponse.json({ message: error.message || 'Failed to update user' }, { status: 500 });
   }

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Mail, KeyRound, UserCircle, Loader2, Eye, EyeOff } from "lucide-react";
+import { UserPlus, Mail, KeyRound, UserCircle, Loader2, Eye, EyeOff, Phone } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -16,6 +16,7 @@ export default function SignupPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(''); // Added phoneNumber state
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +61,7 @@ export default function SignupPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fullName, email, password }),
+        body: JSON.stringify({ fullName, email, password, phoneNumber }), // Include phoneNumber
       });
 
       const data = await response.json();
@@ -124,6 +125,21 @@ export default function SignupPage() {
                   required 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Phone Number (Optional)</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input 
+                  id="phoneNumber" 
+                  type="tel" 
+                  placeholder="e.g., +1234567890" 
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
                   disabled={isLoading}
                   className="pl-10"
                 />
@@ -193,9 +209,6 @@ export default function SignupPage() {
             <Button variant="link" asChild className="p-0 h-auto text-accent" disabled={isLoading}>
               <Link href="/login">Sign in here</Link>
             </Button>
-          </p>
-          <p className="text-muted-foreground text-xs pt-2">
-            (Social login options can be added here)
           </p>
         </CardFooter>
       </Card>

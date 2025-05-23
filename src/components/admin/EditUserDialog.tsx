@@ -19,13 +19,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole } from '@/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Phone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface EditUserDialogProps {
   user: User;
   onUserUpdated: () => void;
-  // children: React.ReactNode; // Removed as Dialog is controlled programmatically
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -34,6 +33,7 @@ const availableRoles: UserRole[] = ['Customer', 'Manager', 'Admin'];
 
 export default function EditUserDialog({ user, onUserUpdated, isOpen, onOpenChange }: EditUserDialogProps) {
   const [name, setName] = useState(user.name);
+  const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber || ''); // Added phoneNumber
   const [role, setRole] = useState<UserRole>(user.role);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -42,6 +42,7 @@ export default function EditUserDialog({ user, onUserUpdated, isOpen, onOpenChan
   useEffect(() => {
     if (isOpen && user) {
       setName(user.name);
+      setPhoneNumber(user.phoneNumber || '');
       setRole(user.role);
     }
   }, [isOpen, user]);
@@ -56,14 +57,15 @@ export default function EditUserDialog({ user, onUserUpdated, isOpen, onOpenChan
       return;
     }
 
-    const payload: Partial<Pick<User, 'name' | 'role'>> = {};
+    const payload: Partial<Pick<User, 'name' | 'role' | 'phoneNumber'>> = {};
     if (name !== user.name) payload.name = name;
+    if (phoneNumber !== (user.phoneNumber || '')) payload.phoneNumber = phoneNumber;
     if (role !== user.role) payload.role = role;
 
     if (Object.keys(payload).length === 0) {
       toast({ title: "No Changes", description: "No information was changed." });
       setIsLoading(false);
-      onOpenChange(false); // Close dialog if no changes
+      onOpenChange(false); 
       return;
     }
 
@@ -109,9 +111,6 @@ export default function EditUserDialog({ user, onUserUpdated, isOpen, onOpenChan
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      {/* <DialogTrigger asChild>
-        {children} 
-      </DialogTrigger> */}
       <DialogContent className="sm:max-w-md p-6">
         <DialogHeader>
           <DialogTitle>Edit User: {user.name}</DialogTitle>
@@ -125,6 +124,13 @@ export default function EditUserDialog({ user, onUserUpdated, isOpen, onOpenChan
           <div>
             <Label htmlFor="edit-user-email">Email (Read-only)</Label>
             <Input id="edit-user-email" name="email" type="email" value={user.email} readOnly disabled className="bg-muted/50 cursor-not-allowed"/>
+          </div>
+          <div>
+            <Label htmlFor="edit-user-phoneNumber">Phone Number</Label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input id="edit-user-phoneNumber" name="phoneNumber" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="pl-10" />
+            </div>
           </div>
           <div>
             <Label htmlFor="edit-user-role">Role</Label>

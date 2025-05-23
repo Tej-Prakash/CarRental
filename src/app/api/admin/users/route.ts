@@ -12,34 +12,33 @@ import { ObjectId } from 'mongodb';
 const UserInputSchema = z.object({
   name: z.string().min(1, "Full name is required"),
   email: z.string().email("Invalid email address"),
+  phoneNumber: z.string().optional(), // Added phoneNumber
   password: z.string().min(6, "Password must be at least 6 characters long"),
   role: z.enum(['Customer', 'Manager', 'Admin']),
 });
 
-interface UserDbDoc {
+interface UserDbDoc extends Omit<User, 'id' | 'passwordHash'> { // passwordHash is not on User type
   _id: ObjectId;
-  name: string;
-  email: string;
   passwordHash: string;
-  role: UserRole;
+  // Ensure all fields from User type are potentially here
+  phoneNumber?: string;
   createdAt: string; 
   updatedAt?: string; 
-  address?: UserTypeDocument['address']; 
+  address?: User['address']; 
   location?: string;
-  documents?: UserTypeDocument[]; 
+  documents?: UserDocument[]; 
+  favoriteCarIds?: string[];
 }
+
 
 const ITEMS_PER_PAGE = 10;
 
 export async function POST(req: NextRequest) {
   const authResult = await verifyAuth(req, ['Admin']);
-  if (authResult.error || !authResult.user) {
-    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
+  if (authResult.error || !authResult.admin) {
+    return NextResponse.json({ message: authResult.error || 'Authentication required or insufficient permissions' }, { status: authResult.status || 401 });
   }
-  if (authResult.user.role !== 'Admin') {
-    return NextResponse.json({ message: 'Forbidden: Only Admins can add users.' }, { status: 403 });
-  }
-
+  
   try {
     const rawData = await req.json();
     const validation = UserInputSchema.safeParse(rawData);
@@ -48,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invalid user data', errors: validation.error.flatten().fieldErrors }, { status: 400 });
     }
     
-    const { name, email, password, role } = validation.data;
+    const { name, email, password, role, phoneNumber } = validation.data;
 
     const client = await clientPromise;
     const db = client.db();
@@ -61,14 +60,16 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const isoCreatedAt = new Date().toISOString();
 
-    const newUserDocument = {
+    const newUserDocument: Omit<UserDbDoc, '_id'> = {
       name,
       email,
       passwordHash: hashedPassword,
+      phoneNumber: phoneNumber || undefined,
       role,
       createdAt: isoCreatedAt,
       updatedAt: isoCreatedAt, 
       documents: [], 
+      favoriteCarIds: [],
     };
 
     const result = await db.collection('users').insertOne(newUserDocument);
@@ -81,9 +82,11 @@ export async function POST(req: NextRequest) {
       id: result.insertedId.toHexString(),
       name,
       email,
+      phoneNumber: newUserDocument.phoneNumber,
       role,
       createdAt: isoCreatedAt,
       documents: [],
+      favoriteCarIds: [],
     };
 
     return NextResponse.json(createdUser, { status: 201 });
@@ -98,8 +101,8 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const authResult = await verifyAuth(req, ['Admin', 'Manager']);
-  if (authResult.error || !authResult.user) {
-    return NextResponse.json({ message: authResult.error || 'Authentication required' }, { status: authResult.status || 401 });
+   if (authResult.error || !authResult.user) { // user for Manager, admin for Admin specific if needed elsewhere
+    return NextResponse.json({ message: authResult.error || 'Authentication required or insufficient permissions' }, { status: authResult.status || 401 });
   }
 
   try {
@@ -111,7 +114,7 @@ export async function GET(req: NextRequest) {
     const db = client.db();
     const usersCollection = db.collection<UserDbDoc>('users');
     
-    const query = {}; // For future search/filter on this page
+    const query = {}; 
 
     const totalItems = await usersCollection.countDocuments(query);
     const totalPages = Math.ceil(totalItems / limit);
@@ -129,12 +132,14 @@ export async function GET(req: NextRequest) {
         id: _id.toHexString(),
         name: rest.name,
         email: rest.email,
+        phoneNumber: rest.phoneNumber,
         role: rest.role,
         createdAt: String(rest.createdAt),
         updatedAt: rest.updatedAt ? String(rest.updatedAt) : undefined,
         address: rest.address,
         location: rest.location,
         documents: rest.documents || [], 
+        favoriteCarIds: rest.favoriteCarIds || [],
       };
     });
 

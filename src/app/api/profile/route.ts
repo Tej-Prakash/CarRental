@@ -10,6 +10,7 @@ import { ObjectId } from 'mongodb';
 
 interface UserProfileUpdateInput {
   name?: string;
+  phoneNumber?: string;
   address?: Address;
   location?: string;
 }
@@ -24,6 +25,7 @@ const AddressSchema = z.object({
 
 const ProfileUpdateSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
+  phoneNumber: z.string().optional(), // Add basic validation if needed, e.g., .regex(/^\+[1-9]\d{1,14}$/, "Invalid phone number format")
   address: AddressSchema.optional(),
   location: z.string().min(1, "Location is required").optional(),
 }).refine(data => Object.keys(data).length > 0, {
@@ -53,7 +55,7 @@ export async function GET(req: NextRequest) {
     // Ensure favoriteCarIds is always an array, even if it's undefined/null in DB
     const favoriteCarIds = Array.isArray(userData.favoriteCarIds) ? userData.favoriteCarIds : [];
 
-    return NextResponse.json({ ...userData, id: _id.toHexString(), favoriteCarIds } as User, { status: 200 });
+    return NextResponse.json({ ...userData, id: _id.toHexString(), favoriteCarIds, phoneNumber: userData.phoneNumber } as User, { status: 200 });
 
   } catch (error) {
     console.error('Failed to fetch user profile:', error);
@@ -79,6 +81,7 @@ export async function PUT(req: NextRequest) {
     const updateFields: Record<string, any> = {};
 
     if (updateData.name) updateFields.name = updateData.name;
+    if (updateData.phoneNumber !== undefined) updateFields.phoneNumber = updateData.phoneNumber; // Allow setting to empty string
     if (updateData.address) updateFields.address = updateData.address;
     if (updateData.location) updateFields.location = updateData.location;
     

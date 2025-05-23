@@ -22,6 +22,7 @@ This document provides an overview of the backend API endpoints available in the
   {
     "fullName": "string",
     "email": "string (email format)",
+    "phoneNumber": "string (optional)",
     "password": "string (min 6 characters)"
   }
   ```
@@ -30,8 +31,10 @@ This document provides an overview of the backend API endpoints available in the
   {
     "message": "User registered successfully",
     "user": {
+      "id": "string (MongoDB ObjectId)",
       "name": "string",
       "email": "string",
+      "phoneNumber": "string (optional)",
       "role": "Customer",
       "createdAt": "string (ISO date)"
     }
@@ -62,6 +65,7 @@ This document provides an overview of the backend API endpoints available in the
       "id": "string (MongoDB ObjectId)",
       "name": "string",
       "email": "string",
+      "phoneNumber": "string (optional)",
       "role": "Customer | Manager | Admin",
       "createdAt": "string (ISO date)",
       // ... other user fields excluding passwordHash
@@ -179,6 +183,7 @@ This document provides an overview of the backend API endpoints available in the
     "id": "string",
     "name": "string",
     "email": "string",
+    "phoneNumber": "string (optional)",
     "role": "Customer | Manager | Admin",
     "address": { /* Address object */ },
     "location": "string",
@@ -194,12 +199,13 @@ This document provides an overview of the backend API endpoints available in the
 
 ### 3.2. Update User Profile
 - **Endpoint:** `PUT /api/profile`
-- **Description:** Updates the profile (name, address, location) of the authenticated user.
+- **Description:** Updates the profile (name, address, location, phoneNumber) of the authenticated user.
 - **Authentication:** User (JWT Required)
 - **Request Body (Zod: ProfileUpdateSchema):**
   ```json
   {
     "name": "string (optional)",
+    "phoneNumber": "string (optional, can be empty string to clear)",
     "address": { /* Address object, optional */ },
     "location": "string (optional)"
   }
@@ -563,6 +569,7 @@ This document provides an overview of the backend API endpoints available in the
   {
     "name": "string",
     "email": "string",
+    "phoneNumber": "string (optional)",
     "password": "string (min 6 chars)",
     "role": "Customer | Manager | Admin"
   }
@@ -579,13 +586,14 @@ This document provides an overview of the backend API endpoints available in the
 
 #### 7.2.4. Update User (Admin)
 - **Endpoint:** `PUT /api/admin/users/[id]`
-- **Description:** Updates a user's name and role.
+- **Description:** Updates a user's name, phone number, and role.
 - **Authentication:** Admin Only
 - **URL Parameters:** `id` (string)
 - **Request Body (Zod: UpdateUserSchema):**
   ```json
   {
     "name": "string (optional)",
+    "phoneNumber": "string (optional, can be empty string to clear)",
     "role": "Customer | Manager | Admin (optional)"
   }
   ```

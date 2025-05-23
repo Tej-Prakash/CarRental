@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { User, UserDocument, DocumentStatus } from '@/types';
 import { format, parseISO } from 'date-fns';
-import { UserCircle, Mail, Shield, CalendarDays, MapPin, Home, FileText, CheckCircle, XCircle, AlertCircle, Info } from "lucide-react";
+import { UserCircle, Mail, Shield, CalendarDays, MapPin, Home, FileText, CheckCircle, XCircle, AlertCircle, Info, Phone } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +38,7 @@ export default function ViewUserDialog({ user, isOpen, onOpenChange }: ViewUserD
   }
 
   const getRoleVariant = (role: User['role']): BadgeProps["variant"] => {
-    return role === 'Admin' ? 'default' : 'secondary';
+    return role === 'Admin' ? 'default' : (role === 'Manager' ? 'outline' : 'secondary');
   };
 
   const getDocumentStatusVariant = (status?: DocumentStatus): BadgeProps["variant"] => {
@@ -85,6 +85,13 @@ export default function ViewUserDialog({ user, isOpen, onOpenChange }: ViewUserD
             <p className={labelClass}><Mail className="mr-2 h-4 w-4 text-accent" />Email</p>
             <p className={valueClass}>{user.email}</p>
           </div>
+          
+          {user.phoneNumber && (
+            <div className={detailItemClass}>
+              <p className={labelClass}><Phone className="mr-2 h-4 w-4 text-accent" />Phone Number</p>
+              <p className={valueClass}>{user.phoneNumber}</p>
+            </div>
+          )}
 
           <div className={detailItemClass}>
             <p className={labelClass}><Shield className="mr-2 h-4 w-4 text-accent" />Role</p>
@@ -186,5 +193,3 @@ export default function ViewUserDialog({ user, isOpen, onOpenChange }: ViewUserD
     </Dialog>
   );
 }
-
-    

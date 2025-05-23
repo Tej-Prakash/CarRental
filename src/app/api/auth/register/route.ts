@@ -4,14 +4,14 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
-import type { User } from '@/types'; // Ensure User type is appropriate
+import type { User } from '@/types'; 
 
 export async function POST(req: NextRequest) {
   try {
-    const { fullName, email, password } = await req.json();
+    const { fullName, email, password, phoneNumber } = await req.json();
 
     if (!fullName || !email || !password) {
-      return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ message: 'Missing required fields (fullName, email, password)' }, { status: 400 });
     }
 
     if (password.length < 6) {
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const client = await clientPromise;
-    const db = client.db(); // Defaults to DB name in connection string or 'test'
+    const db = client.db(); 
 
     const existingUser = await db.collection<User>('users').findOne({ email });
     if (existingUser) {
@@ -31,18 +31,21 @@ export async function POST(req: NextRequest) {
     const newUser: Omit<User, 'id'> & { passwordHash: string } = {
       name: fullName,
       email,
-      passwordHash: hashedPassword, // Store hashed password
-      role: 'Customer', // Default role for new signups
+      passwordHash: hashedPassword, 
+      phoneNumber: phoneNumber || undefined, // Store phone number if provided
+      role: 'Customer', 
       createdAt: new Date().toISOString(),
+      documents: [],
+      favoriteCarIds: [],
     };
 
     const result = await db.collection('users').insertOne(newUser);
     
-    // Create a user object to return, omitting the passwordHash
-    const registeredUser: Partial<User> = {
-        // id: result.insertedId.toString(), // MongoDB _id is an ObjectId, convert if needed or let it be
+    const registeredUser: Partial<User> & { id: string } = {
+        id: result.insertedId.toString(), 
         name: newUser.name,
         email: newUser.email,
+        phoneNumber: newUser.phoneNumber,
         role: newUser.role,
         createdAt: newUser.createdAt,
     }
