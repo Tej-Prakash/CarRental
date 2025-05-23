@@ -7,25 +7,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Car as CarType, User } from '@/types'; 
-import { Car, Filter, Search, Loader2 } from 'lucide-react';
+import { Car, Filter, Search, Loader2, CalendarIcon, MapPin } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation'; 
 import PaginationControls from '@/components/PaginationControls';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { DateRange } from "react-day-picker";
+import { format, addDays, parse, setHours, setMinutes, isValid, isBefore, startOfToday } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 9;
 
 export default function CarsPage() {
   const [allCarTypes, setAllCarTypes] = useState<string[]>(['all']);
   const [displayedCars, setDisplayedCars] = useState<CarType[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // For name/keyword
   const [carTypeFilter, setCarTypeFilter] = useState('all');
   const [priceFilter, setPriceFilter] = useState('all'); 
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter(); 
   
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   const [currentUserFavoriteIds, setCurrentUserFavoriteIds] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -33,11 +37,33 @@ export default function CarsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  // New state for location and date-time search
+  const [locationSearch, setLocationSearch] = useState('');
+  const today = startOfToday();
+  const [searchDateRange, setSearchDateRange] = useState<DateRange | undefined>({
+    from: undefined,
+    to: undefined,
+  });
+  const [searchStartTime, setSearchStartTime] = useState<string>('09:00');
+  const [searchEndTime, setSearchEndTime] = useState<string>('17:00');
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  
+  // State to hold applied search criteria for API call
+  const [appliedSearchCriteria, setAppliedSearchCriteria] = useState({
+    debouncedSearchTerm: searchTerm,
+    carType: carTypeFilter,
+    price: priceFilter,
+    location: locationSearch,
+    startDate: '',
+    endDate: '',
+  });
+
+
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setCurrentPage(1); // Reset page on new search term
-    }, 300); 
+      setAppliedSearchCriteria(prev => ({...prev, debouncedSearchTerm: searchTerm}));
+      setCurrentPage(1); 
+    }, 500); 
 
     return () => {
       clearTimeout(handler);
@@ -47,11 +73,10 @@ export default function CarsPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [carTypeFilter, priceFilter]);
+  }, [carTypeFilter, priceFilter, locationSearch]);
 
 
   const fetchInitialData = useCallback(async () => {
-    // Fetch Car Types
     try {
       const carTypesResponse = await fetch('/api/cars?limit=1000'); 
       if (!carTypesResponse.ok) throw new Error('Failed to fetch initial car data for types');
@@ -62,7 +87,6 @@ export default function CarsPage() {
       toast({ title: "Error fetching car types", description: error.message, variant: "destructive" });
     }
 
-    // Fetch User Profile (for favorites)
     const token = localStorage.getItem('authToken');
     if (token) {
       setIsAuthenticated(true);
@@ -90,18 +114,18 @@ export default function CarsPage() {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  const fetchFilteredCars = useCallback(async (page = 1) => {
+  const fetchFilteredCars = useCallback(async (page = 1, criteria = appliedSearchCriteria) => {
     setIsLoading(true);
     const queryParams = new URLSearchParams({
       page: String(page),
       limit: String(ITEMS_PER_PAGE),
     });
 
-    if (debouncedSearchTerm) queryParams.append('search', debouncedSearchTerm);
-    if (carTypeFilter !== 'all') queryParams.append('type', carTypeFilter);
+    if (criteria.debouncedSearchTerm) queryParams.append('search', criteria.debouncedSearchTerm);
+    if (criteria.carType !== 'all') queryParams.append('type', criteria.carType);
     
-    if (priceFilter !== 'all') {
-      const [minStr, maxStr] = priceFilter.split('-');
+    if (criteria.price !== 'all') {
+      const [minStr, maxStr] = criteria.price.split('-');
       const min = Number(minStr);
       if (!isNaN(min)) queryParams.append('minPrice', String(min)); 
       if (maxStr) {
@@ -109,6 +133,10 @@ export default function CarsPage() {
         if (!isNaN(max)) queryParams.append('maxPrice', String(max)); 
       }
     }
+    if (criteria.location) queryParams.append('location', criteria.location);
+    if (criteria.startDate) queryParams.append('searchStartDate', criteria.startDate);
+    if (criteria.endDate) queryParams.append('searchEndDate', criteria.endDate);
+
 
     try {
       const response = await fetch(`/api/cars?${queryParams.toString()}`);
@@ -129,11 +157,58 @@ export default function CarsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearchTerm, carTypeFilter, priceFilter, toast]);
+  }, [toast, appliedSearchCriteria]);
 
   useEffect(() => {
-    fetchFilteredCars(currentPage);
-  }, [fetchFilteredCars, currentPage]);
+    fetchFilteredCars(currentPage, appliedSearchCriteria);
+  }, [fetchFilteredCars, currentPage, appliedSearchCriteria]);
+
+  const handleSearchButtonClick = () => {
+    let finalStartDateISO = '';
+    let finalEndDateISO = '';
+
+    if (searchDateRange?.from && searchStartTime) {
+        const [startH, startM] = searchStartTime.split(':').map(Number);
+        let tempStart = setMinutes(setHours(searchDateRange.from, startH), startM);
+        if (isValid(tempStart)) {
+            finalStartDateISO = tempStart.toISOString();
+        } else {
+            toast({ title: "Invalid Start Time", description: "Please select a valid start time.", variant: "destructive" });
+            return;
+        }
+    }
+    if (searchDateRange?.to && searchEndTime) {
+        const [endH, endM] = searchEndTime.split(':').map(Number);
+        let tempEnd = setMinutes(setHours(searchDateRange.to, endH), endM);
+         if (isValid(tempEnd)) {
+            finalEndDateISO = tempEnd.toISOString();
+        } else {
+            toast({ title: "Invalid End Time", description: "Please select a valid end time.", variant: "destructive" });
+            return;
+        }
+    }
+    
+    if (finalStartDateISO && finalEndDateISO && isBefore(parseISO(finalEndDateISO), parseISO(finalStartDateISO))) {
+        toast({ title: "Invalid Date/Time Range", description: "End date/time must be after start date/time.", variant: "destructive" });
+        return;
+    }
+    
+    if (finalStartDateISO && isBefore(parseISO(finalStartDateISO), new Date())) {
+      toast({ title: "Invalid Start Date/Time", description: "Start date/time cannot be in the past.", variant: "destructive" });
+      return;
+    }
+
+
+    setAppliedSearchCriteria({
+        debouncedSearchTerm: searchTerm,
+        carType: carTypeFilter,
+        price: priceFilter,
+        location: locationSearch,
+        startDate: finalStartDateISO,
+        endDate: finalEndDateISO,
+    });
+    setCurrentPage(1); // Reset to page 1 on new search
+  };
 
   const handleToggleFavorite = async (carId: string, isCurrentlyFavorite: boolean) => {
     const token = localStorage.getItem('authToken');
@@ -183,13 +258,89 @@ export default function CarsPage() {
       <section className="bg-card p-6 rounded-lg shadow-md">
         <h1 className="text-3xl font-bold text-primary mb-2 flex items-center">
           <Car className="h-8 w-8 mr-3 text-accent" />
-          Browse Our Fleet
+          Find Your Perfect Ride
         </h1>
-        <p className="text-muted-foreground mb-6">Find the perfect vehicle for your next adventure.</p>
+        <p className="text-muted-foreground mb-6">Search by location, date, time, and other preferences.</p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+          {/* Location Search */}
           <div>
-            <Label htmlFor="search" className="text-sm font-medium">Search by Name/Keyword</Label>
+            <Label htmlFor="locationSearch" className="text-sm font-medium">Location</Label>
+            <div className="relative mt-1">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input 
+                id="locationSearch" 
+                type="text" 
+                placeholder="e.g., Airport, Downtown" 
+                className="pl-10"
+                value={locationSearch}
+                onChange={(e) => setLocationSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Date Range Picker */}
+          <div>
+            <Label htmlFor="date-range-picker-trigger" className="text-sm font-medium">Dates</Label>
+            <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="date-range-picker-trigger"
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal mt-1",
+                    !searchDateRange?.from && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {searchDateRange?.from ? (
+                    searchDateRange.to ? (
+                      <>
+                        {format(searchDateRange.from, "LLL dd, y")} - {format(searchDateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(searchDateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick dates</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={searchDateRange?.from}
+                  selected={searchDateRange}
+                  onSelect={(selectedRange) => {
+                    setSearchDateRange(selectedRange);
+                    if (selectedRange?.from && selectedRange.to) {
+                      setIsDatePickerOpen(false);
+                    }
+                  }}
+                  numberOfMonths={1}
+                  disabled={{ before: today }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          {/* Time Pickers */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+                <Label htmlFor="searchStartTime" className="text-sm font-medium">Start Time</Label>
+                <Input type="time" id="searchStartTime" value={searchStartTime} onChange={(e) => setSearchStartTime(e.target.value)} className="w-full mt-1" disabled={!searchDateRange?.from}/>
+            </div>
+            <div>
+                <Label htmlFor="searchEndTime" className="text-sm font-medium">End Time</Label>
+                <Input type="time" id="searchEndTime" value={searchEndTime} onChange={(e) => setSearchEndTime(e.target.value)} className="w-full mt-1" disabled={!searchDateRange?.to}/>
+            </div>
+          </div>
+
+
+          {/* Existing Filters: SearchTerm, Type, Price */}
+          <div>
+            <Label htmlFor="search" className="text-sm font-medium">Keyword (Name/Desc)</Label>
             <div className="relative mt-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input 
@@ -228,6 +379,11 @@ export default function CarsPage() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+        <div className="mt-6 flex justify-end">
+            <Button onClick={handleSearchButtonClick} disabled={isLoading}>
+                <Search className="mr-2 h-4 w-4"/> Search Cars
+            </Button>
         </div>
       </section>
 
@@ -270,3 +426,4 @@ export default function CarsPage() {
     </div>
   );
 }
+
