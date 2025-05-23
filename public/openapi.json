@@ -22,8 +22,7 @@
           "state": { "type": "string" },
           "zip": { "type": "string" },
           "country": { "type": "string" }
-        },
-        "required": ["street", "city", "state", "zip", "country"]
+        }
       },
       "UserDocument": {
         "type": "object",
@@ -36,8 +35,7 @@
           "adminComments": { "type": "string", "nullable": true },
           "verifiedAt": { "type": "string", "format": "date-time", "nullable": true },
           "verifiedBy": { "type": "string", "nullable": true }
-        },
-        "required": ["type", "fileName", "filePath", "uploadedAt", "status"]
+        }
       },
       "User": {
         "type": "object",
@@ -68,8 +66,7 @@
         "properties": {
           "startDate": { "type": "string", "format": "date-time" },
           "endDate": { "type": "string", "format": "date-time" }
-        },
-        "required": ["startDate", "endDate"]
+        }
       },
       "Car": {
         "type": "object",
@@ -81,7 +78,7 @@
           "minNegotiablePrice": { "type": "number", "format": "float", "nullable": true },
           "maxNegotiablePrice": { "type": "number", "format": "float", "nullable": true },
           "discountPercent": { "type": "number", "minimum": 0, "maximum": 100, "nullable": true },
-          "imageUrls": { "type": "array", "items": { "type": "string", "format": "url" } },
+          "imageUrls": { "type": "array", "items": { "type": "string", "format": "uri" } },
           "description": { "type": "string" },
           "longDescription": { "type": "string" },
           "features": { "type": "array", "items": { "type": "string" } },
@@ -102,7 +99,7 @@
           "id": { "type": "string", "format": "objectid" },
           "carId": { "type": "string", "format": "objectid" },
           "carName": { "type": "string" },
-          "carImageUrl": { "type": "string", "format": "url", "nullable": true },
+          "carImageUrl": { "type": "string", "format": "uri", "nullable": true },
           "userId": { "type": "string", "format": "objectid" },
           "userName": { "type": "string" },
           "startDate": { "type": "string", "format": "date-time" },
@@ -121,207 +118,82 @@
           "id": { "type": "string", "format": "objectid", "nullable": true },
           "siteTitle": { "type": "string" },
           "defaultCurrency": { "type": "string", "enum": ["USD", "EUR", "GBP", "INR"] },
-          "maintenanceMode": { "type": "boolean", "default": false },
-          "sessionTimeoutMinutes": { "type": "integer", "default": 60 },
-          "globalDiscountPercent": { "type": "number", "minimum": 0, "maximum": 100, "nullable": true, "default": 0 },
-          "updatedAt": { "type": "string", "format": "date-time", "nullable": true }
-        }
-      },
-      "AdminSiteSettings": {
-        "allOf": [
-          { "$ref": "#/components/schemas/SiteSettings" },
-          {
-            "type": "object",
-            "properties": {
-              "smtpHost": { "type": "string", "nullable": true },
-              "smtpPort": { "type": "integer", "nullable": true },
-              "smtpUser": { "type": "string", "nullable": true },
-              "smtpSecure": { "type": "boolean", "default": false, "nullable": true },
-              "emailFrom": { "type": "string", "format": "email", "nullable": true }
-            }
-          }
-        ]
-      },
-      "RegisterInput": {
-        "type": "object",
-        "properties": {
-          "fullName": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
-          "phoneNumber": { "type": "string", "nullable": true },
-          "password": { "type": "string", "format": "password", "minLength": 6 }
-        },
-        "required": ["fullName", "email", "password"]
-      },
-      "LoginInput": {
-        "type": "object",
-        "properties": {
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "format": "password" }
-        },
-        "required": ["email", "password"]
-      },
-      "ForgotPasswordInput": {
-        "type": "object",
-        "properties": {
-          "email": { "type": "string", "format": "email"}
-        },
-        "required": ["email"]
-      },
-      "ResetPasswordInput": {
-        "type": "object",
-        "properties": {
-          "token": { "type": "string" },
-          "password": { "type": "string", "format": "password", "minLength": 6 }
-        },
-        "required": ["token", "password"]
-      },
-      "CarInput": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "type": { "type": "string", "enum": ["Sedan", "SUV", "Hatchback", "Truck", "Van", "Convertible", "Coupe"] },
-          "pricePerHour": { "type": "number", "exclusiveMinimum": 0 },
-          "minNegotiablePrice": { "type": "number", "exclusiveMinimum": 0, "nullable": true },
-          "maxNegotiablePrice": { "type": "number", "exclusiveMinimum": 0, "nullable": true },
-          "discountPercent": { "type": "number", "minimum": 0, "maximum": 100, "nullable": true },
-          "imageUrls": { "type": "array", "items": { "type": "string", "format": "url" }, "minItems": 1 },
-          "description": { "type": "string", "minLength": 10 },
-          "longDescription": { "type": "string", "minLength": 20 },
-          "features": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
-          "availability": { "type": "array", "items": { "$ref": "#/components/schemas/CarAvailability" }, "minItems": 1 },
-          "seats": { "type": "integer", "minimum": 1 },
-          "engine": { "type": "string", "minLength": 1 },
-          "transmission": { "type": "string", "enum": ["Automatic", "Manual"] },
-          "fuelType": { "type": "string", "enum": ["Petrol", "Diesel", "Electric", "Hybrid"] },
-          "rating": { "type": "number", "minimum": 0, "maximum": 5, "default": 0 },
-          "reviews": { "type": "integer", "minimum": 0, "default": 0 },
-          "location": { "type": "string", "minLength": 1 },
-          "aiHint": { "type": "string", "maxLength": 50, "nullable": true }
-        },
-        "required": ["name", "type", "pricePerHour", "imageUrls", "description", "longDescription", "features", "availability", "seats", "engine", "transmission", "fuelType", "location"]
-      },
-      "UpdateCarInput": { "allOf": [{ "$ref": "#/components/schemas/CarInput" }] },
-      "UserInputAdmin": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "email": { "type": "string", "format": "email" },
-          "phoneNumber": { "type": "string", "nullable": true },
-          "password": { "type": "string", "minLength": 6 },
-          "role": { "type": "string", "enum": ["Customer", "Manager", "Admin"] }
-        },
-        "required": ["name", "email", "password", "role"]
-      },
-      "UpdateUserInputAdmin": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string", "minLength": 1, "nullable": true },
-          "phoneNumber": { "type": "string", "nullable": true },
-          "role": { "type": "string", "enum": ["Customer", "Manager", "Admin"], "nullable": true }
-        }
-      },
-      "UpdateUserDocumentStatusInput": {
-        "type": "object",
-        "properties": {
-          "status": { "type": "string", "enum": ["Approved", "Rejected"] },
-          "adminComments": { "type": "string", "nullable": true }
-        },
-        "required": ["status"]
-      },
-      "UpdateBookingStatusInput": {
-        "type": "object",
-        "properties": {
-          "status": { "type": "string", "enum": ["Confirmed", "Cancelled", "Completed", "Cancellation Rejected"] }
-        },
-        "required": ["status"]
-      },
-      "SiteSettingsUpdateInput": {
-        "type": "object",
-        "properties": {
-          "siteTitle": { "type": "string", "minLength": 1 },
-          "defaultCurrency": { "type": "string", "enum": ["USD", "EUR", "GBP", "INR"] },
-          "maintenanceMode": { "type": "boolean", "default": false },
-          "sessionTimeoutMinutes": { "type": "integer", "minimum": 1, "default": 60 },
-          "globalDiscountPercent": { "type": "number", "minimum": 0, "maximum": 100, "default": 0, "nullable": true },
+          "maintenanceMode": { "type": "boolean", "nullable": true },
+          "sessionTimeoutMinutes": { "type": "integer", "nullable": true },
+          "globalDiscountPercent": { "type": "number", "minimum": 0, "maximum": 100, "nullable": true },
+          "updatedAt": { "type": "string", "format": "date-time", "nullable": true },
           "smtpHost": { "type": "string", "nullable": true },
-          "smtpPort": { "type": "integer", "minimum": 1, "maximum": 65535, "nullable": true },
+          "smtpPort": { "type": "integer", "nullable": true },
           "smtpUser": { "type": "string", "nullable": true },
-          "smtpPass": { "type": "string", "format": "password", "nullable": true, "description": "Only provide if changing the password" },
-          "smtpSecure": { "type": "boolean", "default": false, "nullable": true },
+          "smtpSecure": { "type": "boolean", "nullable": true },
           "emailFrom": { "type": "string", "format": "email", "nullable": true }
-        }
-      },
-      "ProfileUpdateInput": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string", "minLength": 1, "nullable": true },
-          "phoneNumber": { "type": "string", "nullable": true },
-          "address": { "$ref": "#/components/schemas/Address", "nullable": true },
-          "location": { "type": "string", "minLength": 1, "nullable": true }
-        }
-      },
-      "DocumentUploadInput": {
-        "type": "object",
-        "properties": {
-          "documentType": { "type": "string", "enum": ["PhotoID", "DrivingLicense"] },
-          "fileName": { "type": "string", "minLength": 1 },
-          "filePath": { "type": "string", "minLength": 1 }
         },
-        "required": ["documentType", "fileName", "filePath"]
-      },
-      "FavoriteCarInput": {
-        "type": "object",
-        "properties": {
-          "carId": { "type": "string", "format": "objectid" }
-        },
-        "required": ["carId"]
-      },
-      "BookingInput": {
-        "type": "object",
-        "properties": {
-          "carId": { "type": "string", "format": "objectid" },
-          "startDate": { "type": "string", "format": "date-time" },
-          "endDate": { "type": "string", "format": "date-time" },
-          "status": { "type": "string", "enum": ["Pending", "Confirmed", "Cancelled", "Completed", "Cancellation Requested", "Cancellation Rejected"], "nullable": true }
-        },
-        "required": ["carId", "startDate", "endDate"]
-      },
-      "RazorpayOrderInput": {
-        "type": "object",
-        "properties": {
-          "carId": { "type": "string", "format": "objectid" },
-          "startDate": { "type": "string", "format": "date-time" },
-          "endDate": { "type": "string", "format": "date-time" }
-        },
-        "required": ["carId", "startDate", "endDate"]
-      },
-      "RazorpayVerificationInput": {
-        "type": "object",
-        "properties": {
-          "razorpay_order_id": { "type": "string" },
-          "razorpay_payment_id": { "type": "string" },
-          "razorpay_signature": { "type": "string" },
-          "bookingId": { "type": "string", "format": "objectid" }
-        },
-        "required": ["razorpay_order_id", "razorpay_payment_id", "razorpay_signature", "bookingId"]
-      },
-      "FileUploadResponse": {
-        "type": "object",
-        "properties": {
-          "success": { "type": "boolean" },
-          "filePath": { "type": "string", "format": "url" },
-          "originalName": { "type": "string" }
-        }
-      },
-      "MessageResponse": {
-        "type": "object",
-        "properties": { "message": { "type": "string" } }
+        "description": "Site settings. Note: smtpPass is not exposed via API."
       },
       "ErrorResponse": {
         "type": "object",
         "properties": {
           "message": { "type": "string" },
-          "errors": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } }, "nullable": true }
+          "errors": { 
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "nullable": true
+          },
+          "errorDetails": { "type": "string", "nullable": true }
+        },
+        "required": ["message"]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request - Invalid input data or parameters.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized - Authentication token is missing, invalid, or expired.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden - Authenticated user does not have permission to perform this action.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not Found - The requested resource was not found.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict - The request could not be completed due to a conflict with the current state of the resource (e.g., item already exists, car not available).",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal Server Error - An unexpected error occurred on the server.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
         }
       }
     },
@@ -337,15 +209,38 @@
     "/auth/register": {
       "post": {
         "summary": "Register a new user",
-        "tags": ["Authentication"],
+        "tags": ["Auth"],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegisterInput" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fullName": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "phoneNumber": { "type": "string", "nullable": true },
+                  "password": { "type": "string", "format": "password", "minLength": 6 }
+                },
+                "required": ["fullName", "email", "password"]
+              }
+            }
+          }
         },
         "responses": {
           "201": {
             "description": "User registered successfully",
-            "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "user": { "$ref": "#/components/schemas/User" } } } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "409": { "$ref": "#/components/responses/Conflict" },
@@ -356,15 +251,37 @@
     "/auth/login": {
       "post": {
         "summary": "Login an existing user",
-        "tags": ["Authentication"],
+        "tags": ["Auth"],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginInput" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "format": "password" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
         },
         "responses": {
           "200": {
             "description": "Login successful",
-            "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "token": { "type": "string" }, "user": { "$ref": "#/components/schemas/User" } } } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
@@ -373,39 +290,84 @@
       }
     },
     "/auth/forgot-password": {
-        "post": {
-            "summary": "Request a password reset link",
-            "tags": ["Authentication"],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ForgotPasswordInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Password reset link sent (if user exists)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "post": {
+        "summary": "Request a password reset link",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" }
+                },
+                "required": ["email"]
+              }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset link request submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/auth/reset-password": {
-        "post": {
-            "summary": "Reset password using a token",
-            "tags": ["Authentication"],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ResetPasswordInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Password reset successfully", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "post": {
+        "summary": "Reset password using a token",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": { "type": "string" },
+                  "password": { "type": "string", "format": "password", "minLength": 6 }
+                },
+                "required": ["token", "password"]
+              }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/cars": {
       "get": {
         "summary": "Get all cars (public listing)",
-        "tags": ["Cars (Public)"],
+        "tags": ["Cars"],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
           { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 9 } },
@@ -413,14 +375,26 @@
           { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["Sedan", "SUV", "Hatchback", "Truck", "Van", "Convertible", "Coupe", "all"] }, "description": "Filter by car type." },
           { "name": "minPrice", "in": "query", "schema": { "type": "number" }, "description": "Minimum price per hour." },
           { "name": "maxPrice", "in": "query", "schema": { "type": "number" }, "description": "Maximum price per hour." },
-          { "name": "location", "in": "query", "schema": { "type": "string" }, "description": "Filter by car location (case-insensitive)." },
-          { "name": "searchStartDate", "in": "query", "schema": { "type": "string", "format": "date-time" }, "description": "Start of desired rental period for availability check." },
-          { "name": "searchEndDate", "in": "query", "schema": { "type": "string", "format": "date-time" }, "description": "End of desired rental period for availability check." }
+          { "name": "location", "in": "query", "schema": { "type": "string" }, "description": "Filter by car location." },
+          { "name": "searchStartDate", "in": "query", "schema": { "type": "string", "format": "date-time" }, "description": "Start of desired rental period." },
+          { "name": "searchEndDate", "in": "query", "schema": { "type": "string", "format": "date-time" }, "description": "End of desired rental period." }
         ],
         "responses": {
           "200": {
             "description": "A list of cars",
-            "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Car" } }, "totalItems": { "type": "integer" }, "totalPages": { "type": "integer" }, "currentPage": { "type": "integer" } } } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Car" } },
+                    "totalItems": { "type": "integer" },
+                    "totalPages": { "type": "integer" },
+                    "currentPage": { "type": "integer" }
+                  }
+                }
+              }
+            }
           },
           "500": { "$ref": "#/components/responses/InternalServerError" }
         }
@@ -429,10 +403,15 @@
     "/cars/{id}": {
       "get": {
         "summary": "Get single car details (public)",
-        "tags": ["Cars (Public)"],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" }, "description": "ID of the car to retrieve." }],
+        "tags": ["Cars"],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" }, "description": "Car ID" }
+        ],
         "responses": {
-          "200": { "description": "Car details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } } },
+          "200": {
+            "description": "Car details",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } }
+          },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "500": { "$ref": "#/components/responses/InternalServerError" }
@@ -440,255 +419,508 @@
       }
     },
     "/profile": {
-        "get": {
-            "summary": "Get current user profile",
-            "tags": ["User Profile"],
-            "security": [{ "bearerAuth": [] }],
-            "responses": {
-                "200": { "description": "User profile data", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
-            }
-        },
-        "put": {
-            "summary": "Update current user profile",
-            "tags": ["User Profile"],
-            "security": [{ "bearerAuth": [] }],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProfileUpdateInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Profile updated successfully", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "user": { "$ref": "#/components/schemas/User" } } } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
-            }
+      "get": {
+        "summary": "Get current user's profile",
+        "tags": ["User Profile"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User profile data",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      },
+      "put": {
+        "summary": "Update current user's profile",
+        "tags": ["User Profile"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "phoneNumber": { "type": "string", "nullable": true },
+                  "address": { "$ref": "#/components/schemas/Address", "nullable": true },
+                  "location": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
     },
     "/profile/documents": {
-        "post": {
-            "summary": "Record uploaded document for current user",
-            "tags": ["User Profile"],
-            "security": [{ "bearerAuth": [] }],
-            "description": "Records information about a document uploaded by the user. Actual file upload should happen via POST /upload?destination=documents.",
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DocumentUploadInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Document details recorded", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "user": { "$ref": "#/components/schemas/User" } } } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "post": {
+        "summary": "Record uploaded document for user",
+        "tags": ["User Profile"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentType": { "type": "string", "enum": ["PhotoID", "DrivingLicense"] },
+                  "fileName": { "type": "string" },
+                  "filePath": { "type": "string" }
+                },
+                "required": ["documentType", "fileName", "filePath"]
+              }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document details recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/profile/bookings": {
-        "get": {
-            "summary": "Get bookings for current user",
-            "tags": ["User Profile"],
-            "security": [{ "bearerAuth": [] }],
-            "responses": {
-                "200": { "description": "List of user's bookings", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } } } } },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "get": {
+        "summary": "Get current user's bookings",
+        "tags": ["User Profile"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of user's bookings",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } }
+              }
             }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/profile/favorites": {
-        "get": {
-            "summary": "Get favorite cars for current user",
-            "tags": ["User Profile"],
-            "security": [{ "bearerAuth": [] }],
-            "responses": {
-                "200": { "description": "List of favorite cars", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Car" } } } } },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "get": {
+        "summary": "Get user's favorite cars",
+        "tags": ["User Profile"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of favorite cars",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Car" } }
+              }
             }
-        },
-        "post": {
-            "summary": "Add a car to favorites",
-            "tags": ["User Profile"],
-            "security": [{ "bearerAuth": [] }],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FavoriteCarInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Car added to favorites", "content": { "application/json": { "schema": { "type": "object", "properties": { "favoriteCarIds": { "type": "array", "items": { "type": "string" } } } } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
-            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      },
+      "post": {
+        "summary": "Add car to favorites",
+        "tags": ["User Profile"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "carId": { "type": "string", "format": "objectid" }
+                },
+                "required": ["carId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Car added to favorites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "favoriteCarIds": { "type": "array", "items": { "type": "string", "format": "objectid" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
     },
     "/profile/favorites/{carId}": {
-        "delete": {
-            "summary": "Remove a car from favorites",
-            "tags": ["User Profile"],
-            "security": [{ "bearerAuth": [] }],
-            "parameters": [{ "name": "carId", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }],
-            "responses": {
-                "200": { "description": "Car removed from favorites", "content": { "application/json": { "schema": { "type": "object", "properties": { "favoriteCarIds": { "type": "array", "items": { "type": "string" } } } } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "delete": {
+        "summary": "Remove car from favorites",
+        "tags": ["User Profile"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "carId", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Car removed from favorites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "favoriteCarIds": { "type": "array", "items": { "type": "string", "format": "objectid" } }
+                  }
+                }
+              }
             }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/bookings": {
-        "post": {
-            "summary": "Create a new booking (direct)",
-            "tags": ["Bookings"],
-            "security": [{ "bearerAuth": [] }],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BookingInput" } } }
-            },
-            "responses": {
-                "201": { "description": "Booking created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Booking" } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "409": { "$ref": "#/components/responses/Conflict" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "post": {
+        "summary": "Create a new booking (by user or admin)",
+        "tags": ["Bookings"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "carId": { "type": "string", "format": "objectid" },
+                  "startDate": { "type": "string", "format": "date-time" },
+                  "endDate": { "type": "string", "format": "date-time" },
+                  "status": { "type": "string", "enum": ["Pending", "Confirmed", "Cancelled", "Completed", "Cancellation Requested", "Cancellation Rejected"], "nullable": true }
+                },
+                "required": ["carId", "startDate", "endDate"]
+              }
             }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Booking" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/bookings/{bookingId}/request-cancellation": {
-        "post": {
-            "summary": "Request cancellation for a booking",
-            "tags": ["Bookings"],
-            "security": [{ "bearerAuth": [] }],
-            "parameters": [{ "name": "bookingId", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }],
-            "responses": {
-                "200": { "description": "Cancellation requested", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "403": { "$ref": "#/components/responses/Forbidden" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "post": {
+        "summary": "Request cancellation for a booking",
+        "tags": ["Bookings"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "bookingId", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancellation requested",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "message": { "type": "string" } } }
+              }
             }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/checkout/razorpay-order": {
-        "post": {
-            "summary": "Create Razorpay order for booking",
-            "tags": ["Checkout"],
-            "security": [{ "bearerAuth": [] }],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RazorpayOrderInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Razorpay order created", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "bookingId": { "type": "string" }, "razorpayOrderId": { "type": "string" }, "amount": { "type": "integer" }, "currency": { "type": "string" }, "keyId": { "type": "string" }, "userName": { "type": "string" }, "userEmail": { "type": "string" } } } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "409": { "$ref": "#/components/responses/Conflict" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "post": {
+        "summary": "Create Razorpay order for booking",
+        "tags": ["Checkout"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "carId": { "type": "string", "format": "objectid" },
+                  "startDate": { "type": "string", "format": "date-time" },
+                  "endDate": { "type": "string", "format": "date-time" }
+                },
+                "required": ["carId", "startDate", "endDate"]
+              }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Razorpay order created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "bookingId": { "type": "string", "format": "objectid" },
+                    "razorpayOrderId": { "type": "string" },
+                    "amount": { "type": "integer" },
+                    "currency": { "type": "string" },
+                    "keyId": { "type": "string" },
+                    "userName": { "type": "string" },
+                    "userEmail": { "type": "string", "format": "email" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/checkout/razorpay-verify": {
-        "post": {
-            "summary": "Verify Razorpay payment",
-            "tags": ["Checkout"],
-            "security": [{ "bearerAuth": [] }],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RazorpayVerificationInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Payment verified", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "bookingId": { "type": "string" } } } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "post": {
+        "summary": "Verify Razorpay payment",
+        "tags": ["Checkout"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "razorpay_order_id": { "type": "string" },
+                  "razorpay_payment_id": { "type": "string" },
+                  "razorpay_signature": { "type": "string" },
+                  "bookingId": { "type": "string", "format": "objectid" }
+                },
+                "required": ["razorpay_order_id", "razorpay_payment_id", "razorpay_signature", "bookingId"]
+              }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment verified and booking confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "bookingId": { "type": "string", "format": "objectid" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/settings": {
-        "get": {
-            "summary": "Get public site settings",
-            "tags": ["Site Settings"],
-            "responses": {
-                "200": { "description": "Public site settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteSettings" } } } },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "get": {
+        "summary": "Get public site settings",
+        "tags": ["Settings"],
+        "responses": {
+          "200": {
+            "description": "Public site settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "format": "objectid", "nullable": true },
+                    "siteTitle": { "type": "string" },
+                    "defaultCurrency": { "type": "string", "enum": ["USD", "EUR", "GBP", "INR"] },
+                    "maintenanceMode": { "type": "boolean", "nullable": true },
+                    "sessionTimeoutMinutes": { "type": "integer", "nullable": true },
+                    "globalDiscountPercent": { "type": "number", "minimum": 0, "maximum": 100, "nullable": true }
+                  }
+                }
+              }
             }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/upload": {
-        "post": {
-            "summary": "Upload a file (image or document)",
-            "tags": ["File Upload"],
-            "security": [{ "bearerAuth": [] }],
-            "parameters": [
-                { "name": "destination", "in": "query", "schema": { "type": "string", "enum": ["images", "documents"], "default": "images" }, "description": "Subfolder in public/assets/" }
-            ],
-            "requestBody": {
-                "required": true,
-                "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "file": { "type": "string", "format": "binary" } } } } }
-            },
-            "responses": {
-                "201": { "description": "File uploaded successfully", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileUploadResponse" } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "413": { "description": "Payload Too Large (File exceeds max size)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "post": {
+        "summary": "Upload a file (image or document)",
+        "tags": ["File Upload"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "destination", "in": "query", "schema": { "type": "string", "enum": ["images", "documents"], "default": "images" }, "description": "Upload subfolder (images or documents)" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                },
+                "required": ["file"]
+              }
             }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "File uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "filePath": { "type": "string" },
+                    "originalName": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "413": { "description": "Payload Too Large", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/admin/cars": {
       "get": {
-        "summary": "Get all cars (Admin)",
+        "summary": "Get all cars (Admin/Manager)",
         "tags": ["Admin - Cars"],
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
           { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
           { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Search by car name." },
-          { "name": "type", "in": "query", "schema": { "type": "string" }, "description": "Filter by car type." }
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["Sedan", "SUV", "Hatchback", "Truck", "Van", "Convertible", "Coupe", "all"] }, "description": "Filter by car type." }
         ],
         "responses": {
-          "200": { "description": "Paginated list of cars", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Car" } }, "totalItems": { "type": "integer" }, "totalPages": { "type": "integer" }, "currentPage": { "type": "integer" } } } } } },
+          "200": {
+            "description": "List of cars for admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Car" } },
+                    "totalItems": { "type": "integer" },
+                    "totalPages": { "type": "integer" },
+                    "currentPage": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "500": { "$ref": "#/components/responses/InternalServerError" }
         }
       },
       "post": {
-        "summary": "Add a new car (Admin)",
+        "summary": "Add a new car (Admin/Manager)",
         "tags": ["Admin - Cars"],
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CarInput" } } }
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Car" } 
+            }
+          }
         },
         "responses": {
-          "201": { "description": "Car created successfully", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } } },
+          "201": {
+            "description": "Car added successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } }
+          },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
           "500": { "$ref": "#/components/responses/InternalServerError" }
         }
       }
     },
     "/admin/cars/{id}": {
       "get": {
-        "summary": "Get a single car by ID (Admin)",
+        "summary": "Get single car (Admin/Manager)",
         "tags": ["Admin - Cars"],
         "security": [{ "bearerAuth": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }
+        ],
         "responses": {
-          "200": { "description": "Car details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } } },
+          "200": {
+            "description": "Car details",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
@@ -696,16 +928,25 @@
         }
       },
       "put": {
-        "summary": "Update a car by ID (Admin)",
+        "summary": "Update a car (Admin/Manager)",
         "tags": ["Admin - Cars"],
         "security": [{ "bearerAuth": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateCarInput" } } }
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Car" } 
+            }
+          }
         },
         "responses": {
-          "200": { "description": "Car updated successfully", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } } },
+          "200": {
+            "description": "Car updated successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } }
+          },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
@@ -714,13 +955,22 @@
         }
       },
       "delete": {
-        "summary": "Delete a car by ID (Admin)",
+        "summary": "Delete a car (Admin/Manager)",
         "tags": ["Admin - Cars"],
         "security": [{ "bearerAuth": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }
+        ],
         "responses": {
-          "200": { "description": "Car deleted successfully", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } },
-          "400": { "description": "Cannot delete car with active bookings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "200": {
+            "description": "Car deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "message": { "type": "string" } } }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
@@ -730,46 +980,84 @@
     },
     "/admin/users": {
       "get": {
-        "summary": "Get all users (Admin)",
+        "summary": "Get all users (Admin/Manager)",
         "tags": ["Admin - Users"],
         "security": [{ "bearerAuth": [] }],
         "parameters": [
-            { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-            { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
         ],
         "responses": {
-          "200": { "description": "Paginated list of users", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }, "totalItems": { "type": "integer" }, "totalPages": { "type": "integer" }, "currentPage": { "type": "integer" } } } } } },
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/User" } },
+                    "totalItems": { "type": "integer" },
+                    "totalPages": { "type": "integer" },
+                    "currentPage": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "500": { "$ref": "#/components/responses/InternalServerError" }
         }
       },
       "post": {
-        "summary": "Add a new user (Admin)",
+        "summary": "Add a new user (Admin only)",
         "tags": ["Admin - Users"],
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserInputAdmin" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "phoneNumber": { "type": "string", "nullable": true },
+                  "password": { "type": "string", "format": "password", "minLength": 6 },
+                  "role": { "type": "string", "enum": ["Customer", "Manager", "Admin"] }
+                },
+                "required": ["name", "email", "password", "role"]
+              }
+            }
+          }
         },
         "responses": {
-          "201": { "description": "User created successfully", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "201": {
+            "description": "User created successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "409": { "description": "User already exists", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "$ref": "#/components/responses/Conflict" },
           "500": { "$ref": "#/components/responses/InternalServerError" }
         }
       }
     },
     "/admin/users/{id}": {
       "get": {
-        "summary": "Get a single user by ID (Admin)",
+        "summary": "Get single user (Admin/Manager)",
         "tags": ["Admin - Users"],
         "security": [{ "bearerAuth": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }
+        ],
         "responses": {
-          "200": { "description": "User details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "200": {
+            "description": "User details",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
@@ -777,16 +1065,31 @@
         }
       },
       "put": {
-        "summary": "Update a user by ID (Admin)",
+        "summary": "Update user (Admin only)",
         "tags": ["Admin - Users"],
         "security": [{ "bearerAuth": [] }],
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }
+        ],
         "requestBody": {
-          "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateUserInputAdmin" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "phoneNumber": { "type": "string", "nullable": true },
+                  "role": { "type": "string", "enum": ["Customer", "Manager", "Admin"] }
+                }
+              }
+            }
+          }
         },
         "responses": {
-          "200": { "description": "User updated successfully", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "200": {
+            "description": "User updated successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
@@ -796,135 +1099,213 @@
       }
     },
     "/admin/users/{id}/documents/{documentType}": {
-        "put": {
-            "summary": "Update user document status (Admin)",
-            "tags": ["Admin - Users"],
-            "security": [{ "bearerAuth": [] }],
-            "parameters": [
-                { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" }, "description": "User ID" },
-                { "name": "documentType", "in": "path", "required": true, "schema": { "type": "string", "enum": ["PhotoID", "DrivingLicense"] }, "description": "Type of the document" }
-            ],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateUserDocumentStatusInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Document status updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "403": { "$ref": "#/components/responses/Forbidden" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "put": {
+        "summary": "Update user document status (Admin/Manager)",
+        "tags": ["Admin - Users"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "description": "User ID", "schema": { "type": "string", "format": "objectid" } },
+          { "name": "documentType", "in": "path", "required": true, "description": "Type of document", "schema": { "type": "string", "enum": ["PhotoID", "DrivingLicense"] } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["Approved", "Rejected"] },
+                  "adminComments": { "type": "string", "nullable": true }
+                },
+                "required": ["status"]
+              }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document status updated successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/admin/bookings": {
-        "get": {
-            "summary": "Get all bookings (Admin)",
-            "tags": ["Admin - Bookings"],
-            "security": [{ "bearerAuth": [] }],
-            "parameters": [
-                { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-                { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
-            ],
-            "responses": {
-                "200": { "description": "Paginated list of bookings", "content": { "application/json": { "schema": { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } }, "totalItems": { "type": "integer" }, "totalPages": { "type": "integer" }, "currentPage": { "type": "integer" } } } } } },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "403": { "$ref": "#/components/responses/Forbidden" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "get": {
+        "summary": "Get all bookings (Admin/Manager)",
+        "tags": ["Admin - Bookings"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } },
+                    "totalItems": { "type": "integer" },
+                    "totalPages": { "type": "integer" },
+                    "currentPage": { "type": "integer" }
+                  }
+                }
+              }
             }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/admin/bookings/{bookingId}/status": {
-        "put": {
-            "summary": "Update booking status (Admin)",
-            "tags": ["Admin - Bookings"],
-            "security": [{ "bearerAuth": [] }],
-            "parameters": [{ "name": "bookingId", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateBookingStatusInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Booking status updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Booking" } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "403": { "$ref": "#/components/responses/Forbidden" },
-                "404": { "$ref": "#/components/responses/NotFound" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "put": {
+        "summary": "Update booking status (Admin/Manager)",
+        "tags": ["Admin - Bookings"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "bookingId", "in": "path", "required": true, "schema": { "type": "string", "format": "objectid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["Confirmed", "Cancelled", "Completed", "Cancellation Rejected"] }
+                },
+                "required": ["status"]
+              }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking status updated successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Booking" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/admin/reports": {
-        "get": {
-            "summary": "Get booking reports (Admin)",
-            "tags": ["Admin - Reports"],
-            "security": [{ "bearerAuth": [] }],
-            "parameters": [
-                { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Filter by booking creation date (YYYY-MM-DD)." },
-                { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Filter by booking creation date (YYYY-MM-DD)." },
-                { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["Pending", "Confirmed", "Cancelled", "Completed", "Cancellation Requested", "Cancellation Rejected", "All"] }, "description": "Filter by booking status." }
-            ],
-            "responses": {
-                "200": { "description": "Booking report data", "content": { "application/json": { "schema": { "type": "object", "properties": { "totalBookings": { "type": "integer" }, "totalRevenue": { "type": "number" }, "bookings": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } }, "currencySymbol": { "type": "string" }, "currency": { "type": "string" } } } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "403": { "$ref": "#/components/responses/Forbidden" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "get": {
+        "summary": "Get booking reports (Admin/Manager)",
+        "tags": ["Admin - Reports"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Filter by booking creation date (YYYY-MM-DD)." },
+          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Filter by booking creation date (YYYY-MM-DD)." },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["All", "Pending", "Confirmed", "Completed", "Cancelled", "Cancellation Requested", "Cancellation Rejected"] }, "description": "Filter by booking status." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking report data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalBookings": { "type": "integer" },
+                    "totalRevenue": { "type": "number", "format": "float" },
+                    "bookings": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } },
+                    "currencySymbol": { "type": "string" },
+                    "currency": { "type": "string" }
+                  }
+                }
+              }
             }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/admin/stats": {
-        "get": {
-            "summary": "Get dashboard statistics (Admin)",
-            "tags": ["Admin - Dashboard"],
-            "security": [{ "bearerAuth": [] }],
-            "responses": {
-                "200": { "description": "Dashboard statistics", "content": { "application/json": { "schema": { "type": "object", "properties": { "totalRevenue": { "type": "number" }, "totalUsers": { "type": "integer" }, "totalCars": { "type": "integer" }, "pendingBookingsCount": { "type": "integer" }, "defaultCurrency": { "type": "string" }, "recentBookings": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } }, "newUsers": { "type": "array", "items": { "$ref": "#/components/schemas/User" } } } } } } },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "403": { "$ref": "#/components/responses/Forbidden" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
+      "get": {
+        "summary": "Get dashboard statistics (Admin/Manager)",
+        "tags": ["Admin - Dashboard"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Dashboard statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalRevenue": { "type": "number", "format": "float" },
+                    "totalUsers": { "type": "integer" },
+                    "totalCars": { "type": "integer" },
+                    "pendingBookingsCount": { "type": "integer" },
+                    "defaultCurrency": { "type": "string" },
+                    "recentBookings": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } },
+                    "newUsers": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }
+                  }
+                }
+              }
             }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      }
     },
     "/admin/settings": {
-        "get": {
-            "summary": "Get all site settings (Admin Only)",
-            "tags": ["Admin - Settings"],
-            "security": [{ "bearerAuth": [] }],
-            "responses": {
-                "200": { "description": "Site settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminSiteSettings" } } } },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "403": { "$ref": "#/components/responses/Forbidden" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
-            }
-        },
-        "put": {
-            "summary": "Update site settings (Admin Only)",
-            "tags": ["Admin - Settings"],
-            "security": [{ "bearerAuth": [] }],
-            "requestBody": {
-                "required": true,
-                "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteSettingsUpdateInput" } } }
-            },
-            "responses": {
-                "200": { "description": "Settings updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminSiteSettings" } } } },
-                "400": { "$ref": "#/components/responses/BadRequest" },
-                "401": { "$ref": "#/components/responses/Unauthorized" },
-                "403": { "$ref": "#/components/responses/Forbidden" },
-                "500": { "$ref": "#/components/responses/InternalServerError" }
-            }
+      "get": {
+        "summary": "Get site settings (Admin only)",
+        "tags": ["Admin - Settings"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Site settings",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteSettings" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
+      },
+      "put": {
+        "summary": "Update site settings (Admin only)",
+        "tags": ["Admin - Settings"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SiteSettings" } 
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settings updated successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteSettings" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
     }
-  },
-  "responses": {
-    "BadRequest": { "description": "Bad Request - Invalid input data.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-    "Unauthorized": { "description": "Unauthorized - Authentication required or token invalid.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-    "Forbidden": { "description": "Forbidden - Insufficient permissions.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-    "NotFound": { "description": "Not Found - Resource not found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-    "Conflict": { "description": "Conflict - Resource already exists or booking conflict.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-    "InternalServerError": { "description": "Internal Server Error.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
   }
 }
-
-    
