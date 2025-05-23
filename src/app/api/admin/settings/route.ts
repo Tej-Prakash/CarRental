@@ -13,17 +13,18 @@ const SiteSettingsSchema = z.object({
   defaultCurrency: z.enum(['USD', 'EUR', 'GBP', 'INR']).default('INR'),
   maintenanceMode: z.boolean().optional().default(false),
   sessionTimeoutMinutes: z.number().int().positive("Session timeout must be a positive integer.").min(1, "Session timeout must be at least 1 minute.").optional().default(60),
+  globalDiscountPercent: z.number().min(0, "Global discount cannot be negative").max(100, "Global discount cannot exceed 100%").optional().default(0), // New field
   // SMTP fields - all optional on input
   smtpHost: z.string().optional(),
   smtpPort: z.number().int().min(1).max(65535).optional(),
   smtpUser: z.string().optional(),
-  smtpPass: z.string().optional(), // Password will be handled carefully
+  smtpPass: z.string().optional(), 
   smtpSecure: z.boolean().optional().default(false),
   emailFrom: z.string().email("Invalid 'From' email address").optional(),
 });
 
 interface SiteSettingsDocument extends Omit<SiteSettings, 'id'> {
-  _id?: ObjectId; // Made optional as it's not always present in the input
+  _id?: ObjectId; 
   settingsId: string;
 }
 
@@ -32,7 +33,7 @@ const DEFAULT_SESSION_TIMEOUT_MINUTES = 60;
 
 export async function GET(req: NextRequest) {
   const authResult = await verifyAuth(req, ['Admin']);
-  if (!authResult.user || authResult.user.role !== 'Admin') {
+  if (!authResult.admin) {
     return NextResponse.json({ message: authResult.error || 'Forbidden: Only Admins can access settings.' }, { status: authResult.status || 403 });
   }
 
@@ -48,8 +49,9 @@ export async function GET(req: NextRequest) {
         defaultCurrency: 'INR',
         maintenanceMode: false,
         sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
+        globalDiscountPercent: 0,
         smtpHost: '',
-        smtpPort: 587, // Common non-SSL/TLS port
+        smtpPort: 587, 
         smtpUser: '',
         smtpSecure: false,
         emailFrom: '',
@@ -63,9 +65,9 @@ export async function GET(req: NextRequest) {
     const { _id, settingsId, smtpPass, ...settingsData } = settingsDoc;
     
     return NextResponse.json({
-      id: _id?.toHexString(), // id might not exist if it's a fresh default
-      ...defaults, // Spread defaults first
-      ...settingsData, // Then spread fetched data
+      id: _id?.toHexString(), 
+      ...defaults, 
+      ...settingsData, 
     }, { status: 200 });
 
   } catch (error) {
@@ -77,7 +79,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const authResult = await verifyAuth(req, ['Admin']);
-  if (!authResult.user || authResult.user.role !== 'Admin') {
+  if (!authResult.admin) { 
     return NextResponse.json({ message: authResult.error || 'Forbidden: Only Admins can update settings.' }, { status: authResult.status || 403 });
   }
 
@@ -98,20 +100,17 @@ export async function PUT(req: NextRequest) {
 
     const updatePayload: { [key: string]: any } = { ...settingsDataToUpdate };
 
-    // Only update smtpPass if a new value is provided in the payload
-    // If rawData.smtpPass is empty or undefined, it means the user didn't want to change it.
+    
     if (!rawData.smtpPass || rawData.smtpPass.trim() === '') {
-      delete updatePayload.smtpPass; // Don't update the password if it's not provided
+      delete updatePayload.smtpPass; 
     } else {
-      updatePayload.smtpPass = rawData.smtpPass; // Use the explicitly provided password
+      updatePayload.smtpPass = rawData.smtpPass; 
     }
 
 
-    // Clean undefined values from updatePayload to avoid $set with undefined
+    
     Object.keys(updatePayload).forEach(key => {
         if (updatePayload[key] === undefined) {
-            // If we want to explicitly unset a field, we should use $unset
-            // For now, we'll just not include undefined fields in the $set
             delete updatePayload[key];
         }
     });
@@ -120,10 +119,12 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ message: "No valid fields to update." }, { status: 400 });
     }
 
+    updatePayload.settingsId = SETTINGS_DOC_ID; 
+
 
     await settingsCollection.updateOne(
       { settingsId: SETTINGS_DOC_ID },
-      { $set: { ...updatePayload, settingsId: SETTINGS_DOC_ID } },
+      { $set: updatePayload },
       { upsert: true }
     );
 
@@ -134,7 +135,7 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ message: 'Failed to retrieve updated settings after save.' }, { status: 500 });
     }
 
-    // IMPORTANT: Do NOT return smtpPass to the client
+    
     const { _id, settingsId, smtpPass, ...returnedSettingsData } = updatedSettingsDoc;
 
     return NextResponse.json({

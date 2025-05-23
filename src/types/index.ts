@@ -6,7 +6,7 @@ export interface Car {
   pricePerHour: number;
   minNegotiablePrice?: number;
   maxNegotiablePrice?: number;
-  discountPercent?: number; // New field for discount percentage
+  discountPercent?: number; 
   imageUrls: string[];
   description: string;
   longDescription: string;
@@ -37,11 +37,11 @@ export interface UserDocument {
   type: DocumentType;
   fileName: string;
   filePath: string;
-  uploadedAt: string;
+  uploadedAt: string; 
   status: DocumentStatus;
   adminComments?: string;
-  verifiedAt?: string;
-  verifiedBy?: string;
+  verifiedAt?: string; 
+  verifiedBy?: string; 
 }
 
 export type UserRole = 'Customer' | 'Manager' | 'Admin';
@@ -52,11 +52,11 @@ export interface User {
   email: string;
   phoneNumber?: string;
   role: UserRole;
-  createdAt: string;
-  updatedAt?: string;
+  createdAt: string; 
+  updatedAt?: string; 
   address?: Address;
   location?: string;
-  documents?: UserDocument[];
+  documents?: UserDocument[]; 
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
   favoriteCarIds?: string[];
@@ -69,12 +69,12 @@ export interface Booking {
   carImageUrl?: string;
   userId: string;
   userName: string;
-  startDate: string;
-  endDate: string;
+  startDate: string; 
+  endDate: string; 
   totalPrice: number;
   status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Cancellation Requested' | 'Cancellation Rejected';
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: string; 
+  updatedAt?: string; 
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
 }
@@ -90,9 +90,14 @@ export interface SiteSettings {
   defaultCurrency: 'USD' | 'EUR' | 'GBP' | 'INR';
   maintenanceMode?: boolean;
   sessionTimeoutMinutes?: number;
+  globalDiscountPercent?: number; // New field for global discount
   updatedAt?: string;
 
   // SMTP Settings
   smtpHost?: string;
   smtpPort?: number;
-  smtp
+  smtpUser?: string;
+  smtpPass?: string; // Stored in DB but not directly exposed to client GETs
+  smtpSecure?: boolean;
+  emailFrom?: string;
+}

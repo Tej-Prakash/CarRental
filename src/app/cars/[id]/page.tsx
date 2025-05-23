@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { Car, SiteSettings, User } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart, Image as ImageIcon, ShieldCheck, Heart } from 'lucide-react';
+import { CalendarIcon, Clock, Fuel, Gauge, GitCommitVertical, MapPin, MessageCircle, Users, Loader2, AlertTriangle, Star, CalendarDays, Info, ShoppingCart, Image as ImageIcon, ShieldCheck, Heart, Percent } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ChatbotDialog from '@/components/ChatbotDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -27,11 +27,11 @@ interface CarDetailsPageProps {
 }
 
 export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPageProps) {
-  const params = use(paramsFromProps as any); 
-  const carId = params.id;
+  const resolvedParams = use(paramsFromProps as any); 
+  const carId = resolvedParams.id;
 
   const [car, setCar] = useState<Car | null>(null);
-  const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({ defaultCurrency: 'INR' });
+  const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({ defaultCurrency: 'INR', globalDiscountPercent: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
@@ -88,7 +88,16 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     }
   }, [carId, router, toast]);
 
-  const fetchUserProfileData = useCallback(async () => {
+  const fetchSiteAndProfileData = useCallback(async () => {
+      try {
+        const settingsResponse = await fetch('/api/settings');
+        if (settingsResponse.ok) setSiteSettings(await settingsResponse.json());
+        else setSiteSettings({ defaultCurrency: 'INR', globalDiscountPercent: 0 });
+      } catch (settingsError) {
+        console.warn("Could not fetch site settings, defaulting.", settingsError);
+        setSiteSettings({ defaultCurrency: 'INR', globalDiscountPercent: 0 });
+      }
+
     const token = localStorage.getItem('authToken');
     if (!token) {
       setIsAuthenticated(false);
@@ -99,17 +108,17 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     setIsAuthenticated(true);
     setIsCheckingUserVerification(true);
     try {
-      const response = await fetch('/api/profile', {
+      const profileResponse = await fetch('/api/profile', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (!response.ok) {
-        if (response.status === 401) {
+      if (!profileResponse.ok) {
+        if (profileResponse.status === 401) {
           localStorage.removeItem('authToken'); localStorage.removeItem('authUser'); setIsAuthenticated(false);
           setCurrentUserFavoriteIds([]);
         }
         throw new Error('Failed to fetch user profile.');
       }
-      const user: User = await response.json();
+      const user: User = await profileResponse.json();
       const photoId = user.documents?.find(doc => doc.type === 'PhotoID');
       const drivingLicense = user.documents?.find(doc => doc.type === 'DrivingLicense');
       
@@ -119,7 +128,6 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       console.error("Error fetching user profile data:", error);
       setIsUserVerified(false); 
       setCurrentUserFavoriteIds([]);
-      // toast({ title: "Profile Check Failed", description: "Could not retrieve your profile details.", variant: "destructive" });
     } finally {
       setIsCheckingUserVerification(false);
     }
@@ -130,20 +138,8 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     if (carId) {
         fetchCarDetails();
     }
-    fetchUserProfileData(); // Fetch profile for favorite status and verification
-
-    const fetchSiteSettings = async () => {
-      try {
-        const response = await fetch('/api/settings');
-        if (response.ok) setSiteSettings(await response.json());
-        else setSiteSettings({ defaultCurrency: 'INR' });
-      } catch (settingsError) {
-        console.warn("Could not fetch site settings, defaulting to INR.", settingsError);
-        setSiteSettings({ defaultCurrency: 'INR' });
-      }
-    };
-    fetchSiteSettings();
-  }, [carId, fetchCarDetails, fetchUserProfileData]);
+    fetchSiteAndProfileData();
+  }, [carId, fetchCarDetails, fetchSiteAndProfileData]);
 
 
   useEffect(() => {
@@ -207,6 +203,10 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       return;
     }
 
+     if (isCheckingUserVerification) {
+        toast({ title: "Verification Check in Progress", description: "Please wait while we verify your document status.", variant: "default" });
+        return;
+    }
     if (isUserVerified === false) {
       toast({
         title: "Document Verification Required",
@@ -215,10 +215,6 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
         duration: 7000,
       });
       return;
-    }
-    if (isUserVerified === null && isCheckingUserVerification) {
-        toast({ title: "Verification Check in Progress", description: "Please wait while we verify your document status.", variant: "default" });
-        return;
     }
 
 
@@ -230,7 +226,15 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       setIsProceedingToCheckout(false);
       return;
     }
-    const totalPrice = rentalHours * car.pricePerHour;
+
+    let finalPricePerHour = car.pricePerHour;
+    if (car.discountPercent && car.discountPercent > 0) {
+        finalPricePerHour = car.pricePerHour * (1 - car.discountPercent / 100);
+    } else if (siteSettings.globalDiscountPercent && siteSettings.globalDiscountPercent > 0) {
+        finalPricePerHour = car.pricePerHour * (1 - siteSettings.globalDiscountPercent / 100);
+    }
+    const totalPrice = rentalHours * finalPricePerHour;
+
     const primaryImageForCheckout = car.imageUrls && car.imageUrls.length > 0 ? car.imageUrls[0] : '/assets/images/default-car.png';
 
     const checkoutDetails = {
@@ -240,7 +244,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       startDate: selectedStartDateTime.toISOString(),
       endDate: selectedEndDateTime.toISOString(),
       rentalHours,
-      pricePerHour: car.pricePerHour,
+      pricePerHour: finalPricePerHour, // Use the potentially discounted price
       totalPrice,
       currency: siteSettings.defaultCurrency || 'INR',
       currencySymbol: siteSettings.defaultCurrency === 'INR' ? '₹' : siteSettings.defaultCurrency === 'EUR' ? '€' : siteSettings.defaultCurrency === 'GBP' ? '£' : '$',
@@ -257,7 +261,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
       return;
     }
     const token = localStorage.getItem('authToken');
-    if (!token) return; // Should be caught by isAuthenticated, but defensive
+    if (!token) return; 
 
     const isCurrentlyFavorite = currentUserFavoriteIds.includes(car.id);
     const method = isCurrentlyFavorite ? 'DELETE' : 'POST';
@@ -320,7 +324,22 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
   const rentalHours = selectedStartDateTime && selectedEndDateTime && isValid(selectedStartDateTime) && isValid(selectedEndDateTime) && isBefore(selectedStartDateTime, selectedEndDateTime)
     ? differenceInHours(selectedEndDateTime, selectedStartDateTime) 
     : 0;
-  const totalPrice = rentalHours > 0 ? rentalHours * car.pricePerHour : 0;
+
+  let effectiveDiscountPercent = 0;
+  if (car.discountPercent && car.discountPercent > 0) {
+    effectiveDiscountPercent = car.discountPercent;
+  } else if (siteSettings.globalDiscountPercent && siteSettings.globalDiscountPercent > 0) {
+    effectiveDiscountPercent = siteSettings.globalDiscountPercent;
+  }
+
+  let priceToUseForCalculation = car.pricePerHour;
+  let originalPricePerHourForDisplay = car.pricePerHour;
+
+  if (effectiveDiscountPercent > 0) {
+    priceToUseForCalculation = car.pricePerHour * (1 - effectiveDiscountPercent / 100);
+  }
+  
+  const totalPrice = rentalHours > 0 ? rentalHours * priceToUseForCalculation : 0;
   
   const displayCurrency = siteSettings.defaultCurrency || 'INR';
   const currencySymbol = displayCurrency === 'INR' ? '₹' : displayCurrency === 'EUR' ? '€' : displayCurrency === 'GBP' ? '£' : '$'; 
@@ -331,7 +350,7 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
     <div className="space-y-8 container mx-auto py-8 px-4">
       <Card className="overflow-hidden shadow-xl">
         <div className="grid md:grid-cols-2 gap-0">
-          <div className="p-4 md:p-6">
+           <div className="p-4 md:p-6">
              {currentMainImage && (
                 <div className="relative aspect-video w-full rounded-lg overflow-hidden shadow-md mb-4">
                     <Image 
@@ -491,10 +510,23 @@ export default function CarDetailsPage({ params: paramsFromProps }: CarDetailsPa
               </div>
               
               <div className="text-left w-full mt-2">
-                <p className="text-3xl font-bold text-primary flex items-center">
-                    <Clock className="h-6 w-6 mr-2 text-accent" /> {currencySymbol}{car.pricePerHour.toFixed(2)} 
+                 <div className="flex items-baseline">
+                    <p className="text-3xl font-bold text-primary flex items-center">
+                        <Clock className="h-6 w-6 mr-2 text-accent" /> {currencySymbol}{priceToUseForCalculation.toFixed(2)} 
+                    </p>
+                    {effectiveDiscountPercent > 0 && (
+                        <span className="text-lg line-through text-muted-foreground ml-2">
+                        {currencySymbol}{originalPricePerHourForDisplay.toFixed(2)}
+                        </span>
+                    )}
                     <span className="text-sm font-normal text-muted-foreground ml-1">per hour ({displayCurrency})</span>
-                </p>
+                 </div>
+                 {effectiveDiscountPercent > 0 && (
+                    <p className="text-sm text-destructive font-semibold flex items-center">
+                        <Percent className="h-4 w-4 mr-1"/> {effectiveDiscountPercent}% OFF
+                    </p>
+                 )}
+
                 {rentalHours > 0 && (
                    <p className="text-xl font-semibold text-primary mt-1">Total: {currencySymbol}{totalPrice.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">for {rentalHours} hour{rentalHours !== 1 && 's'}</span></p>
                 )}
@@ -581,4 +613,3 @@ function InfoItem({ icon, label }: InfoItemProps) {
     </div>
   );
 }
-

@@ -1,25 +1,53 @@
+
 "use client";
 
-import type { Car } from '@/types';
+import type { Car, SiteSettings } from '@/types';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Fuel, Settings2, Users2, CalendarDays } from 'lucide-react';
+import { Fuel, Settings2, Users2, CalendarDays, Percent } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 interface CarCardHomeProps {
   car: Car;
 }
 
 export default function CarCardHome({ car }: CarCardHomeProps) {
+  const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({});
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  useEffect(() => {
+    const fetchSiteSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const settings = await response.json();
+          setSiteSettings(settings);
+        }
+      } catch (error) {
+        console.error("Failed to fetch site settings for CarCardHome:", error);
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+    fetchSiteSettings();
+  }, []);
+
   let displayPrice = car.pricePerHour;
   let originalPrice = null;
   let discountText = null;
+  let appliedDiscountPercent = 0;
 
   if (car.discountPercent && car.discountPercent > 0) {
-    // The car.pricePerHour is already the discounted price from the admin panel perspective.
-    // For display on homepage, we calculate the original price before discount.
-    originalPrice = car.pricePerHour / (1 - car.discountPercent / 100);
-    discountText = `${car.discountPercent}% OFF`;
+    appliedDiscountPercent = car.discountPercent;
+  } else if (!isLoadingSettings && siteSettings.globalDiscountPercent && siteSettings.globalDiscountPercent > 0) {
+    appliedDiscountPercent = siteSettings.globalDiscountPercent;
+  }
+
+  if (appliedDiscountPercent > 0) {
+    originalPrice = car.pricePerHour;
+    displayPrice = car.pricePerHour * (1 - appliedDiscountPercent / 100);
+    discountText = `${appliedDiscountPercent}% OFF`;
   }
 
   const modelYear = car.availability?.[0]?.startDate ? new Date(car.availability[0].startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A';
@@ -37,8 +65,8 @@ export default function CarCardHome({ car }: CarCardHomeProps) {
           onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png';}}
         />
         {discountText && (
-          <div className="absolute top-2 right-2 bg-destructive text-destructive-foreground text-xs font-semibold px-2 py-1 rounded-md">
-            {discountText}
+          <div className="absolute top-2 right-2 bg-destructive text-destructive-foreground text-xs font-semibold px-2 py-1 rounded-md flex items-center">
+            <Percent className="h-3 w-3 mr-1" /> {discountText}
           </div>
         )}
       </div>
@@ -66,6 +94,7 @@ export default function CarCardHome({ car }: CarCardHomeProps) {
                 ₹{originalPrice.toFixed(0)}
               </span>
             )}
+            <span className="text-xs text-muted-foreground">/hr</span>
           </div>
           <Button size="sm" variant="default" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-4 py-1.5 text-xs">
             <Link href={`/cars/${car.id}`}>Book &gt;</Link>

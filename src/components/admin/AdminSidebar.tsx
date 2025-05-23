@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Car, Users, GanttChartSquare, Settings, LogOut, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Car, Users, GanttChartSquare, Settings, LogOut, BarChart3, Percent } from 'lucide-react'; // Added Percent
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import type { UserRole } from '@/types';
@@ -15,6 +15,7 @@ const allAdminNavItems = [
   { href: '/admin/users', label: 'Users', icon: Users, roles: ['Admin', 'Manager'] },
   { href: '/admin/bookings', label: 'Bookings', icon: GanttChartSquare, roles: ['Admin', 'Manager'] },
   { href: '/admin/reports', label: 'Reports', icon: BarChart3, roles: ['Admin', 'Manager'] },
+  { href: '/admin/discounts', label: 'Discounts', icon: Percent, roles: ['Admin'] }, // New Discount Link for Admin
   { href: '/admin/settings', label: 'Settings', icon: Settings, roles: ['Admin'] },
 ];
 

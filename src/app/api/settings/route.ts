@@ -21,31 +21,35 @@ export async function GET() {
 
     let settings = await settingsCollection.findOne({ settingsId: SETTINGS_DOC_ID });
 
+    const defaultSettings: Partial<SiteSettings> = {
+      siteTitle: 'Travel Yatra',
+      defaultCurrency: 'INR',
+      maintenanceMode: false,
+      sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
+      globalDiscountPercent: 0, // Default global discount
+    };
+
     if (!settings) {
-      const defaultSettings: SiteSettings = {
-        siteTitle: 'Travel Yatra',
-        defaultCurrency: 'INR',
-        maintenanceMode: false,
-        sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
-      };
       return NextResponse.json(defaultSettings, { status: 200 });
     }
 
-    const { _id, settingsId, ...settingsData } = settings;
+    const { _id, settingsId, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure, emailFrom, ...publicSettingsData } = settings;
+    
     return NextResponse.json({
-      id: _id.toHexString(),
-      ...settingsData,
-      maintenanceMode: settingsData.maintenanceMode ?? false,
-      sessionTimeoutMinutes: settingsData.sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES,
+      ...defaultSettings, // Apply defaults first
+      ...publicSettingsData, // Override with DB values
+      id: _id?.toHexString(), // id might not exist if it's a fresh default
     }, { status: 200 });
   } catch (error) {
     console.error('CRITICAL: Failed to fetch site settings from DB:', error);
-    const defaultSettingsOnError: SiteSettings = {
+    // Return essential defaults on critical DB error to prevent site breakage
+    const criticalErrorDefaults: Partial<SiteSettings> = {
         siteTitle: 'Travel Yatra',
         defaultCurrency: 'INR',
-        maintenanceMode: false,
+        maintenanceMode: false, 
         sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
+        globalDiscountPercent: 0,
     };
-    return NextResponse.json(defaultSettingsOnError, { status: 200 });
+    return NextResponse.json(criticalErrorDefaults, { status: 200 });
   }
 }

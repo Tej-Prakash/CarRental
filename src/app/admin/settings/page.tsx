@@ -11,18 +11,20 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { SiteSettings } from '@/types';
-import { Loader2, AlertTriangle, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { Loader2, AlertTriangle, Eye, EyeOff, KeyRound, Percent } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const currencyOptions: SiteSettings['defaultCurrency'][] = ['USD', 'EUR', 'GBP', 'INR'];
 const DEFAULT_SESSION_TIMEOUT_MINUTES = 60;
+const DEFAULT_GLOBAL_DISCOUNT = 0;
 
 const initialSettings: Partial<SiteSettings> = {
   siteTitle: 'Travel Yatra',
   defaultCurrency: 'INR',
   maintenanceMode: false,
   sessionTimeoutMinutes: DEFAULT_SESSION_TIMEOUT_MINUTES,
+  globalDiscountPercent: DEFAULT_GLOBAL_DISCOUNT,
   smtpHost: '',
   smtpPort: 587,
   smtpUser: '',
@@ -134,6 +136,7 @@ export default function AdminSettingsPage() {
       const payload: Partial<SiteSettings> = {
         ...settings,
         sessionTimeoutMinutes: settings.sessionTimeoutMinutes ? Number(settings.sessionTimeoutMinutes) : DEFAULT_SESSION_TIMEOUT_MINUTES,
+        globalDiscountPercent: settings.globalDiscountPercent ? Number(settings.globalDiscountPercent) : DEFAULT_GLOBAL_DISCOUNT,
         smtpPort: settings.smtpPort ? Number(settings.smtpPort) : undefined,
       };
 
@@ -148,6 +151,10 @@ export default function AdminSettingsPage() {
         toast({ title: "Invalid Input", description: "Session timeout must be at least 1 minute.", variant: "destructive" });
         setIsSaving(false);
         return;
+      }
+       if (payload.globalDiscountPercent && (payload.globalDiscountPercent < 0 || payload.globalDiscountPercent > 100)) {
+        toast({ title: "Invalid Input", description: "Global discount must be between 0 and 100.", variant: "destructive" });
+        setIsSaving(false); return;
       }
       if (payload.smtpPort && (payload.smtpPort < 1 || payload.smtpPort > 65535)) {
         toast({ title: "Invalid Input", description: "SMTP Port must be between 1 and 65535.", variant: "destructive" });
@@ -240,6 +247,25 @@ export default function AdminSettingsPage() {
                 </SelectContent>
               </Select>
             </div>
+             <div className="space-y-2">
+              <Label htmlFor="globalDiscountPercent">Global Discount Percentage (%)</Label>
+               <div className="relative">
+                 <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    id="globalDiscountPercent"
+                    name="globalDiscountPercent"
+                    type="number"
+                    value={settings.globalDiscountPercent ?? DEFAULT_GLOBAL_DISCOUNT}
+                    onChange={handleInputChange}
+                    min="0" max="100" step="1"
+                    placeholder={`Default: ${DEFAULT_GLOBAL_DISCOUNT}%`}
+                    className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Applies to all cars unless a car has its own specific discount. Set to 0 for no global discount.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="sessionTimeoutMinutes">Session Timeout (minutes)</Label>
               <Input
@@ -270,13 +296,7 @@ export default function AdminSettingsPage() {
                 onCheckedChange={(checked) => handleSwitchChange('maintenanceMode', checked)}
               />
             </div>
-             <div className="pt-4">
-                <h3 className="text-lg font-medium text-primary">Logo & Favicon Management</h3>
-                <p className="text-sm text-muted-foreground">
-                  To update the site logo, replace the image file referenced in the Header component or integrate a dynamic URL.
-                  For the favicon, ensure a file named <code>favicon.ico</code> exists in your <code>public</code> directory.
-                </p>
-            </div>
+            
           </CardContent>
           <CardFooter className="border-t px-6 py-4">
             <Button type="submit" disabled={isSaving}>

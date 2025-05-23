@@ -1,12 +1,12 @@
 
 "use client";
 
-import type { Car } from '@/types';
+import type { Car, SiteSettings } from '@/types';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Gauge, GitCommitVertical, Fuel, Star, Clock, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Gauge, GitCommitVertical, Fuel, Star, Clock, Heart, ChevronLeft, ChevronRight, Percent } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import React, { useState, useEffect, useCallback } from 'react';
 
@@ -17,11 +17,31 @@ interface CarCardProps {
   isAuthenticated?: boolean;
 }
 
-const SLIDER_INTERVAL = 4000; // 4 seconds
+const SLIDER_INTERVAL = 4000; 
 
 export default function CarCard({ car, isFavorite, onToggleFavorite, isAuthenticated }: CarCardProps) {
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [siteSettings, setSiteSettings] = useState<Partial<SiteSettings>>({});
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  useEffect(() => {
+    const fetchSiteSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const settings = await response.json();
+          setSiteSettings(settings);
+        }
+      } catch (error) {
+        console.error("Failed to fetch site settings for CarCard:", error);
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+    fetchSiteSettings();
+  }, []);
+
 
   const images = car.imageUrls && car.imageUrls.length > 0 
     ? car.imageUrls 
@@ -42,9 +62,33 @@ export default function CarCard({ car, isFavorite, onToggleFavorite, isAuthentic
     }
   }, [currentImageIndex, images.length, nextImage]);
 
-  const displayPrice = typeof car.pricePerHour === 'number' 
-    ? car.pricePerHour.toFixed(2) 
+  
+  let displayPrice = car.pricePerHour;
+  let originalPrice = null;
+  let discountText = null;
+  let appliedDiscountPercent = 0;
+
+  if (car.discountPercent && car.discountPercent > 0) {
+    appliedDiscountPercent = car.discountPercent;
+  } else if (!isLoadingSettings && siteSettings.globalDiscountPercent && siteSettings.globalDiscountPercent > 0) {
+    appliedDiscountPercent = siteSettings.globalDiscountPercent;
+  }
+
+  if (appliedDiscountPercent > 0) {
+    originalPrice = car.pricePerHour;
+    displayPrice = car.pricePerHour * (1 - appliedDiscountPercent / 100);
+    discountText = `${appliedDiscountPercent}% OFF`;
+  }
+
+
+  const finalDisplayPrice = typeof displayPrice === 'number' 
+    ? displayPrice.toFixed(2) 
     : 'N/A';
+  
+  const finalOriginalPrice = typeof originalPrice === 'number'
+    ? originalPrice.toFixed(2)
+    : null;
+
 
   const handleViewDetails = () => {
     router.push(`/cars/${car.id}`);
@@ -71,12 +115,17 @@ export default function CarCard({ car, isFavorite, onToggleFavorite, isAuthentic
             className="object-cover transition-opacity duration-500 ease-in-out"
             data-ai-hint={car.aiHint || 'car'}
             priority={false}
-            key={images[currentImageIndex]} // Force re-render for transition
+            key={images[currentImageIndex]} 
             onError={(e) => { 
               (e.target as HTMLImageElement).src = '/assets/images/default-car.png';
               (e.target as HTMLImageElement).alt = 'Image failed to load';
             }}
           />
+          {discountText && (
+            <div className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-xs font-semibold px-2 py-1 rounded-md flex items-center z-10">
+               <Percent className="h-3 w-3 mr-1" /> {discountText}
+            </div>
+          )}
           {images.length > 1 && (
             <>
               <Button
@@ -151,7 +200,12 @@ export default function CarCard({ car, isFavorite, onToggleFavorite, isAuthentic
       <CardFooter className="p-4 flex justify-between items-center border-t mt-auto">
         <div>
           <p className="text-lg font-bold text-primary flex items-center">
-            <Clock className="h-4 w-4 mr-1 text-accent" /> ₹{displayPrice}
+            <Clock className="h-4 w-4 mr-1 text-accent" /> ₹{finalDisplayPrice}
+            {finalOriginalPrice && (
+              <span className="ml-2 text-xs line-through text-muted-foreground">
+                ₹{finalOriginalPrice}
+              </span>
+            )}
           </p>
           <p className="text-xs text-muted-foreground ml-1">per hour</p>
         </div>

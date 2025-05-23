@@ -34,7 +34,7 @@
           "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
           "adminComments": { "type": "string", "nullable": true },
           "verifiedAt": { "type": "string", "format": "date-time", "nullable": true },
-          "verifiedBy": { "type": "string", "nullable": true }
+          "verifiedBy": { "type": "string", "nullable": true, "description": "Admin User ID" }
         }
       },
       "User": {
@@ -56,8 +56,8 @@
       "CarAvailability": {
         "type": "object",
         "properties": {
-          "startDate": { "type": "string", "format": "date-time" },
-          "endDate": { "type": "string", "format": "date-time" }
+          "startDate": { "type": "string", "format": "date-time", "description": "Start date of general availability for this car model" },
+          "endDate": { "type": "string", "format": "date-time", "description": "End date of general availability for this car model" }
         }
       },
       "Car": {
@@ -67,10 +67,10 @@
           "name": { "type": "string" },
           "type": { "type": "string", "enum": ["Sedan", "SUV", "Hatchback", "Truck", "Van", "Convertible", "Coupe"] },
           "pricePerHour": { "type": "number", "format": "float" },
-          "minNegotiablePrice": { "type": "number", "format": "float", "nullable": true },
-          "maxNegotiablePrice": { "type": "number", "format": "float", "nullable": true },
-          "discountPercent": { "type": "number", "format": "integer", "minimum": 0, "maximum": 100, "nullable": true },
-          "imageUrls": { "type": "array", "items": { "type": "string", "format": "uri" } },
+          "minNegotiablePrice": { "type": "number", "format": "float", "nullable": true, "description": "Minimum hourly price owner willing to accept" },
+          "maxNegotiablePrice": { "type": "number", "format": "float", "nullable": true, "description": "Maximum hourly price owner is asking" },
+          "discountPercent": { "type": "number", "format": "integer", "minimum": 0, "maximum": 100, "nullable": true, "description": "Individual discount percentage for this car" },
+          "imageUrls": { "type": "array", "items": { "type": "string", "format": "uri-reference" } },
           "description": { "type": "string" },
           "longDescription": { "type": "string" },
           "features": { "type": "array", "items": { "type": "string" } },
@@ -82,7 +82,7 @@
           "rating": { "type": "number", "format": "float" },
           "reviews": { "type": "integer" },
           "location": { "type": "string" },
-          "aiHint": { "type": "string", "nullable": true }
+          "aiHint": { "type": "string", "nullable": true, "maxLength": 50 }
         }
       },
       "Booking": {
@@ -91,7 +91,7 @@
           "id": { "type": "string", "description": "MongoDB ObjectId" },
           "carId": { "type": "string" },
           "carName": { "type": "string" },
-          "carImageUrl": { "type": "string", "format": "uri", "nullable": true },
+          "carImageUrl": { "type": "string", "format": "uri-reference", "nullable": true },
           "userId": { "type": "string" },
           "userName": { "type": "string" },
           "startDate": { "type": "string", "format": "date-time" },
@@ -112,6 +112,7 @@
           "defaultCurrency": { "type": "string", "enum": ["USD", "EUR", "GBP", "INR"] },
           "maintenanceMode": { "type": "boolean", "nullable": true },
           "sessionTimeoutMinutes": { "type": "integer", "nullable": true },
+          "globalDiscountPercent": { "type": "number", "minimum": 0, "maximum": 100, "nullable": true, "description": "Global discount percentage (0-100)" },
           "smtpHost": { "type": "string", "nullable": true },
           "smtpPort": { "type": "integer", "nullable": true },
           "smtpUser": { "type": "string", "nullable": true },
@@ -311,6 +312,7 @@
       "post": {
         "tags": ["User Profile"],
         "summary": "Record uploaded document details",
+        "description": "Call `/api/upload?destination=documents` first to upload the file, then use the returned `filePath` here.",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -320,8 +322,8 @@
                 "type": "object",
                 "properties": {
                   "documentType": { "type": "string", "enum": ["PhotoID", "DrivingLicense"] },
-                  "fileName": { "type": "string" },
-                  "filePath": { "type": "string" }
+                  "fileName": { "type": "string", "description": "Original name of the uploaded file" },
+                  "filePath": { "type": "string", "description": "Relative path returned by /api/upload (e.g., /assets/documents/filename.jpg)" }
                 },
                 "required": ["documentType", "fileName", "filePath"]
               }
@@ -390,6 +392,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Create a new booking (direct)",
+        "description": "Allows an authenticated user to create a booking directly. This is an alternative to payment gateway flow, useful for admin or specific scenarios.",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -401,7 +404,7 @@
                   "carId": { "type": "string" },
                   "startDate": { "type": "string", "format": "date-time" },
                   "endDate": { "type": "string", "format": "date-time" },
-                  "status": { "type": "string", "enum": ["Pending", "Confirmed", "Cancelled", "Completed", "Cancellation Requested", "Cancellation Rejected"], "nullable": true }
+                  "status": { "type": "string", "enum": ["Pending", "Confirmed", "Cancelled", "Completed", "Cancellation Requested", "Cancellation Rejected"], "nullable": true, "description": "Optional. Admins can set this. For users, defaults to 'Confirmed'." }
                 },
                 "required": ["carId", "startDate", "endDate"]
               }
@@ -504,7 +507,7 @@
       "get": {
         "tags": ["Admin - Cars"],
         "summary": "Get all cars (Admin)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
           { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
@@ -521,7 +524,7 @@
       "post": {
         "tags": ["Admin - Cars"],
         "summary": "Add a new car",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CarInput" } } } },
         "responses": {
           "201": { "description": "Car created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } } },
@@ -536,7 +539,7 @@
       "get": {
         "tags": ["Admin - Cars"],
         "summary": "Get a single car by ID (Admin)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
         "responses": {
           "200": { "description": "Car details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Car" } } } },
@@ -549,7 +552,7 @@
       "put": {
         "tags": ["Admin - Cars"],
         "summary": "Update an existing car",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateCarInput" } } } },
         "responses": {
@@ -564,7 +567,7 @@
       "delete": {
         "tags": ["Admin - Cars"],
         "summary": "Delete a car",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
         "responses": {
           "200": { "description": "Car deleted successfully", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" } } } } } },
@@ -580,7 +583,7 @@
       "get": {
         "tags": ["Admin - Users"],
         "summary": "Get all users (Admin)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
           { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
@@ -595,7 +598,7 @@
       "post": {
         "tags": ["Admin - Users"],
         "summary": "Add a new user (Admin only)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin"] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -628,7 +631,7 @@
       "get": {
         "tags": ["Admin - Users"],
         "summary": "Get a single user (Admin)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
         "responses": {
           "200": { "description": "User details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
@@ -641,7 +644,7 @@
       "put": {
         "tags": ["Admin - Users"],
         "summary": "Update a user (Admin only)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin"] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
         "requestBody": {
           "content": {
@@ -671,7 +674,7 @@
       "put": {
         "tags": ["Admin - Users"],
         "summary": "Update user document status",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "description": "User ID" } },
           { "name": "documentType", "in": "path", "required": true, "schema": { "type": "string", "enum": ["PhotoID", "DrivingLicense"] } }
@@ -694,7 +697,7 @@
       "get": {
         "tags": ["Admin - Bookings"],
         "summary": "Get all bookings (Admin)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
           { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
@@ -711,7 +714,7 @@
       "put": {
         "tags": ["Admin - Bookings"],
         "summary": "Update booking status",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [{ "name": "bookingId", "in": "path", "required": true, "schema": { "type": "string" } }],
         "requestBody": {
           "required": true,
@@ -731,7 +734,7 @@
       "get": {
         "tags": ["Admin - Reports"],
         "summary": "Get booking reports",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "parameters": [
           { "name": "startDate", "in": "query", "description": "YYYY-MM-DD format", "schema": { "type": "string", "format": "date" } },
           { "name": "endDate", "in": "query", "description": "YYYY-MM-DD format", "schema": { "type": "string", "format": "date" } },
@@ -753,7 +756,7 @@
       "get": {
         "tags": ["Admin - Dashboard"],
         "summary": "Get dashboard statistics",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin", "Manager"] }],
         "responses": {
           "200": {
             "description": "Dashboard statistics",
@@ -769,7 +772,7 @@
       "get": {
         "tags": ["Admin - Settings"],
         "summary": "Get site settings (Admin only)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin"] }],
         "responses": {
           "200": { "description": "Site settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteSettings" } } } },
           "401": { "$ref": "#/components/responses/Unauthorized" },
@@ -780,7 +783,7 @@
       "put": {
         "tags": ["Admin - Settings"],
         "summary": "Update site settings (Admin only)",
-        "security": [{ "bearerAuth": [] }],
+        "security": [{ "bearerAuth": ["Admin"] }],
         "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteSettingsInput" } } } },
         "responses": {
           "200": { "description": "Settings updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteSettings" } } } },
@@ -803,7 +806,7 @@
           "minNegotiablePrice": { "type": "number", "nullable": true },
           "maxNegotiablePrice": { "type": "number", "nullable": true },
           "discountPercent": { "type": "integer", "minimum": 0, "maximum": 100, "nullable": true },
-          "imageUrls": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "imageUrls": { "type": "array", "items": { "type": "string", "format":"uri-reference" }, "minItems": 1 },
           "description": { "type": "string", "minLength": 10 },
           "longDescription": { "type": "string", "minLength": 20 },
           "features": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
@@ -826,7 +829,7 @@
           "minNegotiablePrice": { "type": "number", "nullable": true },
           "maxNegotiablePrice": { "type": "number", "nullable": true },
           "discountPercent": { "type": "integer", "minimum": 0, "maximum": 100, "nullable": true },
-          "imageUrls": { "type": "array", "items": { "type": "string" } },
+          "imageUrls": { "type": "array", "items": { "type": "string", "format":"uri-reference" } },
           "description": { "type": "string", "minLength": 10 },
           "longDescription": { "type": "string", "minLength": 20 },
           "features": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
