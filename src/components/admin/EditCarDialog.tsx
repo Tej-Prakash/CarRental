@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -19,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { Loader2, XCircle, Trash2, ImagePlus, AlertTriangle } from 'lucide-react';
+import { Loader2, XCircle, Trash2, ImagePlus, Percent } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { UpdateCarInputSchema } from '@/lib/schemas/car';
@@ -50,6 +49,7 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
         pricePerHour: car.pricePerHour,
         minNegotiablePrice: car.minNegotiablePrice ?? undefined,
         maxNegotiablePrice: car.maxNegotiablePrice ?? undefined,
+        discountPercent: car.discountPercent ?? undefined,
         imageUrls: Array.isArray(car.imageUrls) ? car.imageUrls : [],
         features: Array.isArray(car.features) ? car.features : [],
         availability: Array.isArray(car.availability) && car.availability.length > 0 ? car.availability.map(a => ({
@@ -65,7 +65,7 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     let parsedValue: string | number | undefined = value;
-    if (['pricePerHour', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
+    if (['pricePerHour', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice', 'discountPercent'].includes(name)) {
       parsedValue = value === '' ? undefined : Number(value);
       if (isNaN(Number(parsedValue))) {
         if(value === '') parsedValue = undefined; 
@@ -181,6 +181,7 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
       reviews: carData.reviews !== undefined ? Number(carData.reviews) : undefined,
       minNegotiablePrice: carData.minNegotiablePrice !== undefined ? Number(carData.minNegotiablePrice) : undefined,
       maxNegotiablePrice: carData.maxNegotiablePrice !== undefined ? Number(carData.maxNegotiablePrice) : undefined,
+      discountPercent: carData.discountPercent !== undefined ? Number(carData.discountPercent) : undefined,
       imageUrls: carData.imageUrls || [],
       availability: (carData.availability || []).filter(a => a.startDate && a.endDate).map(a => ({
         startDate: new Date(a.startDate).toISOString(),
@@ -262,7 +263,20 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
               </Select>
             </div>
           </div>
-          <div><Label htmlFor="edit-pricePerHour">Price Per Hour (₹)</Label><Input id="edit-pricePerHour" name="pricePerHour" type="number" value={carData.pricePerHour ?? ''} onChange={handleChange} required min="0.01" step="0.01" /></div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <Label htmlFor="edit-pricePerHour">Price Per Hour (₹)</Label>
+                <Input id="edit-pricePerHour" name="pricePerHour" type="number" value={carData.pricePerHour ?? ''} onChange={handleChange} required min="0.01" step="0.01" />
+            </div>
+            <div>
+                <Label htmlFor="edit-discountPercent">Discount Percentage (%)</Label>
+                <div className="relative">
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="edit-discountPercent" name="discountPercent" type="number" value={carData.discountPercent ?? ''} onChange={handleChange} placeholder="e.g., 10 for 10%" min="0" max="100" step="1" className="pl-10" />
+                </div>
+            </div>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -289,7 +303,7 @@ export default function EditCarDialog({ car, onCarUpdated, isOpen, onOpenChange 
                     <span>Select new files</span>
                     <input id="edit-image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/jpeg,image/png,image/gif,image/webp" ref={fileInputRef} disabled={(carData.imageUrls || []).length >= 5 || isUploading} />
                   </Label>
-                  <p className="pl-1">or drag and drop (visual only)</p>
+                  <p className="pl-1">or drag and drop</p>
                 </div>
                 <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WebP up to 5MB each.</p>
                 {isUploading && <div className="flex items-center justify-center text-sm text-primary"><Loader2 className="h-4 w-4 animate-spin mr-1" /> Uploading...</div>}

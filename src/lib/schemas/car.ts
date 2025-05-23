@@ -1,4 +1,3 @@
-
 // src/lib/schemas/car.ts
 import { z } from 'zod';
 
@@ -6,14 +5,15 @@ import { z } from 'zod';
 const BaseCarSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(['Sedan', 'SUV', 'Hatchback', 'Truck', 'Van', 'Convertible', 'Coupe']),
-  pricePerHour: z.number().positive("Price per hour must be positive"), // Changed from pricePerDay
+  pricePerHour: z.number().positive("Price per hour must be positive"),
   minNegotiablePrice: z.number().positive("Minimum negotiable hourly price must be positive").optional(),
   maxNegotiablePrice: z.number().positive("Maximum negotiable hourly price must be positive").optional(),
+  discountPercent: z.number().min(0, "Discount cannot be negative").max(100, "Discount cannot exceed 100%").optional(), // New discount field
   imageUrls: z.array(z.string().refine(val => val.startsWith('/assets/images/') || z.string().url().safeParse(val).success, "Each image URL must be valid or a relative path starting with /assets/images/")).min(1, "At least one image URL is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   longDescription: z.string().min(20, "Long description must be at least 20 characters"),
   features: z.array(z.string()).min(1, "At least one feature is required"),
-  availability: z.array(z.object({ // General car availability, not per-hour slots
+  availability: z.array(z.object({ 
     startDate: z.string().refine((date) => !isNaN(Date.parse(date)), "Invalid start date"),
     endDate: z.string().refine((date) => !isNaN(Date.parse(date)), "Invalid end date"),
   })).min(1, "Availability is required"),
@@ -58,18 +58,12 @@ export const CarInputSchema = BaseCarSchema
   });
 
 // Schema for updating an existing car.
-// This inherits the refinements from BaseCarSchema. If a field involved in a refinement
-// is provided in an update, the refinement will be checked.
 export const UpdateCarInputSchema = BaseCarSchema.partial()
   .extend({
-    // Allow imageUrls to be an empty array on update to remove all images,
-    // but if provided, it must be an array of valid URLs.
-    // For new car creation, CarInputSchema still enforces min(1).
     imageUrls: z.array(z.string().refine(val => val.startsWith('/assets/images/') || z.string().url().safeParse(val).success, "Each image URL must be valid or a relative path starting with /assets/images/")).optional(),
   })
   .refine(data => {
-    const effectivePricePerHour = data.pricePerHour; // If pricePerHour is part of update
-    // If minNegotiablePrice is being updated, and pricePerHour is also being updated or exists
+    const effectivePricePerHour = data.pricePerHour;
     if (data.minNegotiablePrice !== undefined && effectivePricePerHour !== undefined) {
       if (data.minNegotiablePrice > effectivePricePerHour) return false;
     }
@@ -89,7 +83,6 @@ export const UpdateCarInputSchema = BaseCarSchema.partial()
     path: ["maxNegotiablePrice"],
   })
   .refine(data => {
-    // Only check if both are provided in the update
     if (data.minNegotiablePrice !== undefined && data.maxNegotiablePrice !== undefined) {
       if (data.minNegotiablePrice > data.maxNegotiablePrice) return false;
     }
@@ -102,7 +95,7 @@ export const UpdateCarInputSchema = BaseCarSchema.partial()
     message: "If features are provided for update, at least one feature must be included.",
     path: ["features"],
   })
-  .refine(data => data.imageUrls === undefined || (Array.isArray(data.imageUrls) && data.imageUrls.length >= 0), { // Allow empty array for update
+  .refine(data => data.imageUrls === undefined || (Array.isArray(data.imageUrls) && data.imageUrls.length >= 0), { 
       message: "If imageUrls are provided for update, it must be an array.",
       path: ["imageUrls"],
   })

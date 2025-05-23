@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -20,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Car } from '@/types';
-import { Loader2, XCircle, Trash2, ImagePlus, AlertTriangle } from 'lucide-react';
+import { Loader2, XCircle, Trash2, ImagePlus, Percent } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -30,12 +29,13 @@ interface AddCarDialogProps {
   children: React.ReactNode; 
 }
 
-const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: number; reviews?: number } = {
+const initialCarState: Omit<Car, 'id' | 'rating' | 'reviews'> & { rating?: number; reviews?: number; discountPercent?: number } = {
   name: '',
   type: 'Sedan',
   pricePerHour: 10,
   minNegotiablePrice: undefined,
   maxNegotiablePrice: undefined,
+  discountPercent: undefined,
   imageUrls: [],
   description: '',
   longDescription: '',
@@ -66,7 +66,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     let parsedValue: string | number | undefined = value;
-    if (['pricePerHour', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice'].includes(name)) {
+    if (['pricePerHour', 'seats', 'rating', 'reviews', 'minNegotiablePrice', 'maxNegotiablePrice', 'discountPercent'].includes(name)) {
       parsedValue = value === '' ? undefined : Number(value);
     }
     setCarData(prev => ({ ...prev, [name]: parsedValue }));
@@ -197,6 +197,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
       reviews: Number(carData.reviews || 0),
       minNegotiablePrice: carData.minNegotiablePrice ? Number(carData.minNegotiablePrice) : undefined,
       maxNegotiablePrice: carData.maxNegotiablePrice ? Number(carData.maxNegotiablePrice) : undefined,
+      discountPercent: carData.discountPercent ? Number(carData.discountPercent) : undefined,
     };
     
     if (payload.pricePerHour <= 0) {
@@ -219,6 +220,10 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
     }
     if (payload.minNegotiablePrice && payload.maxNegotiablePrice && payload.minNegotiablePrice > payload.maxNegotiablePrice) {
         toast({ title: "Validation Error", description: "Min negotiable hourly price cannot exceed max negotiable hourly price.", variant: "destructive" });
+        setIsLoading(false); return;
+    }
+    if (payload.discountPercent && (payload.discountPercent < 0 || payload.discountPercent > 100)) {
+        toast({ title: "Validation Error", description: "Discount percentage must be between 0 and 100.", variant: "destructive" });
         setIsLoading(false); return;
     }
     if (!payload.availability[0]?.startDate || !payload.availability[0]?.endDate) {
@@ -293,7 +298,20 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
               </Select>
             </div>
           </div>
-          <div><Label htmlFor="pricePerHour">Price Per Hour (₹)</Label><Input id="pricePerHour" name="pricePerHour" type="number" value={carData.pricePerHour} onChange={handleChange} required min="0.01" step="0.01" /></div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="pricePerHour">Price Per Hour (₹)</Label>
+              <Input id="pricePerHour" name="pricePerHour" type="number" value={carData.pricePerHour} onChange={handleChange} required min="0.01" step="0.01" />
+            </div>
+            <div>
+              <Label htmlFor="discountPercent">Discount Percentage (%)</Label>
+              <div className="relative">
+                 <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="discountPercent" name="discountPercent" type="number" value={carData.discountPercent ?? ''} onChange={handleChange} placeholder="e.g., 10 for 10%" min="0" max="100" step="1" className="pl-10" />
+              </div>
+            </div>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -320,7 +338,7 @@ export default function AddCarDialog({ onCarAdded, children }: AddCarDialogProps
                     <span>Select files</span>
                     <input id="image-files" name="image-files" type="file" className="sr-only" multiple onChange={handleImageFileChange} accept="image/jpeg,image/png,image/gif,image/webp" ref={fileInputRef} disabled={(carData.imageUrls || []).length >= 5 || isUploading} />
                   </Label>
-                  <p className="pl-1">or drag and drop (visual only)</p>
+                  <p className="pl-1">or drag and drop</p>
                 </div>
                 <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WebP up to 5MB each.</p>
                 {isUploading && <div className="flex items-center justify-center text-sm text-primary"><Loader2 className="h-4 w-4 animate-spin mr-1" /> Uploading...</div>}

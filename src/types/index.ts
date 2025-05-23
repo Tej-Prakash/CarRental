@@ -6,6 +6,7 @@ export interface Car {
   pricePerHour: number;
   minNegotiablePrice?: number;
   maxNegotiablePrice?: number;
+  discountPercent?: number; // New field for discount percentage
   imageUrls: string[];
   description: string;
   longDescription: string;
@@ -49,7 +50,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  phoneNumber?: string; // Added phoneNumber
+  phoneNumber?: string;
   role: UserRole;
   createdAt: string;
   updatedAt?: string;
@@ -91,11 +92,7 @@ export interface SiteSettings {
   sessionTimeoutMinutes?: number;
   updatedAt?: string;
 
-  // SMTP Settings - store sensitive data with caution
+  // SMTP Settings
   smtpHost?: string;
   smtpPort?: number;
-  smtpUser?: string;
-  smtpPass?: string; 
-  smtpSecure?: boolean; 
-  emailFrom?: string; 
-}
+  smtp

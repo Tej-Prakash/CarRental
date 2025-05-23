@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Car } from '@/types';
@@ -12,12 +11,16 @@ interface CarCardHomeProps {
 }
 
 export default function CarCardHome({ car }: CarCardHomeProps) {
-  const displayPrice = typeof car.pricePerHour === 'number' 
-    ? car.pricePerHour.toFixed(0)
-    : 'N/A';
-  
-  const originalPrice = typeof car.pricePerHour === 'number' ? (car.pricePerHour * 1.25).toFixed(0) : null;
-  const discount = originalPrice ? '20% OFF' : null; 
+  let displayPrice = car.pricePerHour;
+  let originalPrice = null;
+  let discountText = null;
+
+  if (car.discountPercent && car.discountPercent > 0) {
+    // The car.pricePerHour is already the discounted price from the admin panel perspective.
+    // For display on homepage, we calculate the original price before discount.
+    originalPrice = car.pricePerHour / (1 - car.discountPercent / 100);
+    discountText = `${car.discountPercent}% OFF`;
+  }
 
   const modelYear = car.availability?.[0]?.startDate ? new Date(car.availability[0].startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A';
 
@@ -33,6 +36,11 @@ export default function CarCardHome({ car }: CarCardHomeProps) {
           sizes="(max-width: 640px) 80vw, (max-width: 1024px) 40vw, 300px"
           onError={(e) => { (e.target as HTMLImageElement).src = '/assets/images/default-car.png';}}
         />
+        {discountText && (
+          <div className="absolute top-2 right-2 bg-destructive text-destructive-foreground text-xs font-semibold px-2 py-1 rounded-md">
+            {discountText}
+          </div>
+        )}
       </div>
       <div className="p-4 flex flex-col flex-grow">
         <h3 className="text-md font-semibold text-primary truncate mb-1" title={car.name}>{car.name}</h3>
@@ -52,11 +60,10 @@ export default function CarCardHome({ car }: CarCardHomeProps) {
         
         <div className="mt-auto flex justify-between items-center">
           <div>
-            <span className="text-lg font-bold text-primary">₹{displayPrice}</span>
-            {originalPrice && discount && (
-              <span className="ml-2 text-xs">
-                <span className="line-through text-muted-foreground">₹{originalPrice}</span>
-                <span className="text-green-600 font-semibold ml-1">{discount}</span>
+            <span className="text-lg font-bold text-primary">₹{displayPrice.toFixed(0)}</span>
+            {originalPrice && (
+              <span className="ml-2 text-xs line-through text-muted-foreground">
+                ₹{originalPrice.toFixed(0)}
               </span>
             )}
           </div>
