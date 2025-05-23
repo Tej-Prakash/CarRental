@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import type { SiteSettings } from '@/types';
-import { Loader2, Percent, Tag } from 'lucide-react';
+import { Loader2, Percent, Tag, AlertTriangle } from 'lucide-react'; // Added AlertTriangle here
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -57,7 +57,7 @@ export default function AdminDiscountsPage() {
       } catch (error: any) {
         toast({ title: "Error", description: `Could not load discount settings: ${error.message}`, variant: "destructive" });
       } finally {
-        setIsLoading(false);
+        setIsLoading(true);
       }
     };
     fetchSettings();
